@@ -203,8 +203,7 @@ export default function RussianRealtorPage() {
                   src="/images/george-photo.jpg"
                   alt="Джордж Хазановский"
                   loading="lazy"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: '50% 25%' }}
+                  className="w-full h-full object-cover object-top"
                 />
               </div>
               <h3 className="font-serif text-3xl text-[#12202A] font-bold mb-2">Джордж Хазановский</h3>
