@@ -80,16 +80,14 @@ export default function Footer() {
       <div className="border-t border-[#C8920A]">
         <div className="max-w-7xl mx-auto py-[20px] px-[24px] flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
           <p className="font-sans text-[12px] text-gray-300">
-            © 2025 TemeculaValleyHomes.us · George Khazanovskiy, Realtor® · DRE #02034120 · Allison James Estates & Homes
+            © 2026 TemeculaValleyHomes.us · George Khazanovskiy, Realtor® · DRE #02034120 · Allison James Estates & Homes
           </p>
           <div className="font-sans text-[12px] text-gray-300 flex flex-wrap justify-center gap-2">
-            <a href="#" className="hover:text-[#C8920A] transition-colors">Privacy Policy</a>
+            <span>Equal Housing Opportunity</span>
             <span>|</span>
-            <a href="#" className="hover:text-[#C8920A] transition-colors">Terms of Use</a>
+            <span>DRE #02034120</span>
             <span>|</span>
-            <a href="#" className="hover:text-[#C8920A] transition-colors">Fair Housing</a>
-            <span>|</span>
-            <a href="#" className="hover:text-[#C8920A] transition-colors">IDX Disclosure</a>
+            <span>Allison James Estates & Homes</span>
           </div>
         </div>
       </div>

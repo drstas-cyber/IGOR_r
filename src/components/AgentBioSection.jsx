@@ -1,9 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { useToast } from '@/components/ui/use-toast';
 
 export default function AgentBioSection() {
-  const { toast } = useToast();
 
   return (
     <section id="about-george" className="bg-[#FAF6EF] py-[60px] px-[24px] lg:px-[80px]">

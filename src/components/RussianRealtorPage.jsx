@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import RussianHeader from './RussianHeader';
 import RussianFeatureCard from './RussianFeatureCard';
@@ -12,8 +11,6 @@ import RussianHomeValueForm from './RussianHomeValueForm';
 import Footer from './Footer';
 
 export default function RussianRealtorPage() {
-  const { toast } = useToast();
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -27,10 +24,14 @@ export default function RussianRealtorPage() {
   };
 
   const handleAction = (feature) => {
-    toast({
-      title: feature,
-      description: "🚧 Эта функция еще не реализована! Вы можете запросить ее в следующем промпте! 🚀",
-    });
+    const targets = {
+      'search': 'home-value',
+      'neighborhoods': 'home-value',
+      'home-value': 'home-value',
+      'about': 'about',
+    };
+    const el = document.getElementById(targets[feature] || 'home-value');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const whyGeorgeFeatures = [
