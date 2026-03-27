@@ -21,9 +21,10 @@ export default function AboutSection() {
           <div className="lg:col-span-5 p-12 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-border/50 bg-secondary/5">
             <div className="relative mb-8">
               <div className="w-56 h-56 md:w-64 md:h-64 rounded-full overflow-hidden border-[8px] border-background shadow-2xl relative z-10">
-                <img 
+                <img
                   src={agentPhoto}
                   alt="George Khazanovskiy - Professional Headshot"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>

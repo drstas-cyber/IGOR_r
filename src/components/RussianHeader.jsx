@@ -43,9 +43,9 @@ export default function RussianHeader() {
           <div className="flex items-center justify-between">
 
             <div className="flex flex-col cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <h1 className={`font-serif text-[#12202A] transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>
+              <div className={`font-serif text-[#12202A] transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>
                 Temecula Valley Homes
-              </h1>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[#C8920A] text-[10px] font-bold uppercase tracking-wider">Русский</span>
                 <span className="text-gray-300 text-[10px]">|</span>

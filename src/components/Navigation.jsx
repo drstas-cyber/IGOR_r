@@ -38,7 +38,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         <div className="flex items-center justify-between py-5">
           <Link to="/" className="flex flex-col">
-            <h1 className="text-2xl font-bold text-accent font-serif tracking-wide">George Khazanovskiy</h1>
+            <div className="text-2xl font-bold text-accent font-serif tracking-wide">George Khazanovskiy</div>
             <p className="text-xs text-secondary-foreground/70 uppercase tracking-widest mt-1">Temecula Valley</p>
           </Link>
           

@@ -31,9 +31,9 @@ export default function StickyNavigation() {
           
           {/* Left Section */}
           <div className="flex flex-col cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <h1 className={`font-serif text-[#12202A] transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>
+            <div className={`font-serif text-[#12202A] transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>
               Temecula Valley Homes
-            </h1>
+            </div>
             <p className={`text-muted-foreground transition-all duration-300 ${isScrolled ? 'text-[10px]' : 'text-[12px]'}`}>
               George Khazanovskiy · Realtor®
             </p>

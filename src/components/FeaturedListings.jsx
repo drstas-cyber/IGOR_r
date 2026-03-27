@@ -78,9 +78,10 @@ export default function FeaturedListings() {
               className="bg-white rounded-[8px] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#C8920A] border border-transparent transition-all duration-300 group flex flex-col h-full"
             >
               <div className="relative h-[250px] overflow-hidden">
-                <img 
-                  src={listing.image} 
-                  alt={listing.address} 
+                <img
+                  src={listing.image}
+                  alt={listing.address}
+                  loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className={`absolute top-4 left-4 px-3 py-1 text-[12px] font-bold uppercase tracking-wider rounded-sm shadow-md ${listing.badgeColor}`}>

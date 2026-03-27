@@ -64,6 +64,10 @@ export default function RussianRealtorPage() {
         <link rel="canonical" href="https://temeculavalleyhomes.us/russian-speaking-realtor-temecula" />
         <meta name="description" content="Единственный русскоязычный риэлтор в долине Темекула. Джордж Хазановский помогает русскоязычным семьям покупать и продавать дома. Бесплатная оценка дома. DRE #02034120." />
         <meta property="og:locale" content="ru_RU" />
+        <meta property="og:title" content="Русскоязычный риэлтор в Темекуле | Джордж Хазановский" />
+        <meta property="og:description" content="Единственный русскоязычный риэлтор в долине Темекула. Бесплатная оценка дома. DRE #02034120." />
+        <meta property="og:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
+        <meta property="og:url" content="https://temeculavalleyhomes.us/russian-speaking-realtor-temecula" />
       </Helmet>
 
       <RussianHeader />
@@ -195,9 +199,10 @@ export default function RussianRealtorPage() {
               className="w-full lg:w-1/3 flex flex-col items-center lg:items-start text-center lg:text-left"
             >
               <div className="w-[280px] h-[280px] rounded-full overflow-hidden mb-8 shadow-xl border-4 border-white">
-                <img 
-                  src="/images/george-photo.jpg" 
-                  alt="Джордж Хазановский" 
+                <img
+                  src="/images/george-photo.jpg"
+                  alt="Джордж Хазановский"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                   style={{ objectPosition: '50% 35%' }}
                 />

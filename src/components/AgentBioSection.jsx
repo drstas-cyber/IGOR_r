@@ -32,9 +32,10 @@ export default function AgentBioSection() {
           >
             {/* Updated Circular Container */}
             <div className="w-[220px] h-[220px] md:w-[260px] md:h-[260px] lg:w-[300px] lg:h-[300px] rounded-full overflow-hidden mb-8 shadow-xl border-4 border-white ring-2 ring-[#C8920A]/20">
-              <img 
-                src="/images/george-photo.jpg" 
-                alt="George Khazanovskiy Professional Headshot" 
+              <img
+                src="/images/george-photo.jpg"
+                alt="George Khazanovskiy Professional Headshot"
+                loading="lazy"
                 className="w-full h-full object-cover object-top"
               />
             </div>
