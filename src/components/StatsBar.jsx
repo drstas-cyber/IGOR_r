@@ -32,6 +32,11 @@ export default function StatsBar() {
             </motion.div>
           ))}
         </div>
+        <div className="text-center mt-8">
+          <a href="tel:6192772766" className="font-sans text-[14px] text-[#C8920A] hover:text-white transition-colors font-semibold">
+            Ready to make your move? Call George: (619) 277-2766
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -113,7 +113,7 @@ export default function HomeValueForm() {
                 <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
               </div>
               <div>
-                <select required name="home_value" className={inputClasses} defaultValue="">
+                <select required name="selling_timeline" className={inputClasses} defaultValue="">
                   <option value="" disabled className="text-gray-400">When Are You Thinking of Selling?</option>
                   <option value="curious">Just curious</option>
                   <option value="1-3">1-3 months</option>
@@ -123,12 +123,14 @@ export default function HomeValueForm() {
                 </select>
               </div>
               
-              <button 
-                type="submit" 
-                onClick={() => document.getElementById('home-value')?.scrollIntoView({ behavior: 'smooth' })}
-                className="w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] py-4 rounded font-bold text-[16px] transition-colors mt-2 shadow-md flex justify-center items-center gap-2"
+              <p className="font-sans text-[13px] text-[#C8920A] font-semibold text-center mt-2">
+                12 homeowners requested valuations this week
+              </p>
+              <button
+                type="submit"
+                className="w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] py-4 rounded font-bold text-[16px] transition-colors mt-2 shadow-md"
               >
-                💰 Get My Free Home Value &rarr;
+                Get My Free Home Value
               </button>
             </form>
             

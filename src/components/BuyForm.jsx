@@ -62,8 +62,8 @@ export default function BuyForm() {
         <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
       </div>
       <div>
-        <select required name="neighborhood" className={inputClasses} defaultValue="">
-          <option value="" disabled>Target Neighborhood / ZIP</option>
+        <select name="neighborhood" className={inputClasses} defaultValue="">
+          <option value="" disabled>Target Neighborhood / ZIP (optional)</option>
           <option value="wolf-creek">Wolf Creek</option>
           <option value="redhawk">Redhawk</option>
           <option value="wine-country">Wine Country Estates</option>
@@ -72,8 +72,8 @@ export default function BuyForm() {
         </select>
       </div>
       <div>
-        <select required name="budget" className={inputClasses} defaultValue="">
-          <option value="" disabled>Budget Range</option>
+        <select name="budget" className={inputClasses} defaultValue="">
+          <option value="" disabled>Budget Range (optional)</option>
           <option value="300-500">$300K - $500K</option>
           <option value="500-750">$500K - $750K</option>
           <option value="750-1m">$750K - $1M</option>
@@ -86,7 +86,7 @@ export default function BuyForm() {
         onClick={() => document.getElementById('listing-alerts')?.scrollIntoView({ behavior: 'smooth' })}
         className="w-full bg-[#8B3018] hover:bg-[#702613] text-white py-3.5 rounded font-medium text-[16px] transition-colors mt-2 shadow-md"
       >
-        Get Free Home Access →
+        Find My Dream Home — Free
       </button>
       
       <p className="text-center text-[12px] text-gray-500 mt-3 font-light">

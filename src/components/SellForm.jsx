@@ -59,13 +59,13 @@ export default function SellForm() {
         <input required type="text" name="name" placeholder="Your Name" className={inputClasses} />
       </div>
       <div>
-        <input required type="tel" name="phone" placeholder="(619) 277-2766" className={inputClasses} />
+        <input type="tel" name="phone" placeholder="(619) 277-2766" className={inputClasses} />
       </div>
       <div>
         <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
       </div>
       <div>
-        <select required name="timeline" className={inputClasses} defaultValue="">
+        <select name="timeline" className={inputClasses} defaultValue="">
           <option value="" disabled>Timeline</option>
           <option value="immediate">Immediate</option>
           <option value="1-3">1 - 3 months</option>

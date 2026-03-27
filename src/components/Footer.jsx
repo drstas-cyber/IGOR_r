@@ -9,6 +9,15 @@ export default function Footer() {
     <footer className="bg-[#0D2E3A] text-white">
       {/* Main Footer Content */}
       <div className="py-[50px] px-[24px] md:px-[60px] max-w-7xl mx-auto">
+        <div className="bg-[#C8920A] rounded-lg p-8 mb-12 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="font-serif text-[24px] text-[#12202A] font-bold">Ready to Make Your Move?</h3>
+            <p className="font-sans text-[14px] text-[#12202A]/80">Free consultation. No obligation. Available 7 days a week.</p>
+          </div>
+          <a href="tel:6192772766" className="bg-[#12202A] hover:bg-[#1a3a4a] text-white font-bold py-4 px-8 rounded-lg text-[16px] transition-colors whitespace-nowrap">
+            Call (619) 277-2766
+          </a>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[80px]">
           
           {/* Column 1: Brand */}

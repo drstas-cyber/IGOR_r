@@ -84,12 +84,12 @@ export default function ContactForm() {
       className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100"
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">Request a Consultation</h2>
+        <h2 className="text-xl font-bold text-gray-900">Get Your Free Strategy Session</h2>
         <div className="h-1 w-16 bg-gradient-to-r from-blue-900 to-yellow-500 rounded-full" />
       </div>
       
       <p className="text-sm text-gray-600 mb-4">
-        Share a bit about your plans and George will follow up within one business day.
+        Tell George what you need. He responds within 2 hours, 7 days a week.
       </p>
       
       <form id="contact-form" onSubmit={handleSubmit} action="https://formsubmit.co/askgeorgek@gmail.com" method="POST" className="space-y-4">
@@ -173,9 +173,8 @@ export default function ContactForm() {
         </div>
         
         <div className="flex justify-end">
-          <Button type="submit" form="contact-form" className="bg-blue-900 hover:bg-blue-800 text-white">
-            <Send className="w-4 h-4 mr-2" />
-            Send Message
+          <Button type="submit" form="contact-form" className="w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold py-6 text-[16px]">
+            Get My Free Consultation
           </Button>
         </div>
       </form>
