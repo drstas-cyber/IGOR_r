@@ -204,7 +204,7 @@ export default function RussianRealtorPage() {
                   alt="Джордж Хазановский"
                   loading="lazy"
                   className="w-full h-full object-cover"
-                  style={{ objectPosition: '50% 28%' }}
+                  style={{ objectPosition: '50% 15%' }}
                 />
               </div>
               <h3 className="font-serif text-3xl text-[#12202A] font-bold mb-2">Джордж Хазановский</h3>
