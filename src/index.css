@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 100% 98%;
+    --foreground: 210 20% 16%;
+    
+    --primary: 43 90% 41%;
+    --primary-foreground: 40 100% 98%;
+    
+    --secondary: 200 63% 14%;
+    --secondary-foreground: 40 100% 98%;
+    
+    --destructive: 13 71% 32%;
+    --destructive-foreground: 40 100% 98%;
+    
+    --accent: 13 71% 32%;
+    --accent-foreground: 40 100% 98%;
+    
+    --muted: 210 20% 50%;
+    --muted-foreground: 210 20% 16%;
+    
+    --card: 40 100% 98%;
+    --card-foreground: 210 20% 16%;
+    
+    --border: 210 20% 90%;
+    --input: 40 100% 98%;
+    --ring: 43 90% 41%;
+    
+    --brand-green: 90 45% 23%;
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 210 20% 16%;
+    --foreground: 40 100% 98%;
+    --primary: 43 90% 41%;
+    --primary-foreground: 210 20% 16%;
+    --secondary: 200 63% 14%;
+    --secondary-foreground: 40 100% 98%;
+    --destructive: 13 71% 32%;
+    --destructive-foreground: 40 100% 98%;
+    --accent: 13 71% 32%;
+    --accent-foreground: 40 100% 98%;
+    --muted: 210 20% 30%;
+    --muted-foreground: 40 100% 98%;
+    --card: 210 20% 16%;
+    --card-foreground: 40 100% 98%;
+    --border: 210 20% 30%;
+    --input: 210 20% 16%;
+    --ring: 43 90% 41%;
+    --brand-green: 90 45% 23%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Outfit', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  #mls-search,
+  #neighborhoods,
+  #home-value,
+  #about-george,
+  #listing-alerts,
+  #contact {
+    scroll-margin-top: 100px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .ticker-track {
+    display: flex;
+    white-space: nowrap;
+    animation: ticker 40s linear infinite;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+}
