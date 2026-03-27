@@ -1,27 +1,26 @@
 /**
  * Google Ads & GA4 conversion tracking helpers.
- *
- * Usage: call trackFormSubmission() after a successful form POST.
- * Replace AW-XXXXXXXXX/CONVERSION_LABEL with real values from Google Ads.
+ * AW ID: AW-18044804522
+ * Lead Form Label: Xuj2CIyqyJAcEKq7t5xD
+ * Phone Click Label: 6MWcCKutt5AcEK6Cu5xD
  */
 
 export function trackFormSubmission(formName, formData = {}) {
   if (typeof window.gtag !== 'function') return;
 
-  // GA4 event — can be imported as a Google Ads conversion in the UI
+  // GA4 event — can be imported as a Google Ads conversion
   window.gtag('event', 'generate_lead', {
     event_category: 'form',
     event_label: formName,
-    value: formName === 'home_value' ? 50 : formName === 'mls_search' ? 30 : 20,
+    value: formName === 'home_value' || formName === 'home_value_russian' ? 50 : formName === 'mls_search' ? 30 : 20,
     currency: 'USD',
     ...formData,
   });
 
-  // Google Ads conversion — replace with real conversion action ID + label
-  // You'll get these from Google Ads > Tools > Conversions > New conversion action
+  // Google Ads conversion — Lead Form Submission ($50)
   window.gtag('event', 'conversion', {
-    send_to: 'AW-XXXXXXXXX/CONVERSION_LABEL',
-    value: formName === 'home_value' ? 50 : formName === 'mls_search' ? 30 : 20,
+    send_to: 'AW-18044804522/Xuj2CIyqyJAcEKq7t5xD',
+    value: 50.0,
     currency: 'USD',
   });
 }
@@ -29,8 +28,11 @@ export function trackFormSubmission(formName, formData = {}) {
 export function trackPhoneClick() {
   if (typeof window.gtag !== 'function') return;
 
+  // Google Ads conversion — Phone Click ($25)
   window.gtag('event', 'conversion', {
-    send_to: 'AW-XXXXXXXXX/PHONE_CLICK_LABEL',
+    send_to: 'AW-18044804522/6MWcCKutt5AcEK6Cu5xD',
+    value: 25.0,
+    currency: 'USD',
   });
 
   window.gtag('event', 'phone_click', {
