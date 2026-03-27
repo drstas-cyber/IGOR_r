@@ -27,7 +27,7 @@ export default function HeroSection() {
           transition={{ duration: 0.8 }}
           className="w-full lg:w-1/2 text-left"
         >
-          <span className="block font-sans text-[12px] text-[#C8920A] uppercase tracking-[0.2em] font-semibold mb-4">
+          <span className="block font-sans text-[13px] sm:text-[12px] text-[#C8920A] uppercase tracking-[0.15em] sm:tracking-[0.2em] font-semibold mb-4">
             5.0★ Google Rating · 14+ Years · DRE #02034120
           </span>
           <h1 className="font-serif text-[36px] sm:text-[48px] lg:text-[56px] text-white font-bold leading-[1.1] mb-6 drop-shadow-md">
@@ -36,17 +36,17 @@ export default function HeroSection() {
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] max-w-lg font-light drop-shadow mb-8">
             Median price $740K, selling at 100.1% of asking. George Khazanovskiy — rated 5.0★ on Google, 14+ years local experience, and Temecula's only Russian & Ukrainian speaking Realtor.
           </p>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4">
             <a
               href="#home-value"
-              className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] px-8 py-3 rounded-md font-bold text-lg transition-colors shadow-lg"
+              className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold text-lg transition-colors shadow-lg text-center"
             >
               Get Free Home Valuation
             </a>
             <a
               href="tel:6192772766"
               onClick={trackPhoneClick}
-              className="border-2 border-white/60 hover:border-white text-white px-8 py-3 rounded-md font-bold text-lg transition-colors"
+              className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold text-lg transition-colors text-center"
             >
               Call Now — (619) 277-2766
             </a>

@@ -60,7 +60,7 @@ export default function ListingAlertsSection() {
           <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[2px] font-semibold block mb-3">
             Never Miss A Home
           </span>
-          <h2 className="font-serif text-[40px] md:text-[48px] text-white font-semibold leading-tight mb-4">
+          <h2 className="font-serif text-[32px] sm:text-[40px] md:text-[48px] text-white font-semibold leading-tight mb-4">
             Get New Listings Before Anyone Else
           </h2>
           <p className="font-sans text-[16px] text-[#E0E0E0] leading-[1.6] max-w-2xl mx-auto">
@@ -120,7 +120,7 @@ export default function ListingAlertsSection() {
             >
               🔔 Send Me New Listings Instantly
             </button>
-            <p className="font-sans text-[12px] text-[#A0A0A0] mt-4">
+            <p className="font-sans text-[13px] sm:text-[12px] text-[#A0A0A0] mt-4">
               🔒 No spam. Your info is private. Unsubscribe anytime. — George Khazanovskiy, DRE #02034120
             </p>
           </div>

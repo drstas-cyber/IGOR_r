@@ -36,7 +36,7 @@ export default function GoogleReviews() {
           <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[0.2em] font-semibold block mb-3">
             Client Stories
           </span>
-          <h2 className="font-serif text-[40px] md:text-[48px] text-[#12202A] leading-tight mb-4">
+          <h2 className="font-serif text-[32px] sm:text-[40px] md:text-[48px] text-[#12202A] leading-tight mb-4">
             What Temecula Families Say
           </h2>
           <p className="font-sans text-[16px] text-gray-600 leading-[1.6]">
@@ -61,10 +61,10 @@ export default function GoogleReviews() {
                 "{review.text}"
               </p>
               <div>
-                <p className="font-sans text-[13px] font-bold text-[#12202A] mb-1">
+                <p className="font-sans text-[14px] sm:text-[13px] font-bold text-[#12202A] mb-1">
                   {review.name}
                 </p>
-                <p className="font-sans text-[12px] text-gray-500">
+                <p className="font-sans text-[13px] sm:text-[12px] text-gray-500">
                   {review.details}
                 </p>
               </div>

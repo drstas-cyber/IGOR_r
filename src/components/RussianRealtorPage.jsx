@@ -9,6 +9,7 @@ import RussianReviewCard from './RussianReviewCard';
 import RussianFAQAccordion from './RussianFAQAccordion';
 import RussianHomeValueForm from './RussianHomeValueForm';
 import Footer from './Footer';
+import MobileBottomBar from './MobileBottomBar';
 
 export default function RussianRealtorPage() {
   useEffect(() => {
@@ -104,7 +105,7 @@ export default function RussianRealtorPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="font-serif text-[40px] text-white leading-tight"
+            className="font-serif text-[28px] sm:text-[34px] lg:text-[40px] text-white leading-tight"
           >
             В Темекуле только один русскоязычный риэлтор.
           </motion.h2>
@@ -115,7 +116,7 @@ export default function RussianRealtorPage() {
       <section className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-serif text-[48px] text-[#12202A] font-bold mb-4">Ваш успех — это наш приоритет</h2>
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] font-bold mb-4">Ваш успех — это наш приоритет</h2>
             <p className="font-sans text-[16px] text-gray-600">Почему семьи выбирают Джорджа</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -130,7 +131,7 @@ export default function RussianRealtorPage() {
       <section className="bg-[#0D2E3A] py-20 px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-serif text-[48px] text-white font-bold mb-4">Покупка и продажа недвижимости по-русски</h2>
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-white font-bold mb-4">Покупка и продажа недвижимости по-русски</h2>
             <p className="font-sans text-[16px] text-gray-300">Полный спектр услуг для русскоязычных семей</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -150,7 +151,7 @@ export default function RussianRealtorPage() {
             viewport={{ once: true }}
             className="w-full lg:w-1/2"
           >
-            <h2 className="font-serif text-[48px] text-[#12202A] leading-tight font-bold mb-6">
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] leading-tight font-bold mb-6">
               Ваш дом в Темекуле может стоить больше, чем вы думаете
             </h2>
             <p className="font-sans text-[16px] text-[#12202A] leading-relaxed mb-8">
@@ -174,7 +175,7 @@ export default function RussianRealtorPage() {
       <section className="bg-[#0D2E3A] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-serif text-[48px] text-white font-bold mb-4">Что говорят наши клиенты</h2>
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-white font-bold mb-4">Что говорят наши клиенты</h2>
             <p className="font-sans text-[16px] text-gray-300">Реальные отзывы от реальных клиентов</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -189,7 +190,7 @@ export default function RussianRealtorPage() {
       <section className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-serif text-[48px] text-[#12202A] font-bold">Местный эксперт. Ваш язык. Ваш успех.</h2>
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] font-bold">Местный эксперт. Ваш язык. Ваш успех.</h2>
           </div>
           <div className="flex flex-col lg:flex-row gap-16 items-start">
             <motion.div 
@@ -211,7 +212,7 @@ export default function RussianRealtorPage() {
               
               <div className="grid grid-cols-2 gap-3 mb-8 w-full">
                 {['5.0★ Google Rating', '14+ Лет Опыта', 'Русский/Английский', '24/7 Поддержка'].map((stat, i) => (
-                  <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[12px] py-2 px-3 rounded-full text-center font-medium">
+                  <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[13px] sm:text-[12px] py-2 px-3 rounded-full text-center font-medium">
                     {stat}
                   </div>
                 ))}
@@ -266,7 +267,7 @@ export default function RussianRealtorPage() {
       <section className="bg-[#0D2E3A] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-serif text-[48px] text-white font-bold">Ответы на ваши вопросы</h2>
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-white font-bold">Ответы на ваши вопросы</h2>
           </div>
           <RussianFAQAccordion />
         </div>
@@ -280,7 +281,7 @@ export default function RussianRealtorPage() {
           viewport={{ once: true }}
           className="max-w-3xl mx-auto"
         >
-          <h2 className="font-serif text-[48px] text-[#12202A] font-bold mb-4">Начните прямо сейчас</h2>
+          <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] font-bold mb-4">Начните прямо сейчас</h2>
           <p className="font-sans text-[16px] text-gray-600 mb-10">Позвоните Джорджу для бесплатной консультации</p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
@@ -304,6 +305,7 @@ export default function RussianRealtorPage() {
       </section>
 
       <Footer />
+      <MobileBottomBar />
     </div>
   );
 }

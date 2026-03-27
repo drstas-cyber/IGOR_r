@@ -2,11 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Footer() {
-  const linkClasses = "block font-sans text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors duration-300";
+  const linkClasses = "block font-sans text-[14px] sm:text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors duration-300 py-1 sm:py-0";
   const headingClasses = "font-sans text-[14px] text-white font-bold mb-6 uppercase tracking-wider";
 
   return (
-    <footer className="bg-[#0D2E3A] text-white">
+    <footer className="bg-[#0D2E3A] text-white pb-[70px] md:pb-0">
       {/* Main Footer Content */}
       <div className="py-[50px] px-[24px] md:px-[60px] max-w-7xl mx-auto">
         <div className="bg-[#C8920A] rounded-lg p-8 mb-12 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -18,7 +18,7 @@ export default function Footer() {
             Call (619) 277-2766
           </a>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[80px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 lg:gap-[80px]">
           
           {/* Column 1: Brand */}
           <div className="flex flex-col space-y-4">
@@ -49,7 +49,7 @@ export default function Footer() {
           {/* Column 2: Buy a Home */}
           <div>
             <h3 className={headingClasses}>Buy a Home</h3>
-            <div className="space-y-[24px]">
+            <div className="space-y-4 md:space-y-[24px]">
               <a href="#search" className={linkClasses}>Search All Homes</a>
               <a href="#search" className={linkClasses}>Homes Under $600K</a>
               <a href="#search" className={linkClasses}>Wine Country Estates</a>
@@ -62,7 +62,7 @@ export default function Footer() {
           {/* Column 3: Sell Your Home */}
           <div>
             <h3 className={headingClasses}>Sell Your Home</h3>
-            <div className="space-y-[24px]">
+            <div className="space-y-4 md:space-y-[24px]">
               <a href="#homevalue" className={linkClasses}>Free Home Valuation</a>
               <a href="#homevalue" className={linkClasses}>What's My Home Worth?</a>
               <a href="#about" className={linkClasses}>How We Market Homes</a>
@@ -74,7 +74,7 @@ export default function Footer() {
           {/* Column 4: Important Links */}
           <div>
             <h3 className={headingClasses}>Important Links</h3>
-            <div className="space-y-[24px]">
+            <div className="space-y-4 md:space-y-[24px]">
               <a href="#search" className={linkClasses}>Property Search</a>
               <a href="#homevalue" className={linkClasses}>Home Valuation</a>
               <a href="#about" className={linkClasses}>About George</a>

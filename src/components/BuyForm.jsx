@@ -46,7 +46,7 @@ export default function BuyForm() {
     }
   };
 
-  const inputClasses = "w-full bg-white text-secondary px-4 py-3 border border-gray-200 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm font-light";
+  const inputClasses = "w-full bg-white text-secondary px-4 py-3 min-h-[44px] border border-gray-200 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-[15px] font-light";
 
   return (
     <form onSubmit={handleSubmit} action="https://formsubmit.co/askgeorgek@gmail.com" method="POST" className="space-y-4 mt-6">
@@ -84,12 +84,12 @@ export default function BuyForm() {
       <button 
         type="submit" 
         onClick={() => document.getElementById('listing-alerts')?.scrollIntoView({ behavior: 'smooth' })}
-        className="w-full bg-[#8B3018] hover:bg-[#702613] text-white py-3.5 rounded font-medium text-[16px] transition-colors mt-2 shadow-md"
+        className="w-full bg-[#8B3018] hover:bg-[#702613] text-white py-3.5 min-h-[48px] rounded font-medium text-[16px] transition-colors mt-2 shadow-md"
       >
         Find My Dream Home — Free
       </button>
       
-      <p className="text-center text-[12px] text-gray-500 mt-3 font-light">
+      <p className="text-center text-[13px] text-gray-500 mt-3 font-light">
         ✓ No spam &nbsp; ✓ Instant alerts &nbsp; ✓ Unsubscribe anytime
       </p>
     </form>

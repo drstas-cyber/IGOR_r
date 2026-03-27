@@ -64,7 +64,7 @@ export default function HomeValueForm() {
           <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[0.2em] font-semibold block mb-4">
             For Homeowners
           </span>
-          <h2 className="font-serif text-[42px] md:text-[48px] text-white leading-[1.1] mb-6">
+          <h2 className="font-serif text-[32px] sm:text-[42px] md:text-[48px] text-white leading-[1.1] mb-6">
             Your Temecula Home May Be Worth More Than You Think
           </h2>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] mb-8 font-light">
@@ -86,7 +86,7 @@ export default function HomeValueForm() {
             </div>
           </div>
 
-          <p className="font-sans text-[12px] text-gray-400 italic">
+          <p className="font-sans text-[13px] sm:text-[12px] text-gray-400 italic">
             "No pushy follow-ups. No obligation to list. Just honest local expertise."
           </p>
         </motion.div>
@@ -123,7 +123,7 @@ export default function HomeValueForm() {
                 </select>
               </div>
               
-              <p className="font-sans text-[13px] text-[#C8920A] font-semibold text-center mt-2">
+              <p className="font-sans text-[14px] sm:text-[13px] text-[#C8920A] font-semibold text-center mt-2">
                 12 homeowners requested valuations this week
               </p>
               <button
@@ -135,7 +135,7 @@ export default function HomeValueForm() {
             </form>
             
             <div className="mt-6 text-center">
-              <p className="font-sans text-[12px] text-gray-500 leading-relaxed">
+              <p className="font-sans text-[13px] sm:text-[12px] text-gray-500 leading-relaxed">
                 Or call George: 619-277-2766<br/>
                 Available 7 days a week &middot; Free consultation
               </p>

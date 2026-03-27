@@ -16,7 +16,7 @@ export default function AgentBioSection() {
           <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[2px] font-semibold block mb-3">
             George Khazanovskiy
           </span>
-          <h2 className="font-serif text-[40px] md:text-[48px] text-[#12202A] font-semibold leading-tight">
+          <h2 className="font-serif text-[32px] sm:text-[40px] md:text-[48px] text-[#12202A] font-semibold leading-tight">
             Local Knowledge. Personal Service. Results That Speak.
           </h2>
         </motion.div>
@@ -48,20 +48,20 @@ export default function AgentBioSection() {
             </p>
             
             <div className="space-y-1 mb-6">
-              <p className="font-sans text-[12px] text-[#666666]">
+              <p className="font-sans text-[13px] sm:text-[12px] text-[#666666]">
                 DRE #02034120 &middot; Allison James Estates & Homes
               </p>
-              <p className="font-sans text-[12px] text-[#12202A] font-bold">
+              <p className="font-sans text-[14px] sm:text-[12px] text-[#12202A] font-bold">
                 Phone: 619-277-2766
               </p>
-              <p className="font-sans text-[12px] text-[#666666]">
+              <p className="font-sans text-[13px] sm:text-[12px] text-[#666666]">
                 Address: 30777 Rancho California Rd, Temecula, CA 92592
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-8 w-full max-w-sm">
               {['5.0★ Google Rating', '14+ Yrs Local Exp.', '2 Languages', '24/7 Availability'].map((stat, i) => (
-                <div key={i} className="bg-[#F5E6D3] text-[#12202A] font-sans text-[12px] py-[10px] px-[16px] rounded-full text-center font-medium shadow-sm">
+                <div key={i} className="bg-[#F5E6D3] text-[#12202A] font-sans text-[13px] sm:text-[12px] py-[10px] px-[16px] rounded-full text-center font-medium shadow-sm">
                   {stat}
                 </div>
               ))}

@@ -26,14 +26,14 @@ export default function StatsBar() {
               <span className="font-serif text-3xl lg:text-4xl font-semibold text-[#C8920A] mb-2">
                 {stat.value}
               </span>
-              <span className="font-sans text-[13px] uppercase tracking-widest text-white/80">
+              <span className="font-sans text-[14px] sm:text-[13px] uppercase tracking-wider sm:tracking-widest text-white/80">
                 {stat.label}
               </span>
             </motion.div>
           ))}
         </div>
         <div className="text-center mt-8">
-          <a href="tel:6192772766" className="font-sans text-[14px] text-[#C8920A] hover:text-white transition-colors font-semibold">
+          <a href="tel:6192772766" className="font-sans text-[14px] text-[#C8920A] hover:text-white transition-colors font-semibold inline-block py-3 px-4">
             Ready to make your move? Call George: (619) 277-2766
           </a>
         </div>

@@ -52,7 +52,7 @@ export default function FeaturedListings() {
             <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[0.2em] font-semibold block mb-3">
               Hand-Picked Properties
             </span>
-            <h2 className="font-serif text-[48px] text-[#12202A] leading-tight">
+            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] leading-tight">
               Featured Temecula Homes
             </h2>
           </motion.div>
@@ -94,15 +94,15 @@ export default function FeaturedListings() {
                 <p className="font-sans text-[14px] text-[#12202A] font-medium mb-4">{listing.address}</p>
                 
                 <div className="space-y-1 mb-6 flex-grow">
-                  <p className="font-sans text-[13px] text-gray-500">{listing.details}</p>
+                  <p className="font-sans text-[14px] sm:text-[13px] text-gray-500">{listing.details}</p>
                   {listing.amenity && (
-                    <p className="font-sans text-[13px] text-[#C8920A] font-medium">{listing.amenity}</p>
+                    <p className="font-sans text-[14px] sm:text-[13px] text-[#C8920A] font-medium">{listing.amenity}</p>
                   )}
                 </div>
 
                 <a 
                   href="tel:6192772766"
-                  className="w-full bg-[#8B3018] hover:bg-[#702613] text-white py-3 rounded text-[14px] font-medium transition-colors mt-auto text-center inline-block"
+                  className="w-full bg-[#8B3018] hover:bg-[#702613] text-white py-3 min-h-[44px] rounded text-[14px] font-medium transition-colors mt-auto text-center inline-flex items-center justify-center"
                 >
                   Schedule a Showing &rarr;
                 </a>
