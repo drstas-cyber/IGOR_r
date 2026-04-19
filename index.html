@@ -25,6 +25,21 @@
       // Google Ads account — replace AW-18044804522 with your real Google Ads ID
       gtag('config', 'AW-18044804522');
     </script>
+    <!-- Global click tracker for tel: and mailto: — works on React SPA -->
+    <script>
+      document.addEventListener('click', function(e) {
+        var a = e.target.closest('a[href]');
+        if (!a || typeof gtag !== 'function') return;
+        var href = a.getAttribute('href') || '';
+        if (href.indexOf('tel:') === 0) {
+          gtag('event', 'conversion', { send_to: 'AW-18044804522/LL2DCN-15ZEcEKq7t5xD', value: 50.0, currency: 'USD' });
+          gtag('event', 'phone_click');
+        } else if (href.indexOf('mailto:') === 0) {
+          gtag('event', 'conversion', { send_to: 'AW-18044804522/aBETCNm15ZEcEKq7t5xD', value: 25.0, currency: 'USD' });
+          gtag('event', 'email_click');
+        }
+      }, true);
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
