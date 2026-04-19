@@ -1,14 +1,19 @@
 import React from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { trackFormSubmission } from '@/lib/tracking';
+import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 
 export default function BuyForm() {
   const { toast } = useToast();
+  React.useEffect(() => { resetFormTimer(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
     const formData = new FormData(form);
+
+    const check = validateSubmission({ email: formData.get('email'), name: formData.get('name'), website_url: formData.get('website_url') });
+    if (check.blocked) { toast({ title: "Unable to submit", description: "Please use a valid email address.", variant: "destructive" }); return; }
 
     formData.append('_subject', 'New Buyer Lead: ' + (formData.get('name') || 'Unknown'));
     formData.append('_replyto', 'george@temeculavalleyhomes.us');
@@ -51,6 +56,7 @@ export default function BuyForm() {
   return (
     <form onSubmit={handleSubmit} action="https://formsubmit.co/askgeorgek@gmail.com" method="POST" className="space-y-4 mt-6">
       <input type="hidden" name="_replyto" value="george@temeculavalleyhomes.us" />
+      <input type="text" name="website_url" style={{position:'absolute',left:'-9999px',tabIndex:'-1'}} autoComplete="off" />
       
       <div>
         <input required type="text" name="name" placeholder="Your Name" className={inputClasses} />

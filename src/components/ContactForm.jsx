@@ -4,24 +4,29 @@ import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { trackFormSubmission } from '@/lib/tracking';
+import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 
 export default function ContactForm() {
   const { toast } = useToast();
+  React.useEffect(() => { resetFormTimer(); }, []);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     subject: '',
-    message: ''
+    message: '',
+    website_url: '',
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Create form data object to send including hidden fields
+
+    const check = validateSubmission(formData);
+    if (check.blocked) { toast({ title: "Unable to submit", description: "Please use a valid email address.", variant: "destructive" }); return; }
+
     const submissionData = new FormData();
     Object.keys(formData).forEach(key => {
-      submissionData.append(key, formData[key]);
+      if (key !== 'website_url') submissionData.append(key, formData[key]);
     });
     submissionData.append('_replyto', 'george@temeculavalleyhomes.us');
     submissionData.append('_subject', 'New Contact: ' + (formData.name || 'Unknown'));

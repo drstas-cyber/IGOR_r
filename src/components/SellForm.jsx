@@ -1,3 +1,4 @@
+import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 import React from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { trackFormSubmission } from '@/lib/tracking';
@@ -7,6 +8,7 @@ export default function SellForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const _fd = new FormData(e.target); const _check = validateSubmission({ email: _fd.get("email"), name: _fd.get("name"), website_url: _fd.get("website_url") }); if (_check.blocked) { alert("Please use a valid email address."); return; }
     const form = e.target;
     const formData = new FormData(form);
 

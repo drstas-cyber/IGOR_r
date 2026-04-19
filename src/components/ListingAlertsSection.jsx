@@ -1,3 +1,4 @@
+import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';

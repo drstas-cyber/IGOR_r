@@ -1,3 +1,4 @@
+import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,6 +9,7 @@ export default function HomeValueForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const _fd = new FormData(e.target); const _check = validateSubmission({ email: _fd.get("email"), name: _fd.get("name"), website_url: _fd.get("website_url") }); if (_check.blocked) { alert("Please use a valid email address."); return; }
     const form = e.target;
     const formData = new FormData(form);
 
