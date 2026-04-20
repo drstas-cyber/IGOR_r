@@ -30,6 +30,7 @@ export default function Navigation() {
     { label: 'Search', id: 'search' },
     { label: 'Home Value', id: 'homevalue' },
     { label: 'About', id: 'about' },
+    { label: 'Contact', id: 'contact', href: '/contact/' },
     { label: 'Alerts', id: 'alerts' }
   ];
 
@@ -44,13 +45,23 @@ export default function Navigation() {
           
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map((item) => (
-              <button 
-                key={item.label}
-                onClick={() => scrollToSection(item.id)} 
-                className="text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-              >
-                {item.label}
-              </button>
+              item.href ? (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <button
+                  key={item.label}
+                  onClick={() => scrollToSection(item.id)}
+                  className="text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
+                >
+                  {item.label}
+                </button>
+              )
             ))}
           </div>
           
