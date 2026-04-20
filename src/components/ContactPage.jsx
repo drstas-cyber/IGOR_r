@@ -64,8 +64,8 @@ export default function ContactPage() {
             <img
               src="/images/george-photo.jpg"
               alt="George Khazanovskiy — Temecula Valley Realtor"
-              className="w-28 h-28 rounded-full mx-auto mb-4 border-3 border-[#C8920A] object-cover"
-              width="112" height="112"
+              className="w-[134px] h-[134px] rounded-full mx-auto mb-4 border-[3px] border-[#C8920A] object-cover object-[center_20%] shadow-lg shadow-black/30"
+              width="134" height="134"
             />
             <h1 className="text-2xl font-serif font-bold text-white mb-1">George Khazanovskiy</h1>
             <p className="text-[#C8920A] font-semibold text-sm mb-2">Licensed Realtor® · DRE #02034120</p>
