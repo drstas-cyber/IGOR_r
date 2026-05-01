@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Phone } from 'lucide-react';
-import { trackPhoneClick } from '@/lib/tracking';
 
 export default function StickyNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -59,7 +58,6 @@ export default function StickyNavigation() {
             </a>
             <a
               href="tel:6192772766"
-              onClick={trackPhoneClick}
               className="flex items-center gap-2 text-[#12202A] hover:text-accent font-semibold text-[14px] transition-colors"
             >
               <Phone className="w-4 h-4" />

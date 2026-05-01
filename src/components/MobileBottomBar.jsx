@@ -1,6 +1,5 @@
 import React from 'react';
 import { Phone, Home } from 'lucide-react';
-import { trackPhoneClick } from '@/lib/tracking';
 
 export default function MobileBottomBar() {
   const handleHomeValueClick = () => {
@@ -15,7 +14,6 @@ export default function MobileBottomBar() {
       <div className="flex items-stretch min-h-[56px]">
         <a
           href="tel:6192772766"
-          onClick={trackPhoneClick}
           className="flex-1 flex items-center justify-center gap-2 bg-[#8B3018] hover:bg-[#702613] text-white font-bold text-[16px] transition-colors"
         >
           <Phone className="w-5 h-5" />

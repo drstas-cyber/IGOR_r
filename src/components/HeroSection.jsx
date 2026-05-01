@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import BuyForm from './BuyForm';
 import SellForm from './SellForm';
-import { trackPhoneClick } from '@/lib/tracking';
 
 export default function HeroSection() {
   const [activeTab, setActiveTab] = useState('buy');
@@ -45,7 +44,6 @@ export default function HeroSection() {
             </a>
             <a
               href="tel:6192772766"
-              onClick={trackPhoneClick}
               className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold text-lg transition-colors text-center"
             >
               Call Now — (619) 277-2766
