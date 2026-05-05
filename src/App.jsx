@@ -5,6 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import HomePage from '@/components/HomePage';
 import RussianRealtorPage from '@/components/RussianRealtorPage';
 import ContactPage from '@/components/ContactPage';
+import SellMyHousePage from '@/components/SellMyHousePage';
+import BuyerHomesPage from '@/components/BuyerHomesPage';
 
 function App() {
   return (
@@ -21,6 +23,10 @@ function App() {
           <Route path="/russian-speaking-realtor-temecula" element={<RussianRealtorPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/contact/" element={<ContactPage />} />
+          <Route path="/sell-my-house" element={<SellMyHousePage />} />
+          <Route path="/sell-my-house/" element={<SellMyHousePage />} />
+          <Route path="/homes-for-sale-temecula" element={<BuyerHomesPage />} />
+          <Route path="/homes-for-sale-temecula/" element={<BuyerHomesPage />} />
         </Routes>
       </Router>
       
