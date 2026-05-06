@@ -169,6 +169,19 @@ export default function ContactPage() {
             <p className="text-gray-500 text-xs">Serving: Temecula · Murrieta · Menifee · Wildomar · Lake Elsinore · Fallbrook · Winchester · Redhawk · Wine Country · Old Town</p>
           </div>
 
+          {/* Office Location */}
+          <div className="mt-6 text-center">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Office Location</p>
+            <a
+              href="https://maps.google.com/?q=30777+Rancho+California+Rd,+Temecula,+CA+92592"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 text-sm hover:text-[#C8920A] transition-colors"
+            >
+              📍 30777 Rancho California Rd, Temecula, CA 92592
+            </a>
+          </div>
+
           {/* Email fallback */}
           <div className="text-center mt-6">
             <p className="text-gray-400 text-sm">Prefer email?</p>

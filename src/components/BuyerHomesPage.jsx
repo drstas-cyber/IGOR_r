@@ -50,7 +50,7 @@ export default function BuyerHomesPage() {
           "image": "https://temeculavalleyhomes.us/images/george-photo.jpg",
           "telephone": "+1-619-277-2766",
           "areaServed": ["Temecula", "Murrieta", "Menifee", "Lake Elsinore", "Wildomar", "Winchester", "Fallbrook"],
-          "address": { "@type": "PostalAddress", "addressRegion": "CA", "addressLocality": "Temecula" },
+          "address": { "@type": "PostalAddress", "streetAddress": "30777 Rancho California Rd", "addressLocality": "Temecula", "addressRegion": "CA", "postalCode": "92592", "addressCountry": "US" },
           "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5" },
           "knowsLanguage": ["English", "Russian", "Ukrainian"],
         })}</script>
