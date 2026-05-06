@@ -1,0 +1,541 @@
+===============================================================
+  GOOGLE ADS CAMPAIGN PLAN — TRAFFIC ONLY
+  temeculavalleyhomes.us | George Khazanovskiy, Realtor
+  Bid Strategy: Maximize Clicks
+  Suggested Budget: $15-25/day per campaign
+===============================================================
+
+
+================================================================
+CAMPAIGN 1: TEMECULA HOME BUYERS (Search)
+================================================================
+Network: Search only
+Location: Temecula, Murrieta, Menifee, Winchester, Lake Elsinore, Wildomar, Fallbrook (25 mi radius)
+Language: English + Russian
+Ad Schedule: Mon-Sun 7am-9pm
+Device: All (mobile bid +20%)
+
+----------------------------------------------------------------
+AD GROUP 1: General Home Search
+----------------------------------------------------------------
+Keywords:
+  homes for sale temecula
+  temecula real estate
+  houses for sale temecula ca
+  temecula valley homes
+  temecula homes for sale
+  buy home temecula
+  temecula real estate agent
+  temecula ca homes
+  temecula property for sale
+
+Landing Page: https://temeculavalleyhomes.us/search-all-homes/
+
+RSA:
+  Headline 1:  Temecula Valley Homes For Sale
+  Headline 2:  14+ Years Local Experience
+  Headline 3:  5.0 Star Google Rating - 23 Reviews
+  Headline 4:  Browse All Temecula Listings
+  Headline 5:  George Khazanovskiy, Realtor
+  Headline 6:  Free MLS Access - Call Today
+  Headline 7:  Search Temecula, Murrieta & More
+  Headline 8:  DRE #02034120
+  Headline 9:  Bilingual English & Russian
+  Headline 10: New Listings Daily - Don't Miss Out
+  Headline 11: Local Expert Since 2012
+  Headline 12: Call (619) 277-2766 Today
+  Headline 13: Find Your Dream Home Now
+  Headline 14: Temecula Valley MLS Search
+  Headline 15: Trusted by 23+ Families
+
+  Description 1: Search every home for sale in Temecula Valley. George Khazanovskiy — 14+ years local experience, perfect 5.0 star Google rating. Get personalized MLS access today.
+  Description 2: Browse Temecula, Murrieta, Menifee, Winchester & Lake Elsinore listings. Full MLS access with a top-rated local Realtor. Call (619) 277-2766.
+  Description 3: Find homes in Wolf Creek, Wine Country, Redhawk, Paloma Del Sol & more. Expert neighborhood guidance from a 5-star rated agent.
+  Description 4: The only trilingual Realtor in Temecula Valley. English, Russian & Ukrainian. Free buyer consultation — no obligation.
+
+----------------------------------------------------------------
+AD GROUP 2: Affordable Homes
+----------------------------------------------------------------
+Keywords:
+  affordable homes temecula
+  homes under 600k temecula
+  cheap houses temecula valley
+  temecula homes under 600000
+  starter homes temecula
+  budget homes temecula valley
+  temecula valley affordable
+
+Landing Page: https://temeculavalleyhomes.us/homes-under-600k/
+
+RSA:
+  Headline 1:  Temecula Homes Under $600K
+  Headline 2:  Affordable Homes - Great Schools
+  Headline 3:  5.0 Star Google Rated Realtor
+  Headline 4:  Old Town From $480K
+  Headline 5:  Redhawk Homes From $545K
+  Headline 6:  Paloma Del Sol From $575K
+  Headline 7:  Get Listings Under $600K Now
+  Headline 8:  FHA & Down Payment Help Available
+  Headline 9:  14+ Years Temecula Experience
+  Headline 10: Call George (619) 277-2766
+  Headline 11: Free Custom MLS Search
+  Headline 12: First-Time Buyers Welcome
+  Headline 13: Vail Ranch Homes From $510K
+  Headline 14: New Listings Sent to Your Email
+  Headline 15: Your Budget Goes Further Here
+
+  Description 1: Quality homes under $600K in Temecula Valley. Old Town, Redhawk, Paloma Del Sol & Vail Ranch — all with top schools and community amenities.
+  Description 2: George Khazanovskiy helps buyers find affordable homes in Temecula, Murrieta & Menifee. 14+ years experience. Free personalized MLS search.
+  Description 3: Homes with 3-4 bedrooms, community pools, parks & freeway access — all under $600K. Get instant email alerts for new listings.
+  Description 4: California down payment assistance programs available. FHA loans with 3.5% down. Let George connect you with trusted local lenders.
+
+----------------------------------------------------------------
+AD GROUP 3: Luxury / Wine Country
+----------------------------------------------------------------
+Keywords:
+  wine country estates temecula
+  luxury homes temecula
+  temecula vineyard homes
+  temecula horse property
+  temecula acreage homes
+  luxury real estate temecula
+  wine country temecula homes for sale
+  temecula estate homes
+
+Landing Page: https://temeculavalleyhomes.us/wine-country-estates/
+
+RSA:
+  Headline 1:  Temecula Wine Country Estates
+  Headline 2:  Luxury Homes on Acreage
+  Headline 3:  Horse Properties Available
+  Headline 4:  Vineyard Views & Custom Builds
+  Headline 5:  From $900K to $3M+
+  Headline 6:  Schedule a Private Tour
+  Headline 7:  50+ Wineries at Your Doorstep
+  Headline 8:  14+ Years Wine Country Expertise
+  Headline 9:  5.0 Star Rated - 23 Reviews
+  Headline 10: Call George (619) 277-2766
+  Headline 11: 1-20+ Acre Parcels Available
+  Headline 12: George Khazanovskiy, Realtor
+  Headline 13: Exclusive Wine Country Listings
+  Headline 14: Custom Build Opportunities
+  Headline 15: Morgan Hill & Crown Hill Estates
+
+  Description 1: Discover Temecula Wine Country's finest estates. Sprawling homes on multi-acre parcels, vineyard views, horse facilities & custom builds. Private tours available.
+  Description 2: George Khazanovskiy knows every road in Wine Country. 14+ years experience, perfect 5.0 star rating. Schedule your complimentary private property tour today.
+  Description 3: Luxury living near 50+ award-winning wineries. Estates from $900K to $3M+. Horse properties, vineyards & hilltop retreats. Call (619) 277-2766.
+  Description 4: The only trilingual Realtor in Temecula Valley. Deep Wine Country expertise — let George curate your perfect property tour.
+
+----------------------------------------------------------------
+AD GROUP 4: New Construction
+----------------------------------------------------------------
+Keywords:
+  new construction temecula
+  new homes temecula valley
+  new build homes murrieta
+  new construction menifee
+  temecula new homes for sale
+  brand new homes temecula
+  new developments temecula valley
+
+Landing Page: https://temeculavalleyhomes.us/new-construction/
+
+RSA:
+  Headline 1:  New Construction - Temecula Valley
+  Headline 2:  Brand New Homes From $400Ks
+  Headline 3:  Solar Included on Every Home
+  Headline 4:  Builder Warranties Up to 10 Years
+  Headline 5:  Smart Home Features Standard
+  Headline 6:  Free Buyer Representation
+  Headline 7:  Lennar, KB Home & More
+  Headline 8:  It Costs You Nothing - Call Now
+  Headline 9:  Negotiate Upgrades & Incentives
+  Headline 10: Call George (619) 277-2766
+  Headline 11: Menifee New Homes From $400Ks
+  Headline 12: Temecula New Builds From $500Ks
+  Headline 13: 14+ Years Local Experience
+  Headline 14: 5.0 Star Google Rating
+  Headline 15: Get Floor Plans & Pricing
+
+  Description 1: Brand new homes in Temecula, Murrieta & Menifee. Modern floor plans, solar included, builder warranties. George negotiates upgrades & incentives at no cost to you.
+  Description 2: Why use a buyer's agent for new construction? The builder pays George's commission — you get expert representation, contract review & negotiation for free.
+  Description 3: New communities from Lennar, KB Home & Taylor Morrison. Starting in the $400Ks. Energy-efficient, smart home ready. Call for current availability.
+  Description 4: George monitors construction progress and conducts detailed final walkthroughs. Your advocate from contract to keys. 5.0 star rated with 23+ reviews.
+
+----------------------------------------------------------------
+AD GROUP 5: First Time Buyers
+----------------------------------------------------------------
+Keywords:
+  first time home buyer temecula
+  starter homes temecula
+  fha homes temecula valley
+  first time buyer riverside county
+  buying first home temecula
+  down payment assistance temecula
+  first home buyer help california
+
+Landing Page: https://temeculavalleyhomes.us/first-time-buyer-guide/
+
+RSA:
+  Headline 1:  First-Time Buyer? Start Here
+  Headline 2:  Temecula Homes for New Buyers
+  Headline 3:  Down Payment Assistance Available
+  Headline 4:  FHA Loans - 3.5% Down
+  Headline 5:  Free Buyer Consultation
+  Headline 6:  Step-by-Step Buying Guide
+  Headline 7:  5.0 Star Rated by First-Time Buyers
+  Headline 8:  George Makes It Easy
+  Headline 9:  Trusted Local Lender Referrals
+  Headline 10: Call (619) 277-2766
+  Headline 11: No Obligation - Free Guidance
+  Headline 12: Temecula Valley Expert
+  Headline 13: 14+ Years Helping Buyers
+  Headline 14: English & Russian Speaking
+  Headline 15: Your First Home Starts Here
+
+  Description 1: Buying your first home? George Khazanovskiy walks you through every step — from pre-approval to closing. 14+ years guiding first-time buyers in Temecula Valley.
+  Description 2: California down payment assistance programs, FHA & VA loans available. George connects you with trusted local lenders for the best rates. Free consultation.
+  Description 3: Read our complete first-time buyer guide. 8 steps to homeownership in Temecula Valley. Pre-approval, home search, offer strategy & closing explained.
+  Description 4: Nervous about buying? George's 23+ 5-star reviews are from real families just like yours. Patient, thorough, and always available 7 days a week.
+
+
+================================================================
+CAMPAIGN 2: TEMECULA HOME SELLERS (Search)
+================================================================
+Network: Search only
+Location: Same as Campaign 1
+Language: English + Russian
+Ad Schedule: Mon-Sun 7am-9pm
+
+----------------------------------------------------------------
+AD GROUP 1: Sell My Home
+----------------------------------------------------------------
+Keywords:
+  sell my home temecula
+  list my house temecula
+  temecula realtor to sell home
+  sell house temecula valley
+  selling home temecula ca
+  best realtor sell home temecula
+  temecula listing agent
+
+Landing Page: https://temeculavalleyhomes.us/sell-your-home/
+
+RSA:
+  Headline 1:  Sell Your Temecula Home Fast
+  Headline 2:  Top Dollar - Proven Strategy
+  Headline 3:  14+ Years Selling in Temecula
+  Headline 4:  5.0 Star Google Rating - 23 Reviews
+  Headline 5:  Professional Photography Included
+  Headline 6:  Homes Selling in 25 Days
+  Headline 7:  Free Marketing Plan
+  Headline 8:  100.1% Sale-to-List Ratio
+  Headline 9:  Call George (619) 277-2766
+  Headline 10: DRE #02034120
+  Headline 11: Strategic Pricing Expertise
+  Headline 12: 8-Channel Marketing System
+  Headline 13: Seller's Market - Act Now
+  Headline 14: Free CMA Report
+  Headline 15: George Khazanovskiy, Realtor
+
+  Description 1: Sell your Temecula Valley home for top dollar. George's 8-channel marketing strategy, professional photography & strategic pricing get results. 100.1% sale-to-list ratio.
+  Description 2: The Temecula market is hot — median $740K, homes selling in 25 days. George's 14+ years of local expertise ensures you maximize your sale price.
+  Description 3: Free comparative market analysis. Professional photography, MLS listing, social media marketing & targeted buyer outreach all included. Call today.
+  Description 4: 23+ families trust George with their biggest asset. Perfect 5.0 star Google rating. Bilingual English/Russian service. Available 7 days a week.
+
+----------------------------------------------------------------
+AD GROUP 2: Home Valuation
+----------------------------------------------------------------
+Keywords:
+  how much is my home worth temecula
+  free home valuation temecula
+  temecula home value
+  what is my house worth temecula
+  temecula cma free
+  home appraisal temecula
+  temecula property value
+
+Landing Page: https://temeculavalleyhomes.us/home-valuation/
+
+RSA:
+  Headline 1:  What's My Temecula Home Worth?
+  Headline 2:  Free Home Valuation - 24 Hours
+  Headline 3:  Accurate CMA - Not an Estimate
+  Headline 4:  Real Data, Not Zillow Guesses
+  Headline 5:  14+ Years Neighborhood Expertise
+  Headline 6:  No Obligation - 100% Free
+  Headline 7:  Call (619) 277-2766
+  Headline 8:  5.0 Star Google Rated Agent
+  Headline 9:  Neighborhood-Specific Report
+  Headline 10: Based on Recent Comparable Sales
+  Headline 11: George Khazanovskiy, Realtor
+  Headline 12: Know Your Home's True Value
+  Headline 13: Delivered Within 24 Hours
+  Headline 14: Temecula Valley Expert
+  Headline 15: DRE #02034120
+
+  Description 1: Get a free, no-obligation home valuation from George Khazanovskiy. Unlike automated online estimates, George provides a real CMA based on recent comparable sales in your neighborhood.
+  Description 2: Your home's value changes monthly. George's neighborhood-specific analysis gives you the accurate number — not a Zillow guess. Report delivered within 24 hours.
+  Description 3: Thinking of selling? Start with the facts. George's 14+ years in Temecula Valley means he knows what buyers are paying — down to the street.
+  Description 4: 23+ five-star reviews from real homeowners. George is the most trusted name in Temecula Valley real estate. Call or request your free valuation online.
+
+
+================================================================
+CAMPAIGN 3: RUSSIAN SPEAKING (Search)
+================================================================
+Network: Search only
+Location: Same as Campaign 1 + San Diego, Los Angeles (broader for Russian speakers)
+Language: English + Russian
+
+----------------------------------------------------------------
+AD GROUP 1: Russian Realtor
+----------------------------------------------------------------
+Keywords:
+  russian realtor temecula
+  russian speaking real estate agent temecula
+  russian realtor southern california
+  realtor russian language temecula
+  ukrainian realtor temecula
+  russian real estate agent murrieta
+
+Landing Page: https://temeculavalleyhomes.us/russian-speaking-realtor-temecula/
+
+RSA:
+  Headline 1:  Russian Speaking Realtor Temecula
+  Headline 2:  George Khazanovskiy - Realtor
+  Headline 3:  14+ Years Temecula Experience
+  Headline 4:  5.0 Star Google Rating
+  Headline 5:  English, Russian & Ukrainian
+  Headline 6:  Call (619) 277-2766
+  Headline 7:  Free Consultation
+  Headline 8:  The Only Russian Realtor Here
+  Headline 9:  DRE #02034120
+  Headline 10: Temecula Valley Expert
+  Headline 11: Contracts in Russian
+  Headline 12: Relocation Assistance
+  Headline 13: Buying & Selling Homes
+  Headline 14: Trilingual Real Estate Service
+  Headline 15: Available 7 Days a Week
+
+  Description 1: George Khazanovskiy — the only Russian and Ukrainian speaking Realtor in Temecula Valley. 14+ years experience, 5.0 star Google rating. Call (619) 277-2766.
+  Description 2: Full real estate services in Russian — home search, contracts, negotiation, closing. Serving Temecula, Murrieta, Menifee, Winchester & Lake Elsinore.
+  Description 3: George Khazanovskiy is the only Russian and Ukrainian speaking Realtor in Temecula Valley. 14+ years experience, perfect 5.0 star rating. Free consultation.
+  Description 4: Buying or selling a home? Get expert guidance in your language. Contract review, negotiation, and closing support — all in Russian or Ukrainian.
+
+
+================================================================
+CAMPAIGN 4: NEARBY CITIES (Search)
+================================================================
+Network: Search only
+Location: Murrieta, Menifee, Winchester, Lake Elsinore, Wildomar (15 mi radius each)
+Language: English
+
+----------------------------------------------------------------
+AD GROUP 1: Murrieta
+----------------------------------------------------------------
+Keywords:
+  homes for sale murrieta
+  murrieta real estate agent
+  murrieta ca homes for sale
+  buy home murrieta
+  murrieta houses for sale
+  murrieta realtor
+
+Landing Page: https://temeculavalleyhomes.us/search-all-homes/
+
+RSA:
+  Headline 1:  Murrieta Homes For Sale
+  Headline 2:  Safest City in California
+  Headline 3:  Median Price ~$650K
+  Headline 4:  Great Schools & Family Living
+  Headline 5:  14+ Years Local Experience
+  Headline 6:  5.0 Star Google Rated Agent
+  Headline 7:  Call George (619) 277-2766
+  Headline 8:  Spencer's Crossing & Greer Ranch
+  Headline 9:  Free MLS Access
+  Headline 10: George Khazanovskiy, Realtor
+  Headline 11: Easy I-15 & I-215 Commute
+  Headline 12: Browse All Murrieta Listings
+  Headline 13: New & Resale Homes Available
+  Headline 14: Free Buyer Consultation
+  Headline 15: Top Murrieta Neighborhoods
+
+  Description 1: Search all Murrieta homes for sale. One of California's safest cities with excellent schools, family-friendly neighborhoods & easy freeway access. Median ~$650K.
+  Description 2: George Khazanovskiy serves Murrieta, Temecula & the entire valley. 14+ years experience, 5.0 star rating. Get personalized MLS access — call (619) 277-2766.
+  Description 3: Popular Murrieta neighborhoods: Spencer's Crossing, Greer Ranch, The Oaks. Growing commercial center, top-rated schools. Free home search setup.
+  Description 4: Bilingual English & Russian. The only trilingual agent in the region. Available 7 days a week for tours, consultations & questions.
+
+----------------------------------------------------------------
+AD GROUP 2: Menifee / Winchester
+----------------------------------------------------------------
+Keywords:
+  homes for sale menifee
+  winchester ca homes
+  menifee real estate
+  menifee homes for sale
+  winchester homes for sale
+  buy home menifee ca
+  menifee realtor
+
+Landing Page: https://temeculavalleyhomes.us/homes-under-600k/
+
+RSA:
+  Headline 1:  Menifee Homes - Best Value in IE
+  Headline 2:  Homes From $560K
+  Headline 3:  Fastest Growing City in IE
+  Headline 4:  New Construction Available
+  Headline 5:  Audie Murphy Ranch & More
+  Headline 6:  Call George (619) 277-2766
+  Headline 7:  Winchester Homes From $620K
+  Headline 8:  14+ Years Temecula Valley Expert
+  Headline 9:  5.0 Star Google Rating
+  Headline 10: Free MLS Search Setup
+  Headline 11: Great for First-Time Buyers
+  Headline 12: George Khazanovskiy, Realtor
+  Headline 13: Newer Homes, Lower Prices
+  Headline 14: Excellent School Districts
+  Headline 15: Browse All Menifee Listings
+
+  Description 1: Menifee offers the best value in the Inland Empire — newer construction from $560K. Audie Murphy Ranch, Heritage Lake & more. George Khazanovskiy, 5.0 star Realtor.
+  Description 2: Winchester homes with Temecula Valley schools from $620K. Larger lots, rural feel, close to everything. French Valley Airport nearby. Free MLS search.
+  Description 3: One of the fastest-growing cities in Riverside County. New retail, dining & infrastructure. Perfect for first-time buyers seeking maximum value.
+  Description 4: George serves Menifee, Winchester, Temecula & the entire valley. 14+ years experience. Bilingual English/Russian. Call (619) 277-2766.
+
+
+================================================================
+SITELINK EXTENSIONS (Apply to all campaigns)
+================================================================
+
+Sitelink 1:
+  Text: Search All Homes
+  URL:  https://temeculavalleyhomes.us/search-all-homes/
+  Description Line 1: Browse every listing in Temecula Valley
+  Description Line 2: Full MLS access with personalized results
+
+Sitelink 2:
+  Text: Free Home Valuation
+  URL:  https://temeculavalleyhomes.us/home-valuation/
+  Description Line 1: Know your home's true market value
+  Description Line 2: Free CMA report delivered in 24 hours
+
+Sitelink 3:
+  Text: About George
+  URL:  https://temeculavalleyhomes.us/about-george/
+  Description Line 1: 14+ years experience, 5.0 star rating
+  Description Line 2: The only trilingual Realtor in Temecula Valley
+
+Sitelink 4:
+  Text: First-Time Buyer Guide
+  URL:  https://temeculavalleyhomes.us/first-time-buyer-guide/
+  Description Line 1: 8-step guide to buying your first home
+  Description Line 2: Down payment assistance & FHA info included
+
+
+================================================================
+CALL EXTENSION (Apply to all campaigns)
+================================================================
+Phone: (619) 277-2766
+Call reporting: On
+Count calls as conversions: Yes (30 sec minimum)
+
+
+================================================================
+CALLOUT EXTENSIONS (Apply to all campaigns)
+================================================================
+Callout 1: 14+ Years Local Experience
+Callout 2: 5.0 Star Google Rating
+Callout 3: Bilingual English & Russian
+Callout 4: Free Buyer Consultations
+Callout 5: Available 7 Days a Week
+Callout 6: DRE #02034120
+Callout 7: No Obligation
+Callout 8: Same-Day Responses
+
+
+================================================================
+STRUCTURED SNIPPETS (Apply to all campaigns)
+================================================================
+Header: Neighborhoods
+Values: Wolf Creek, Wine Country, Redhawk, Paloma Del Sol, Old Town, Vail Ranch, Morgan Hill, Crown Hill
+
+Header: Service areas
+Values: Temecula, Murrieta, Menifee, Winchester, Lake Elsinore, Wildomar, Fallbrook
+
+Header: Types
+Values: Single Family, Condos, Luxury Estates, New Construction, 55+ Communities, Horse Properties
+
+
+================================================================
+NEGATIVE KEYWORDS (Apply to all campaigns)
+================================================================
+rent
+rental
+renting
+apartment
+apartments
+lease
+leasing
+zillow
+redfin
+realtor.com
+trulia
+compass
+jobs
+salary
+career
+hiring
+employment
+free
+foreclosure
+auction
+commercial
+office
+warehouse
+retail space
+loan officer
+mortgage broker
+home inspector
+hoa
+property management
+property manager
+
+
+================================================================
+CAMPAIGN SETTINGS SUMMARY
+================================================================
+
+Campaign 1: Temecula Home Buyers
+  Budget:       $15-20/day
+  Bid Strategy: Maximize Clicks
+  Ad Groups:    5 (General, Affordable, Luxury, New Construction, First-Time)
+
+Campaign 2: Temecula Home Sellers
+  Budget:       $10-15/day
+  Bid Strategy: Maximize Clicks
+  Ad Groups:    2 (Sell My Home, Home Valuation)
+
+Campaign 3: Russian Speaking
+  Budget:       $5-10/day
+  Bid Strategy: Maximize Clicks
+  Ad Groups:    1 (Russian Realtor)
+
+Campaign 4: Nearby Cities
+  Budget:       $10-15/day
+  Bid Strategy: Maximize Clicks
+  Ad Groups:    2 (Murrieta, Menifee/Winchester)
+
+TOTAL DAILY BUDGET: $40-60/day ($1,200-1,800/month)
+
+================================================================
+NOTES
+================================================================
+1. All RSAs use 15 headlines and 4 descriptions (Google's maximum).
+2. Pin Headline 1 to position 1 for brand consistency.
+3. Pin the phone number headline to position 3 as a fallback.
+4. Review Search Terms report weekly and add negatives.
+5. After 2 weeks of data, pause low-CTR keywords (<1%).
+6. After 30 days with enough clicks, consider switching to Maximize Conversions.
+7. Conversion tracking is already installed with 3 labels:
+   - Phone: AW-18044804522/LL2DCN-15ZEcEKq7t5xD
+   - Email: AW-18044804522/aBETCNm15ZEcEKq7t5xD
+   - Form:  AW-18044804522/J5XxCNy15ZEcEKq7t5xD
