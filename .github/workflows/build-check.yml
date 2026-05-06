@@ -1,0 +1,36 @@
+name: build-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build on push & PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build produced expected routes
+        run: |
+          test -f dist/index.html
+          test -f dist/homes-for-sale-temecula/index.html
+          test -f dist/sell-my-house/index.html
+          test -f dist/contact/index.html
+          test -f dist/russian-speaking-realtor-temecula/index.html
+          test -f dist/sitemap.xml
+          test -f dist/version.json
