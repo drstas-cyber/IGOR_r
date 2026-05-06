@@ -19,7 +19,7 @@ const SITE = 'https://temeculavalleyhomes.us';
 const ROUTES = [
   { path: '/',                                  component: 'HomePage.jsx',           priority: 1.0, changefreq: 'weekly'  },
   { path: '/homes-for-sale-temecula/',          component: 'BuyerHomesPage.jsx',     priority: 0.9, changefreq: 'weekly'  },
-  { path: '/russian-speaking-realtor-temecula', component: 'RussianRealtorPage.jsx', priority: 0.9, changefreq: 'monthly' },
+  { path: '/russian-speaking-realtor-temecula/', component: 'RussianRealtorPage.jsx', priority: 0.9, changefreq: 'monthly' },
   { path: '/sell-my-house/',                    component: 'SellMyHousePage.jsx',    priority: 0.8, changefreq: 'monthly' },
   { path: '/contact/',                          component: 'ContactPage.jsx',        priority: 0.7, changefreq: 'yearly'  },
 ];
