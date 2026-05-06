@@ -32,5 +32,6 @@ jobs:
           test -f dist/sell-my-house/index.html
           test -f dist/contact/index.html
           test -f dist/russian-speaking-realtor-temecula/index.html
+          test -f dist/about-george/index.html
           test -f dist/sitemap.xml
           test -f dist/version.json

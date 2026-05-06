@@ -7,6 +7,7 @@ import RussianRealtorPage from '@/components/RussianRealtorPage';
 import ContactPage from '@/components/ContactPage';
 import SellMyHousePage from '@/components/SellMyHousePage';
 import BuyerHomesPage from '@/components/BuyerHomesPage';
+import AboutGeorgePage from '@/components/AboutGeorgePage';
 
 function App() {
   return (
@@ -28,6 +29,8 @@ function App() {
           <Route path="/sell-my-house/" element={<SellMyHousePage />} />
           <Route path="/homes-for-sale-temecula" element={<BuyerHomesPage />} />
           <Route path="/homes-for-sale-temecula/" element={<BuyerHomesPage />} />
+          <Route path="/about-george" element={<AboutGeorgePage />} />
+          <Route path="/about-george/" element={<AboutGeorgePage />} />
         </Routes>
       </Router>
       

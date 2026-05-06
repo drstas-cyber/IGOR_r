@@ -21,6 +21,7 @@ const ROUTES = [
   { path: '/homes-for-sale-temecula/',          component: 'BuyerHomesPage.jsx',     priority: 0.9, changefreq: 'weekly'  },
   { path: '/russian-speaking-realtor-temecula/', component: 'RussianRealtorPage.jsx', priority: 0.9, changefreq: 'monthly' },
   { path: '/sell-my-house/',                    component: 'SellMyHousePage.jsx',    priority: 0.8, changefreq: 'monthly' },
+  { path: '/about-george/',                     component: 'AboutGeorgePage.jsx',    priority: 0.7, changefreq: 'monthly' },
   { path: '/contact/',                          component: 'ContactPage.jsx',        priority: 0.7, changefreq: 'yearly'  },
 ];
 
