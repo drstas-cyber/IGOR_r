@@ -20,10 +20,11 @@ Read this before doing anything in this working tree.
 5. Verify by fetching `https://temeculavalleyhomes.us/version.json`:
    - `commit` matches `git rev-parse HEAD`
    - `dirty: false`
-   - `buildEnv: "ci"`
+   - `buildEnv: "cf-pages"`
 
-A healthy production deploy reports `buildEnv: "ci"` and `dirty: false`. Anything else means
-the build did not come through the canonical path.
+A healthy production deploy reports `buildEnv: "cf-pages"` and `dirty: false`. The value
+`"ci"` only appears in `build-check` workflow artifacts (validation, not deployment).
+`"local"` on the live site means a wrangler-from-local upload bypassed the canonical path.
 
 ## Forbidden
 

@@ -8,11 +8,13 @@
 //   timestamp — ISO 8601 build time
 //   dirty     — true if `git status --porcelain` was non-empty at build time
 //               (i.e. uncommitted/untracked files were present in the build tree)
-//   buildEnv  — 'ci' if process.env.GITHUB_ACTIONS === 'true', else 'local'
+//   buildEnv  — 'cf-pages' if process.env.CF_PAGES === '1' (Cloudflare Pages runner),
+//               'ci' if process.env.GITHUB_ACTIONS === 'true' (GitHub Actions), else 'local'
 //
-// A healthy production deploy reports buildEnv='ci' and dirty=false. Any other combination
-// indicates the build did not come through the canonical git push -> GitHub Actions ->
-// Cloudflare Pages auto-deploy path.
+// A healthy production deploy reports buildEnv='cf-pages' and dirty=false. The 'ci' value
+// only appears in artifacts produced by the build-check workflow (which validates but does
+// not deploy). 'local' on the live site means a wrangler-from-local upload bypassed the
+// canonical git push -> Cloudflare Pages auto-deploy path.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,12 +38,15 @@ function git(cmd) {
   }
 }
 
-const commit = git('rev-parse HEAD') || 'unknown';
-const branch = git('rev-parse --abbrev-ref HEAD') || 'unknown';
+const commit = process.env.CF_PAGES_COMMIT_SHA || git('rev-parse HEAD') || 'unknown';
+const branch = process.env.CF_PAGES_BRANCH || git('rev-parse --abbrev-ref HEAD') || 'unknown';
 const status = git('status --porcelain');
 const dirty = status === null ? null : status.length > 0;
 const timestamp = new Date().toISOString();
-const buildEnv = process.env.GITHUB_ACTIONS === 'true' ? 'ci' : 'local';
+const buildEnv =
+  process.env.CF_PAGES === '1' ? 'cf-pages' :
+  process.env.GITHUB_ACTIONS === 'true' ? 'ci' :
+  'local';
 
 const payload = { commit, branch, timestamp, dirty, buildEnv };
 
