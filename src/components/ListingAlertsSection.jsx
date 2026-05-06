@@ -1,4 +1,5 @@
 import { validateSubmission, resetFormTimer } from '@/lib/antispam';
+import { trackFormSubmission } from '@/lib/tracking';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
@@ -30,6 +31,7 @@ export default function ListingAlertsSection() {
       });
 
       if (response.ok) {
+        trackFormSubmission('listing_alert', { form_name: 'listing_alerts' });
         toast({
           title: "Success!",
           description: "Thank you! George will contact you within 24 hours. 619-277-2766",

@@ -74,7 +74,7 @@ export default function Navigation() {
               🇷🇺 RU
             </Link>
 
-            <a href="tel:16192772766" onClick={() => { if (window.gtag) { window.gtag('event', 'phone_click'); window.gtag('event', 'conversion', { send_to: 'AW-18044804522/LL2DCN-15ZEcEKq7t5xD', value: 50.0, currency: 'USD' }); } }}>
+            <a href="tel:16192772766">
               <Button className="bg-accent hover:bg-accent/90 text-secondary font-semibold uppercase tracking-wider text-xs px-6 py-5 rounded-none border border-accent">
                 <span className="hidden sm:inline">Inquire Now</span>
                 <span className="sm:hidden">Call</span>

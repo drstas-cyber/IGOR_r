@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import Navigation from './Navigation';
 import Footer from './Footer';
-import { trackFormSubmission } from '@/lib/tracking';
 import { validateSubmission, resetFormTimer } from '@/lib/antispam';
 
 export default function SellMyHousePage() {
@@ -36,7 +35,6 @@ export default function SellMyHousePage() {
         headers: { Accept: 'application/json' },
       });
       if (response.ok) {
-        trackFormSubmission('seller_lead', { form_name: 'sell_my_house_valuation' });
         if (window.gtag) {
           window.gtag('event', 'conversion', { send_to: 'AW-18044804522/J5XxCNy15ZEcEKq7t5xD', value: 100.0, currency: 'USD' });
           window.gtag('event', 'generate_lead', { currency: 'USD', value: 100 });
