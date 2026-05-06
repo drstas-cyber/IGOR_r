@@ -17,11 +17,11 @@ export default function AboutGeorgePage() {
         <html lang="en" />
         <title>About George Khazanovskiy | Temecula Valley Realtor® | DRE #02034120</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/about-george/" />
-        <meta name="description" content="Meet George Khazanovskiy — top-rated Temecula Valley Realtor with 14+ years local experience, perfect 5.0★ Google rating, and the only Russian/Ukrainian-speaking real estate agent in the region. Allison James Estates & Homes, DRE #02034120." />
+        <meta name="description" content="Meet George Khazanovskiy — top-rated Temecula Valley Realtor with 14+ years local experience, five-star reviewed, and the only Russian/Ukrainian-speaking real estate agent in the region. Allison James Estates & Homes, DRE #02034120." />
         <meta name="keywords" content="George Khazanovskiy, Temecula realtor, Russian speaking realtor Temecula, Ukrainian realtor Temecula, Allison James, DRE 02034120, Temecula real estate agent, trilingual realtor" />
 
         <meta property="og:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta property="og:description" content="14+ yrs local experience, 5.0★ Google rating, only Russian/Ukrainian-speaking realtor in Temecula Valley. Allison James Estates & Homes." />
+        <meta property="og:description" content="14+ yrs local experience, five-star reviewed, only Russian/Ukrainian-speaking realtor in Temecula Valley. Allison James Estates & Homes." />
         <meta property="og:type" content="profile" />
         <meta property="og:url" content="https://temeculavalleyhomes.us/about-george/" />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
@@ -30,7 +30,7 @@ export default function AboutGeorgePage() {
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta name="twitter:description" content="14+ yrs local experience, 5.0★ Google rating, only Russian/Ukrainian-speaking realtor in Temecula Valley." />
+        <meta name="twitter:description" content="14+ yrs local experience, five-star reviewed, only Russian/Ukrainian-speaking realtor in Temecula Valley." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
 
         <script type="application/ld+json">{JSON.stringify({

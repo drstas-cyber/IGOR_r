@@ -1,7 +1,7 @@
 import React from 'react';
 
 export default function ScrollingTicker() {
-  const content = "🏡 Temecula Median: $740,000 📈 176 Homes Sold Jan 2026 — Up 12.1% YoY ⚡ Hot Homes Sell in 25 Days 📊 Sale-to-List: 100.1% of Asking 🌟 George: 5.0★ Google Reviews 🏠 Inventory: 1.27 Months — Seller's Market \u00A0\u00A0\u00A0\u00A0\u00A0|\u00A0\u00A0\u00A0\u00A0\u00A0 ";
+  const content = "🏡 Temecula Median: $740,000 📈 176 Homes Sold Jan 2026 — Up 12.1% YoY ⚡ Hot Homes Sell in 25 Days 📊 Sale-to-List: 100.1% of Asking 🌟 George: Five-Star Reviewed 🏠 Inventory: 1.27 Months — Seller's Market \u00A0\u00A0\u00A0\u00A0\u00A0|\u00A0\u00A0\u00A0\u00A0\u00A0 ";
 
   return (
     <div 

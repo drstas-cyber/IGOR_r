@@ -41,7 +41,7 @@ export default function RussianRealtorPage() {
     { icon: "📅", title: "14+ лет", description: "Более десятилетия опыта в недвижимости, инвестициях и сложных переговорах." },
     { icon: "🗣️", title: "Двуязычный", description: "Свободно владею русским, украинским и английским. Никаких языковых барьеров." },
     { icon: "📝", title: "Сделки на русском", description: "Полное объяснение всех контрактов, инспекций и эскроу на вашем родном языке." },
-    { icon: "⚡", title: "24/7 доступен", description: "Всегда на связи для ответов на ваши вопросы и показа горячих объектов." }
+    { icon: "⚡", title: "7 дней в неделю", description: "Всегда на связи для ответов на ваши вопросы и показа горячих объектов." }
   ];
 
   const services = [
@@ -211,7 +211,7 @@ export default function RussianRealtorPage() {
               <p className="font-sans text-[16px] text-gray-600 mb-6">Realtor® &middot; DRE #02034120</p>
               
               <div className="grid grid-cols-2 gap-3 mb-8 w-full">
-                {['5.0★ Google Rating', '14+ Лет Опыта', 'Русский/Английский', '24/7 Поддержка'].map((stat, i) => (
+                {['Топ Риэлтор', '14+ Лет Опыта', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
                   <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[13px] sm:text-[12px] py-2 px-3 rounded-full text-center font-medium">
                     {stat}
                   </div>

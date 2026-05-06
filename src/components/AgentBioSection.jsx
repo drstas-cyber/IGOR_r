@@ -60,7 +60,7 @@ export default function AgentBioSection() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-8 w-full max-w-sm">
-              {['5.0★ Google Rating', '14+ Yrs Local Exp.', '2 Languages', '24/7 Availability'].map((stat, i) => (
+              {['Top-Rated Realtor', '14+ Yrs Local Exp.', 'Trilingual Service', '7-Day Availability'].map((stat, i) => (
                 <div key={i} className="bg-[#F5E6D3] text-[#12202A] font-sans text-[13px] sm:text-[12px] py-[10px] px-[16px] rounded-full text-center font-medium shadow-sm">
                   {stat}
                 </div>
@@ -91,8 +91,8 @@ export default function AgentBioSection() {
               <div className="flex items-start gap-4">
                 <span className="text-[32px] leading-none">📊</span>
                 <div>
-                  <h4 className="font-sans text-[14px] font-bold text-[#12202A] mb-1">Real-Time MLS Data</h4>
-                  <p className="font-sans text-[14px] text-[#666666]">Access the latest listings before they hit public sites.</p>
+                  <h4 className="font-sans text-[14px] font-bold text-[#12202A] mb-1">Local Market Knowledge</h4>
+                  <p className="font-sans text-[14px] text-[#666666]">Deep familiarity with Temecula neighborhoods, pricing, and inventory.</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">

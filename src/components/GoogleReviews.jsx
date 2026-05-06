@@ -40,7 +40,7 @@ export default function GoogleReviews() {
             What Temecula Families Say
           </h2>
           <p className="font-sans text-[16px] text-gray-600 leading-[1.6]">
-            Real reviews from real clients — straight from Google.
+            Stories from clients George has helped buy or sell.
           </p>
         </motion.div>
 
@@ -87,7 +87,7 @@ export default function GoogleReviews() {
           >
             <span className="font-serif text-white text-xl font-bold bg-[#12202A] w-8 h-8 flex items-center justify-center rounded-full">G</span>
             <span className="font-sans text-[14px] text-[#12202A] font-bold">
-              See All Reviews on Google ★★★★★
+              Find George on Google
             </span>
           </a>
         </motion.div>
