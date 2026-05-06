@@ -94,7 +94,6 @@ export default function AboutGeorgePage() {
               "aggregateRating": {
                 "@type": "AggregateRating",
                 "ratingValue": "5.0",
-                "reviewCount": "23",
                 "bestRating": "5"
               }
             }

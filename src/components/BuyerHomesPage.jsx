@@ -51,7 +51,7 @@ export default function BuyerHomesPage() {
           "telephone": "+1-619-277-2766",
           "areaServed": ["Temecula", "Murrieta", "Menifee", "Lake Elsinore", "Wildomar", "Winchester", "Fallbrook"],
           "address": { "@type": "PostalAddress", "addressRegion": "CA", "addressLocality": "Temecula" },
-          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5", "reviewCount": "47" },
+          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5" },
           "knowsLanguage": ["English", "Russian", "Ukrainian"],
         })}</script>
       </Helmet>
