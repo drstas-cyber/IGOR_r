@@ -5,3 +5,8 @@ dist
 .env
 .env.*
 001_web/.netlify/
+
+# Deploy / tooling state — never commit
+.netlify/
+.wrangler/
+.claude/
