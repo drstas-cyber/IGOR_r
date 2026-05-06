@@ -75,10 +75,10 @@ export default function Footer() {
           <div>
             <h3 className={headingClasses}>Important Links</h3>
             <div className="space-y-4 md:space-y-[24px]">
-              <a href="#search" className={linkClasses}>Property Search</a>
-              <a href="#homevalue" className={linkClasses}>Home Valuation</a>
-              <a href="#about" className={linkClasses}>About George</a>
-              <a href="#alerts" className={linkClasses}>Get Listing Alerts</a>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>Browse Temecula Homes</Link>
+              <Link to="/sell-my-house/" className={linkClasses}>Free Home Valuation</Link>
+              <Link to="/about-george/" className={linkClasses}>About George</Link>
+              <Link to="/contact/" className={linkClasses}>Contact</Link>
             </div>
           </div>
 
