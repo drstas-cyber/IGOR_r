@@ -13,6 +13,16 @@ export default function SearchSection({
   setIsSubmitted,
   isLoading
 }) {
+  React.useEffect(() => { resetFormTimer(); }, []);
+
+  const wrappedSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const check = validateSubmission({ email: fd.get("email"), name: fd.get("name"), website_url: fd.get("website_url") });
+    if (check.blocked) { alert("Please use a valid email address."); return; }
+    handleSubmit(e);
+  };
+
   const handleOpenModal = (e) => {
     e.preventDefault();
     setShowModal(true);
@@ -111,7 +121,10 @@ export default function SearchSection({
                       Enter your details to view full property details, photos, and virtual tours directly from the CRMLS.
                     </p>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={wrappedSubmit} className="space-y-4">
+                      <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+                        <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                         <Input required type="text" name="name" placeholder="John Doe" className="bg-white border-gray-300 text-gray-900" />

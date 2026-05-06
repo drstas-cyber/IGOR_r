@@ -7,6 +7,7 @@ import { trackFormSubmission } from '@/lib/tracking';
 
 export default function RussianHomeValueForm() {
   const { toast } = useToast();
+  React.useEffect(() => { resetFormTimer(); }, []);
   const [formData, setFormData] = useState({
     address: '',
     name: '',
@@ -69,6 +70,9 @@ export default function RussianHomeValueForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+        <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
+      </div>
       <div>
         <Input
           placeholder="Адрес дома (например: 123 Main St, Temecula)"

@@ -6,6 +6,7 @@ import { trackFormSubmission } from '@/lib/tracking';
 
 export default function HomeValueForm() {
   const { toast } = useToast();
+  React.useEffect(() => { resetFormTimer(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -104,7 +105,10 @@ export default function HomeValueForm() {
           <div className="bg-[#FAF6EF] rounded-[8px] p-8 md:p-[40px] shadow-2xl">
             <form onSubmit={handleSubmit} action="https://formsubmit.co/askgeorgek@gmail.com" method="POST" className="space-y-4">
               <input type="hidden" name="_replyto" value="george@temeculavalleyhomes.us" />
-              
+              <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+                <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
+              </div>
+
               <div>
                 <input required type="text" name="property_address" placeholder="123 Main St, Temecula, CA" className={inputClasses} />
               </div>

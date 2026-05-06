@@ -6,9 +6,14 @@ import { useToast } from '@/components/ui/use-toast';
 export default function ListingAlertsSection() {
   const { toast } = useToast();
 
+  React.useEffect(() => { resetFormTimer(); }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
+    const fd = new FormData(form);
+    const check = validateSubmission({ email: fd.get("email"), name: fd.get("name"), website_url: fd.get("website_url") });
+    if (check.blocked) { toast({ title: "Error", description: "Please use a valid email address.", variant: "destructive" }); return; }
     const formData = new FormData(form);
 
     formData.append('_subject', 'New Alert Signup: ' + (formData.get('name') || 'Unknown'));
@@ -81,7 +86,10 @@ export default function ListingAlertsSection() {
           className="max-w-5xl mx-auto"
         >
           <input type="hidden" name="_replyto" value="george@temeculavalleyhomes.us" />
-          
+          <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+            <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <input 
               required 
