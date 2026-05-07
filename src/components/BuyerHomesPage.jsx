@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import StickyNavigation from '@/components/StickyNavigation';
 import StatsBar from '@/components/StatsBar';
-import FeaturedListings from '@/components/FeaturedListings';
 import NeighborhoodsGrid from '@/components/NeighborhoodsGrid';
 import GoogleReviews from '@/components/GoogleReviews';
 import AgentBioSection from '@/components/AgentBioSection';
@@ -94,11 +93,6 @@ export default function BuyerHomesPage() {
 
         {/* 2. STATS — quick credibility bar */}
         <StatsBar />
-
-        {/* 3. FEATURED LISTINGS — actual inventory above the fold (KEY for QS) */}
-        <div id="featured-listings">
-          <FeaturedListings />
-        </div>
 
         {/* 4. NEIGHBORHOODS — answers "homes for sale in [neighborhood]" intent */}
         <NeighborhoodsGrid />

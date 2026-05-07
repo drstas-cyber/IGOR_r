@@ -4,7 +4,6 @@ import ScrollingTicker from '@/components/ScrollingTicker';
 import StickyNavigation from '@/components/StickyNavigation';
 import HeroSection from '@/components/HeroSection';
 import StatsBar from '@/components/StatsBar';
-import FeaturedListings from '@/components/FeaturedListings';
 import HomeValueForm from '@/components/HomeValueForm';
 import BilingualBand from '@/components/BilingualBand';
 import GoogleReviews from '@/components/GoogleReviews';
@@ -59,10 +58,7 @@ export default function HomePage() {
         {/* 4. Agent Credentials */}
         <AgentBioSection />
 
-        {/* 5. Featured Listings */}
-        <FeaturedListings />
-
-        {/* 6. Contact Form */}
+        {/* 5. Contact Form */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ContactForm />
         </main>
