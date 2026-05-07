@@ -60,7 +60,7 @@ export default function AgentBioSection() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-8 w-full max-w-sm">
-              {['Top-Rated Realtor', '14+ Yrs Local Exp.', 'Trilingual Service', '7-Day Availability'].map((stat, i) => (
+              {['Top-Rated Realtor', 'Licensed Since 2017', 'Trilingual Service', '7-Day Availability'].map((stat, i) => (
                 <div key={i} className="bg-[#F5E6D3] text-[#12202A] font-sans text-[13px] sm:text-[12px] py-[10px] px-[16px] rounded-full text-center font-medium shadow-sm">
                   {stat}
                 </div>

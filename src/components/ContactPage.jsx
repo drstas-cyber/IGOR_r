@@ -50,7 +50,7 @@ export default function ContactPage() {
     <>
       <Helmet>
         <title>Contact George Khazanovskiy | Temecula Valley Realtor | (619) 277-2766</title>
-        <meta name="description" content="Contact George Khazanovskiy — top-rated Temecula Valley Realtor with 14+ years experience. Free consultation for buyers and sellers. Call (619) 277-2766." />
+        <meta name="description" content="Contact George Khazanovskiy — top-rated Temecula Valley Realtor, licensed since 2017. Free buyer consultation. Call (619) 277-2766." />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />
@@ -73,10 +73,10 @@ export default function ContactPage() {
               <span className="flex items-center gap-1">
                 <span className="text-[#C8920A]">★★★★★</span> 5.0 · 23 Reviews
               </span>
-              <span>14+ Years Local Expert</span>
+              <span>Licensed Realtor Since 2017</span>
             </div>
             <p className="text-gray-400 text-sm mt-1">English · Russian · Ukrainian</p>
-            <p className="text-[#C8920A] text-xs font-medium mt-2">Sellers average 100.1% of asking price</p>
+            <p className="text-[#C8920A] text-xs font-medium mt-2">Buyer-side specialist · 7-day response</p>
           </div>
 
           {/* Phone CTA */}
@@ -152,10 +152,10 @@ export default function ContactPage() {
           <h2 className="text-xl font-serif font-bold text-white mb-4 text-center">Why George?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              ['100.1% Sale-to-List Ratio', 'George gets sellers above asking price on average.'],
+              ['Buyer-Side Specialist', '~80% of George’s practice is buyer representation.'],
               ['Homes Sell in 25 Days', 'Faster than the valley average — strategic pricing works.'],
               ['Only Trilingual Agent', 'English, Russian, Ukrainian — serving all families.'],
-              ['Allison James Estates & Homes', '14+ years with a trusted, full-service brokerage.'],
+              ['Allison James Estates & Homes', 'Licensed since 2017 with a trusted, full-service brokerage.'],
             ].map(([title, desc], i) => (
               <div key={i} className="bg-[#12384a] rounded-lg p-4 border border-white/10">
                 <div className="text-[#C8920A] font-bold text-sm mb-1">✓ {title}</div>

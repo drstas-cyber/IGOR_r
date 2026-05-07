@@ -50,7 +50,7 @@ export default function SellMyHousePage() {
     <>
       <Helmet>
         <title>Sell Your Temecula Home for Top Dollar | George Khazanovskiy | (619) 277-2766</title>
-        <meta name="description" content="Get a free home valuation from George Khazanovskiy — Temecula sellers average 100.1% of asking price and sell in just 25 days. 14+ years local expertise." />
+        <meta name="description" content="Get a free home valuation from George Khazanovskiy — licensed Realtor since 2017, in real estate since 2000, deep Temecula market knowledge. No-obligation seller consultation." />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />
@@ -68,15 +68,15 @@ export default function SellMyHousePage() {
             Sell Your Temecula Home<br className="hidden sm:block" /> for Top Dollar
           </h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-md mx-auto mb-4">
-            George Khazanovskiy has helped Temecula Valley homeowners net <span className="text-[#C8920A] font-semibold">above asking price</span> for over 14 years.
+            George Khazanovskiy — licensed Temecula Realtor since 2017, in real estate since 2000. <span className="text-[#C8920A] font-semibold">Free, expert-backed valuation</span> from a local agent.
           </p>
 
           {/* Quick stats row */}
           <div className="flex flex-wrap justify-center gap-4 sm:gap-8 mb-6">
             {[
-              ['100.1%', 'Sale-to-List'],
               ['25 Days', 'Avg. Sell Time'],
-              ['14+ Years', 'Local Experience'],
+              ['Since 2017', 'Licensed Realtor'],
+              ['Trilingual', 'EN · RU · UA'],
             ].map(([stat, label]) => (
               <div key={label}>
                 <div className="text-[#C8920A] font-bold text-2xl sm:text-3xl font-serif">{stat}</div>
@@ -99,8 +99,8 @@ export default function SellMyHousePage() {
           <div className="max-w-3xl mx-auto px-4 py-5 flex flex-wrap justify-center gap-6 sm:gap-12 text-center">
             {[
               ['$740K', 'Temecula Median Price'],
-              ['100.1%', 'Avg. Sale-to-List'],
               ['25 Days', 'Avg. Days on Market'],
+              ['1.27 Mo', 'Inventory Supply'],
             ].map(([val, label]) => (
               <div key={label}>
                 <div className="text-white font-bold text-xl sm:text-2xl font-serif">{val}</div>
@@ -168,9 +168,9 @@ export default function SellMyHousePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              ['Sellers Average 100.1% of Asking Price', 'Strategic pricing backed by hyper-local data means you net more at closing.'],
+              ['Strategic Pricing & Negotiation', 'Hyper-local market data drives pricing and offer-response decisions, helping you net more at closing.'],
               ['Homes Sell in Just 25 Days', 'Professional staging guidance, photography, and aggressive marketing cut days on market.'],
-              ['14+ Years of Temecula Expertise', 'George knows every neighborhood, school zone, and price trend in the valley.'],
+              ['Licensed Realtor Since 2017', 'In real estate since 2000. George knows every neighborhood, school zone, and price trend in the valley.'],
               ['Trilingual — English, Russian, Ukrainian', 'Reaching more qualified buyers expands your pool and drives competition.'],
               ['Full-Service Marketing Plan', 'MLS, Zillow, Realtor.com, social media, and targeted advertising from day one.'],
               ['No Obligation Free Consultation', 'Get a professional valuation and selling strategy with zero pressure.'],

@@ -38,7 +38,7 @@ export default function RussianRealtorPage() {
   const whyGeorgeFeatures = [
     { icon: "🥇", title: "Только один", description: "Единственный русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
     { icon: "⭐", title: "5.0★ отзывов", description: "Исключительно положительные отзывы от десятков довольных семей в Южной Калифорнии." },
-    { icon: "📅", title: "14+ лет", description: "Более десятилетия опыта в недвижимости, инвестициях и сложных переговорах." },
+    { icon: "📅", title: "С 2017", description: "Лицензированный риэлтор с 2017 года, в недвижимости с 2000 года — глубокий опыт переговоров и инвестиций." },
     { icon: "🗣️", title: "Двуязычный", description: "Свободно владею русским, украинским и английским. Никаких языковых барьеров." },
     { icon: "📝", title: "Сделки на русском", description: "Полное объяснение всех контрактов, инспекций и эскроу на вашем родном языке." },
     { icon: "⚡", title: "7 дней в неделю", description: "Всегда на связи для ответов на ваши вопросы и показа горячих объектов." }
@@ -211,7 +211,7 @@ export default function RussianRealtorPage() {
               <p className="font-sans text-[16px] text-gray-600 mb-6">Realtor® &middot; DRE #02034120</p>
               
               <div className="grid grid-cols-2 gap-3 mb-8 w-full">
-                {['Топ Риэлтор', '14+ Лет Опыта', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
+                {['Топ Риэлтор', 'Лицензия с 2017', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
                   <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[13px] sm:text-[12px] py-2 px-3 rounded-full text-center font-medium">
                     {stat}
                   </div>

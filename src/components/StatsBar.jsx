@@ -5,7 +5,6 @@ export default function StatsBar() {
   const stats = [
     { value: "$740K", label: "Median Sale Price" },
     { value: "176 Sold", label: "January 2026" },
-    { value: "100.1%", label: "Sale-to-List Ratio" },
     { value: "25 Days", label: "Hot Homes Sell" },
     { value: "5.0★", label: "George's Rating" },
   ];
@@ -13,7 +12,7 @@ export default function StatsBar() {
   return (
     <div className="bg-[#0D2E3A] py-10 w-full">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 text-center divide-y sm:divide-y-0 lg:divide-x divide-[#C8920A]/20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center divide-y sm:divide-y-0 lg:divide-x divide-[#C8920A]/20">
           {stats.map((stat, index) => (
             <motion.div 
               key={index}

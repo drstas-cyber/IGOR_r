@@ -27,13 +27,13 @@ export default function HeroSection() {
           className="w-full lg:w-1/2 text-left"
         >
           <span className="block font-sans text-[13px] sm:text-[12px] text-[#C8920A] uppercase tracking-[0.15em] sm:tracking-[0.2em] font-semibold mb-4">
-            Top-Rated Realtor · 14+ Years · DRE #02034120
+            Top-Rated Realtor · Licensed Since 2017 · DRE #02034120
           </span>
           <h1 className="font-serif text-[36px] sm:text-[48px] lg:text-[56px] text-white font-bold leading-[1.1] mb-6 drop-shadow-md">
             Temecula Homes Are Selling in 25 Days — Are You Ready?
           </h1>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] max-w-lg font-light drop-shadow mb-8">
-            Median price $740K, selling at 100.1% of asking. George Khazanovskiy — top-rated, 14+ years local experience, and Temecula's only Russian & Ukrainian speaking Realtor.
+            Temecula median price $740K. George Khazanovskiy — top-rated, in real estate since 2000, licensed Realtor since 2017, and Temecula's only Russian & Ukrainian speaking agent.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-4">
             <a
