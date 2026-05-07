@@ -153,3 +153,63 @@ Until this is resolved, any ad copy session must filter draft headlines through 
 
 If you are an AI agent (terminal Claude, Cowork, etc.) about to draft TVH ad copy, **read this section before drafting**. Pulling claims from positioning copy or competitor analysis without filtering through this list will produce non-shippable drafts. The May 2026 RSA-drafting session that surfaced this gap took multiple iterations to converge on substantiated copy — that round-trip is now permanent context, not session-specific knowledge.
 
+---
+
+# RSA 2 candidate — generic buyer angle, not used in Option B initial deploy
+
+**Status:** Drafted 2026-05-06 as part of the Option B substantiated-copy round; rejected by Stan before creation. The "language-agnostic license + brokerage" angle was too overlapping with the buyer-side-specialist RSA 1: ~9 of 15 headlines shared, and the unique-to-RSA-2 lines ("Full-Service Brokerage", "No Pressure Approach") were generic enough that either ad could carry them. Google would flag asset similarity, and signal sharing across two near-identical ads slows learning. Cleaner to ship 2 RSAs (RSA 1 + RSA 3) with genuinely distinct angles than 3 with significant overlap.
+
+**Why preserved:** The work was good even if the angle was redundant. If a third RSA with a genuinely distinct angle is ever needed (neighborhood-specialist, full-service brokerage emphasis, etc.) draft fresh — but headlines/descriptions below are reusable verbatim if the angle becomes worth it later.
+
+**RSA 2 — Local Expertise & Tenure** (drafted but never created)
+- **Final URL:** `https://temeculavalleyhomes.us/homes-for-sale-temecula/`
+- **Display path:** `/Temecula/Realtor`
+- **Pinning STRICT:** P1 = name, P2 = "Allison James · DRE #02034120", P3 = "Licensed Since 2017"
+
+**Headlines (15):**
+1. George Khazanovskiy, Realtor®  *[would PIN P1]*
+2. Allison James · DRE #02034120  *[would PIN P2]*
+3. Licensed Since 2017  *[would PIN P3]*
+4. Local Temecula Realtor
+5. Allison James Brokerage
+6. Free Buyer Consultation
+7. In Real Estate Since 2000
+8. Wolf Creek to Wine Country
+9. Murrieta + Menifee Service
+10. Top-Rated Local Realtor
+11. Five-Star Reviewed Agent
+12. 7-Day Response Window
+13. Buyer-Side Specialist
+14. Full-Service Brokerage
+15. No Pressure Approach
+
+**Descriptions (4):**
+1. George K. — Allison James Estates & Homes — DRE #02034120. Licensed Realtor since 2017.
+2. Local Temecula expertise. In real estate since 2000. Wolf Creek, Wine Country, Old Town.
+3. Free buyer consultation. Top-rated, five-star reviewed. 7 days a week, no obligation.
+4. Allison James full-service brokerage. Buyer-side specialist. Serves Temecula, Murrieta, Menifee.
+
+---
+
+# Live RSA roster — Temecula Buyers ad group, post-2026-05-06 launch
+
+| Ad ID | Status | URL | Display path | Strategic angle |
+|---|---|---|---|---|
+| 807456288145 | ENABLED | `/` | `/Russian-Realtor/Temecula` | Converter (sacred — verbatim) |
+| 808073134277 | ENABLED | `/homes-for-sale-temecula/` | `/Buyer-Agent/Temecula` | RSA 1 — Buyer-Side Specialist |
+| 808073137871 | ENABLED | `/homes-for-sale-temecula/` | `/Pre-Approval/Temecula` | RSA 3 — Pre-Approval Support (ID Mortgage Broker partner) |
+| 808004457290 | PAUSED | `/homes-for-sale-temecula/` | `/Homes-For-Sale/` | Transitional clone, $0 conv history — paused at RSA launch |
+| 803984497645 / 805651137818 / 805972345804 / 806107473080 / 807704301960 | PAUSED | various | various | Earlier paused — see Russian-realtor archive above |
+
+**Cap math:** 3 ENABLED at Google's recommended cap (3 RSAs per ad group).
+**Budget:** $20/day on GK - Search Traffic (stepped up from $10 at RSA launch).
+**14-day checkpoint clock:** started 2026-05-07T01:54Z. First measurement window closes 2026-05-21.
+
+## Stan's checkpoint criteria
+- Hard stop: $200 spent OR 14 days, whichever first
+- 0 conversions → pause buyer LP, diagnose the page
+- 1-2 conversions → extend 7 days, signal too thin
+- 3+ conversions, CPA ≤ $120 → continue. Buyer leads worth $200-500 in pipeline, $120 is economically fine.
+- 3+ conversions, CPA > $120 → re-evaluate copy/keywords before blaming LP
+- 5+ conversions, CPA ≤ $80 → scale daily budget 1.5-2x for next 14 days
+
