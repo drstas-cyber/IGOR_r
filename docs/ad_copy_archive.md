@@ -213,3 +213,24 @@ If you are an AI agent (terminal Claude, Cowork, etc.) about to draft TVH ad cop
 - 3+ conversions, CPA > $120 → re-evaluate copy/keywords before blaming LP
 - 5+ conversions, CPA ≤ $80 → scale daily budget 1.5-2x for next 14 days
 
+---
+
+## RSA 4 future candidate — neighborhood-specialist angle (not yet drafted)
+
+When bandwidth allows for a 3rd active RSA in the Buyer ad group, the strongest unused English-targeted angle is **neighborhood specialty**: Wolf Creek, Wine Country, Old Town as differentiators with substantiable median-price callouts pulled from CRMLS market data. Substantiable, distinct from RSA 1 (practice mix) and RSA 3 (financing friction-reduction).
+
+**Do NOT graft onto RSA 2 retroactively** — RSA 2's overlap problem with RSA 1 doesn't go away just by changing P3 and a few headlines. Draft fresh from the neighborhood angle, with the headline pool built around neighborhood names + median prices + George's local-knowledge proof points.
+
+**Substantiation palette specific to this angle (when drafted):**
+- Wolf Creek (~$620K median per schema neighborhood data)
+- Wine Country (~$1.2M median)
+- Redhawk (~$545K)
+- Paloma Del Sol (~$575K)
+- Old Town (~$480K)
+- Vail Ranch (~$510K)
+- Morgan Hill (~$780K)
+- Crown Hill (~$850K)
+- Murrieta + Menifee service area extension
+
+Median prices come from the schema FAQ block — sourced as "early 2026 Temecula market." If running in late 2026, refresh from CRMLS export with timestamp.
+
