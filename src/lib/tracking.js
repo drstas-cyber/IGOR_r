@@ -1,14 +1,15 @@
 /**
  * Google Ads & GA4 conversion tracking helpers.
  * AW ID: AW-18044804522
- * Lead Form Label: Xuj2CIyqyJAcEKq7t5xD
+ * Form Submission Label: J5XxCNy15ZEcEKq7t5xD  (action 7553506012, PRIMARY $100)
  * Phone Click Label: 6MWcCKutt5AcEK6Cu5xD
  */
 
 export function trackFormSubmission(formName, formData = {}) {
   if (typeof window.gtag !== 'function') return;
 
-  // GA4 event — can be imported as a Google Ads conversion
+  // GA4 event — differentiates lead intent for behavioral analysis (value here is the
+  // GA4 event value, not the Ads conversion value below).
   window.gtag('event', 'generate_lead', {
     event_category: 'form',
     event_label: formName,
@@ -17,10 +18,12 @@ export function trackFormSubmission(formName, formData = {}) {
     ...formData,
   });
 
-  // Google Ads conversion — Lead Form Submission ($50)
+  // Google Ads conversion — PRIMARY Form Submission ($100). Must match the
+  // primary-for-goal conversion action so Smart Bidding can optimize. Previously
+  // pointed at Xuj2CIyqyJAcEKq7t5xD (non-PRIMARY $50), which was invisible to bidding.
   window.gtag('event', 'conversion', {
-    send_to: 'AW-18044804522/Xuj2CIyqyJAcEKq7t5xD',
-    value: 50.0,
+    send_to: 'AW-18044804522/J5XxCNy15ZEcEKq7t5xD',
+    value: 100.0,
     currency: 'USD',
   });
 }
