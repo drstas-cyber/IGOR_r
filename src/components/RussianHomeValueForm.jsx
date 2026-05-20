@@ -1,9 +1,9 @@
-import { validateSubmission, resetFormTimer } from '@/lib/antispam';
+import { resetFormTimer } from '@/lib/antispam';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { trackFormSubmission } from '@/lib/tracking';
+import { submitLead } from '@/lib/submitLead';
 
 export default function RussianHomeValueForm() {
   const { toast } = useToast();
@@ -12,56 +12,52 @@ export default function RussianHomeValueForm() {
     address: '',
     name: '',
     phone: '',
-    timeline: ''
+    timeline: '',
+    website_url: '',
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const _fd = new FormData(e.target); const _check = validateSubmission({ email: _fd.get("email"), name: _fd.get("name"), website_url: _fd.get("website_url") }); if (_check.blocked) { alert("Please use a valid email address."); return; }
     if (!formData.address || !formData.name || !formData.phone) {
       toast({
         title: "Ошибка",
         description: "Пожалуйста, заполните все обязательные поля.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    const submission = new FormData();
-    submission.append('property_address', formData.address);
-    submission.append('name', formData.name);
-    submission.append('phone', formData.phone);
-    submission.append('timeline', formData.timeline);
-    submission.append('_subject', 'Russian Home Value Request: ' + formData.name);
-    submission.append('_replyto', 'george@temeculavalleyhomes.us');
-    submission.append('_captcha', 'false');
+    const result = await submitLead({
+      form_name: 'home_value_russian',
+      raw: {
+        name:             formData.name,
+        phone:            formData.phone,
+        property_address: formData.address,
+        timeline:         formData.timeline,
+        website_url:      formData.website_url,
+      },
+      extra: { inquiry_type: 'russian_home_valuation' },
+    });
 
-    try {
-      const response = await fetch("https://formsubmit.co/askgeorgek@gmail.com", {
-        method: "POST",
-        body: submission,
-        headers: { 'Accept': 'application/json' }
+    if (result.ok) {
+      toast({
+        title: "Запрос отправлен!",
+        description: "Джордж подготовит оценку вашего дома и свяжется с вами в течение 24 часов.",
       });
-
-      if (response.ok) {
-        trackFormSubmission('home_value_russian', { form_name: 'russian_home_valuation' });
-        toast({
-          title: "Запрос отправлен!",
-          description: "Джордж подготовит оценку вашего дома и свяжется с вами в течение 24 часов.",
-        });
-        setFormData({ address: '', name: '', phone: '', timeline: '' });
-      } else {
-        toast({
-          title: "Ошибка",
-          description: "Произошла ошибка при отправке. Попробуйте ещё раз.",
-          variant: "destructive"
-        });
-      }
-    } catch {
+      setFormData({ address: '', name: '', phone: '', timeline: '', website_url: '' });
+    } else if (result.reason === 'blocked') {
       toast({
         title: "Ошибка",
-        description: "Не удалось подключиться к серверу. Попробуйте позже.",
-        variant: "destructive"
+        description: "Пожалуйста, используйте действительный email.",
+        variant: "destructive",
+      });
+    } else {
+      // Russian-localized send-failure recovery copy. George's number stays in English
+      // numerals — easier to dial than Cyrillic transcription.
+      toast({
+        title: "Не удалось отправить — позвоните Джорджу",
+        description: `Не удалось доставить запрос. Пожалуйста, позвоните напрямую: (619) 277-2766.`,
+        variant: "destructive",
       });
     }
   };
@@ -71,7 +67,14 @@ export default function RussianHomeValueForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
-        <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
+        <input
+          type="text"
+          name="website_url"
+          tabIndex="-1"
+          autoComplete="off"
+          value={formData.website_url}
+          onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+        />
       </div>
       <div>
         <Input

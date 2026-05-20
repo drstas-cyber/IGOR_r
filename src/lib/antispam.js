@@ -23,8 +23,13 @@ const BLOCKED_PATTERNS = [
   /upsave/i,
   /test@test/i,
   /spam/i,
-  /\.ru$/i,
-  /\.cn$/i,
+  // Removed 2026-05-19 (TVH EmailJS migration PR):
+  //   /\.ru$/i  — was blunt-instrument blocking the exact Russian-speaking
+  //               audience George targets (mail.ru / yandex.ru / rambler.ru
+  //               are ubiquitous and legitimate).
+  //   /\.cn$/i  — same blunt-instrument problem; removed for consistency.
+  // Honeypot, 2-second timer, tempmail-domain blocklist, and spam-content
+  // patterns carry the anti-spam load now.
 ];
 
 export function isSpamEmail(email) {

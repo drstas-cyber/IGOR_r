@@ -1,7 +1,7 @@
-import { validateSubmission, resetFormTimer } from '@/lib/antispam';
+import { resetFormTimer } from '@/lib/antispam';
 import React from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { trackFormSubmission } from '@/lib/tracking';
+import { submitLead } from '@/lib/submitLead';
 
 export default function SellForm() {
   const { toast } = useToast();
@@ -9,42 +9,32 @@ export default function SellForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const _fd = new FormData(e.target); const _check = validateSubmission({ email: _fd.get("email"), name: _fd.get("name"), website_url: _fd.get("website_url") }); if (_check.blocked) { alert("Please use a valid email address."); return; }
     const form = e.target;
     const formData = new FormData(form);
 
-    formData.append('_subject', 'New Seller Lead: ' + (formData.get('name') || 'Unknown'));
-    formData.append('_replyto', 'george@temeculavalleyhomes.us');
-    formData.append('_captcha', 'false');
+    const result = await submitLead({
+      form_name: 'seller_lead',
+      raw: formData,
+      extra: { inquiry_type: 'sell_form' },
+    });
 
-    try {
-      const response = await fetch("https://formsubmit.co/askgeorgek@gmail.com", {
-        method: "POST",
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        trackFormSubmission('seller_lead', { form_name: 'sell_form' });
-        toast({
-          title: "Request Sent!",
-          description: "Thank you! George will contact you within 24 hours. 619-277-2766",
-        });
-        form.reset();
-      } else {
-        toast({
-          title: "Error",
-          description: "There was a problem submitting your form. Please try again.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    if (result.ok) {
       toast({
-        title: "Error",
-        description: "There was a problem submitting your form.",
-        variant: "destructive"
+        title: "Request Sent!",
+        description: "Thank you! George will contact you within 24 hours. (619) 277-2766",
+      });
+      form.reset();
+    } else if (result.reason === 'blocked') {
+      toast({
+        title: "Unable to submit",
+        description: "Please use a valid email address.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Could not deliver — please call George",
+        description: result.recoveryMessage,
+        variant: "destructive",
       });
     }
   };
@@ -52,8 +42,7 @@ export default function SellForm() {
   const inputClasses = "w-full bg-white text-secondary px-4 py-3 min-h-[44px] border border-gray-200 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-[15px] font-light";
 
   return (
-    <form onSubmit={handleSubmit} action="https://formsubmit.co/askgeorgek@gmail.com" method="POST" className="space-y-4 mt-6">
-      <input type="hidden" name="_replyto" value="george@temeculavalleyhomes.us" />
+    <form onSubmit={handleSubmit} className="space-y-4 mt-6">
       <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
         <input type="text" name="website_url" tabIndex="-1" autoComplete="off" />
       </div>

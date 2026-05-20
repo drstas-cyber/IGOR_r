@@ -2,10 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import Navigation from './Navigation';
 import Footer from './Footer';
-import { validateSubmission, resetFormTimer } from '@/lib/antispam';
+import { resetFormTimer } from '@/lib/antispam';
+import { submitLead } from '@/lib/submitLead';
 
 export default function SellMyHousePage() {
   const [submitted, setSubmitted] = useState(false);
+  // sendError / blocked: visible recovery UI for the cases that the pre-2026-05-19
+  // `catch {}` swallowed silently. See ContactPage for the same pattern.
+  const [sendError, setSendError] = useState(null);
+  const [blocked, setBlocked] = useState(false);
+
   useEffect(() => {
     resetFormTimer();
     if (window.location.search.includes('submitted=true')) setSubmitted(true);
@@ -17,31 +23,26 @@ export default function SellMyHousePage() {
     const form = e.target;
     const formData = new FormData(form);
 
-    const check = validateSubmission({
-      email: formData.get('email') || '',
-      name: formData.get('name') || '',
-      website_url: formData.get('website_url'),
+    setSendError(null);
+    setBlocked(false);
+
+    const result = await submitLead({
+      form_name: 'seller_page',
+      raw: formData,
+      extra: { inquiry_type: 'home_valuation' },
     });
-    if (check.blocked) { alert('Please check your information and try again.'); return; }
 
-    formData.append('_subject', 'Seller Lead — Home Valuation Request: ' + (formData.get('name') || 'Unknown'));
-    formData.append('_next', 'https://temeculavalleyhomes.us/sell-my-house/?submitted=true');
-    formData.append('_captcha', 'false');
-
-    try {
-      const response = await fetch('https://formsubmit.co/askgeorgek@gmail.com', {
-        method: 'POST',
-        body: formData,
-        headers: { Accept: 'application/json' },
+    if (result.ok) {
+      setSubmitted(true);
+    } else if (result.reason === 'blocked') {
+      setBlocked(true);
+    } else {
+      setSendError({
+        message:      result.recoveryMessage,
+        phoneDisplay: result.recoveryPhoneDisplay,
+        phoneTel:     result.recoveryPhoneTel,
       });
-      if (response.ok) {
-        if (window.gtag) {
-          window.gtag('event', 'conversion', { send_to: 'AW-18044804522/J5XxCNy15ZEcEKq7t5xD', value: 100.0, currency: 'USD' });
-          window.gtag('event', 'generate_lead', { currency: 'USD', value: 100 });
-        }
-        setSubmitted(true);
-      }
-    } catch {}
+    }
   };
 
   const inputClasses = "w-full px-4 py-3 border border-gray-200 rounded-lg text-[15px] focus:outline-none focus:border-[#C8920A] focus:ring-1 focus:ring-[#C8920A] min-h-[48px]";
@@ -128,6 +129,23 @@ export default function SellMyHousePage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl p-6 shadow-lg">
+              {/* Send-failure recovery — replaces silent `catch {}` */}
+              {sendError && (
+                <div role="alert" className="mb-3 p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm font-semibold text-red-800 mb-1">We couldn't deliver your message right now.</p>
+                  <p className="text-sm text-red-700">
+                    Please call George directly:{' '}
+                    <a href={`tel:${sendError.phoneTel}`} className="font-bold text-red-900 underline">
+                      {sendError.phoneDisplay}
+                    </a>
+                  </p>
+                </div>
+              )}
+              {blocked && (
+                <div role="alert" className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <p className="text-sm text-amber-800">Please check your information and try again.</p>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Honeypot — properly hidden */}
                 <div style={{position:'absolute',left:'-9999px',height:0,overflow:'hidden'}} aria-hidden="true">
