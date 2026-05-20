@@ -13,7 +13,6 @@ import ListingAlertsSection from '@/components/ListingAlertsSection';
 import MobileBottomBar from '@/components/MobileBottomBar';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
-import { trackFormSubmission } from '@/lib/tracking';
 
 export default function HomePage() {
   const { toast } = useToast();
