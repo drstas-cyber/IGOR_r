@@ -11,10 +11,14 @@
  * originate from a WFL-branded address.
  */
 
+// IDs confirmed live 2026-05-19.
+// The publicKey is designed to be client-visible — it identifies the EmailJS
+// account but cannot be used to bypass dashboard-side template/service config
+// or rate limits. NOT a leaked secret; do not move to env vars.
 export const EMAILJS_CONFIG = {
-  serviceId:  'service_PLACEHOLDER',
-  templateId: 'template_PLACEHOLDER',
-  publicKey:  'PLACEHOLDER_PUBLIC_KEY',
+  serviceId:  'service_m0mb7w6',
+  templateId: 'template_rk917on',
+  publicKey:  'aLjoOd891WEIaH5we',
 };
 
 /**
