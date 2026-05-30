@@ -51,7 +51,7 @@ export default function HeroSection() {
             Your Temecula Valley Realtor — George Khazanovskiy
           </h1>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] max-w-lg font-light drop-shadow mb-8">
-            Temecula median price $740K. George Khazanovskiy — top-rated, in real estate since 2000, licensed Realtor since 2017, and Temecula's only Russian & Ukrainian speaking agent.
+            George Khazanovskiy — in real estate since 2000, licensed Realtor since 2017, and Temecula's only Russian & Ukrainian speaking agent.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-4">
             <a

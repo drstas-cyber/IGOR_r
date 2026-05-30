@@ -75,7 +75,7 @@ export default function SellMyHousePage() {
           {/* Quick stats row */}
           <div className="flex flex-wrap justify-center gap-4 sm:gap-8 mb-6">
             {[
-              ['25 Days', 'Avg. Sell Time'],
+              ['Full-Service', 'Pricing & Marketing'],
               ['Since 2017', 'Licensed Realtor'],
               ['Trilingual', 'EN · RU · UA'],
             ].map(([stat, label]) => (
@@ -93,22 +93,6 @@ export default function SellMyHousePage() {
           >
             GET MY FREE HOME VALUATION
           </a>
-        </section>
-
-        {/* ── STATS BAR ── */}
-        <section className="bg-[#12202A] border-y border-white/10">
-          <div className="max-w-3xl mx-auto px-4 py-5 flex flex-wrap justify-center gap-6 sm:gap-12 text-center">
-            {[
-              ['$740K', 'Temecula Median Price'],
-              ['25 Days', 'Avg. Days on Market'],
-              ['1.27 Mo', 'Inventory Supply'],
-            ].map(([val, label]) => (
-              <div key={label}>
-                <div className="text-white font-bold text-xl sm:text-2xl font-serif">{val}</div>
-                <div className="text-gray-400 text-xs">{label}</div>
-              </div>
-            ))}
-          </div>
         </section>
 
         {/* ── FORM SECTION ── */}
@@ -187,7 +171,7 @@ export default function SellMyHousePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               ['Strategic Pricing & Negotiation', 'Hyper-local market data drives pricing and offer-response decisions, helping you net more at closing.'],
-              ['Homes Sell in Just 25 Days', 'Professional staging guidance, photography, and aggressive marketing cut days on market.'],
+              ['Professional Staging & Photography', 'Professional staging guidance, photography, and aggressive marketing for your listing.'],
               ['Licensed Realtor Since 2017', 'In real estate since 2000. George knows every neighborhood, school zone, and price trend in the valley.'],
               ['Trilingual — English, Russian, Ukrainian', 'Reaching more qualified buyers expands your pool and drives competition.'],
               ['Full-Service Marketing Plan', 'MLS, Zillow, Realtor.com, social media, and targeted advertising from day one.'],
