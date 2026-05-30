@@ -23,11 +23,11 @@ export default function HomePage() {
         <html lang="en" />
         <title>Temecula Valley Homes For Sale | George Khazanovskiy</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/" />
-        <meta name="description" content="Search all Temecula Valley homes for sale. Free instant home valuation. Russian & Ukrainian speaking Realtor George Khazanovskiy, DRE #02034120." />
+        <meta name="description" content="Temecula Realtor George Khazanovskiy — Russian & Ukrainian speaking. Request a free home valuation or a no-obligation buyer consultation. DRE #02034120." />
         <meta name="keywords" content="Temecula homes for sale, Temecula Valley real estate, Temecula Realtor, George Khazanovskiy, DRE #02034120, Russian speaking realtor, Ukrainian speaking realtor, Temecula Valley Homes, wine country real estate, Murrieta homes" />
 
-        <meta property="og:title" content="Temecula Valley Homes For Sale | George Khazanovskiy Realtor® | DRE #02034120" />
-        <meta property="og:description" content="Search all Temecula Valley homes for sale. Free instant home valuation. Russian & Ukrainian speaking Realtor. George Khazanovskiy, DRE #02034120, Allison James Estates & Homes." />
+        <meta property="og:title" content="Temecula Valley Homes For Sale | George Khazanovskiy" />
+        <meta property="og:description" content="Temecula Realtor George Khazanovskiy — Russian & Ukrainian speaking. Request a free home valuation or a no-obligation buyer consultation. DRE #02034120." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://temeculavalleyhomes.us" />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
@@ -35,8 +35,8 @@ export default function HomePage() {
         <meta property="og:image:height" content="630" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Temecula Valley Homes For Sale | George Khazanovskiy Realtor® | DRE #02034120" />
-        <meta name="twitter:description" content="Search all Temecula Valley homes for sale. Free instant home valuation. Russian & Ukrainian speaking Realtor. George Khazanovskiy, DRE #02034120, Allison James Estates & Homes." />
+        <meta name="twitter:title" content="Temecula Valley Homes For Sale | George Khazanovskiy" />
+        <meta name="twitter:description" content="Temecula Realtor George Khazanovskiy — Russian & Ukrainian speaking. Request a free home valuation or a no-obligation buyer consultation. DRE #02034120." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
       </Helmet>
 

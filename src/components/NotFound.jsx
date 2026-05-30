@@ -46,7 +46,7 @@ export default function NotFound() {
             Return Home
           </a>
           <a href="/homes-for-sale-temecula/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
-            Search Homes For Sale
+            Homes For Sale
           </a>
           <a href="/contact/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
             Contact George
