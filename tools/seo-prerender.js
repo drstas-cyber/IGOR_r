@@ -16,8 +16,17 @@ const DIST = path.join(PROJECT_ROOT, 'dist');
 const COMPONENTS = path.join(PROJECT_ROOT, 'src', 'components');
 const SITE = 'https://temeculavalleyhomes.us';
 
+// `head` (optional): raw markup injected before </head> for THIS route only.
+// Used to preload the homepage LCP hero (the <img> is React-rendered, so a
+// static-HTML preload is the only way to start its download during initial
+// parse). Scoped to '/' so subpages don't preload an unused image.
+const HERO_PRELOAD =
+  '<link rel="preload" as="image" type="image/avif" ' +
+  'imagesrcset="/assets/hero/hero-400.avif 400w, /assets/hero/hero-800.avif 800w, /assets/hero/hero-1200.avif 1200w, /assets/hero/hero-1600.avif 1600w" ' +
+  'imagesizes="100vw" fetchpriority="high" />';
+
 const ROUTES = [
-  { path: '/',                                  component: 'HomePage.jsx',           priority: 1.0, changefreq: 'weekly'  },
+  { path: '/',                                  component: 'HomePage.jsx',           priority: 1.0, changefreq: 'weekly',  head: HERO_PRELOAD },
   { path: '/homes-for-sale-temecula/',          component: 'BuyerHomesPage.jsx',     priority: 0.9, changefreq: 'weekly'  },
   { path: '/russian-speaking-realtor-temecula/', component: 'RussianRealtorPage.jsx', priority: 0.9, changefreq: 'monthly' },
   { path: '/sell-my-house/',                    component: 'SellMyHousePage.jsx',    priority: 0.8, changefreq: 'monthly' },
@@ -146,7 +155,10 @@ function main() {
     if (!seo.title || !seo.description) {
       console.warn(`[seo-prerender] missing title or description in ${route.component} (title=${!!seo.title} description=${!!seo.description})`);
     }
-    const patched = patchHead(baseHtml, seo, route.path);
+    let patched = patchHead(baseHtml, seo, route.path);
+    if (route.head) {
+      patched = patched.replace('</head>', `  ${route.head}\n</head>`);
+    }
     writeRouteHtml(route.path, patched);
 
     const noindex = !!seo.robots && /noindex/i.test(seo.robots);
