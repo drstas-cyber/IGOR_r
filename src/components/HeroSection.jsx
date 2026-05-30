@@ -48,7 +48,7 @@ export default function HeroSection() {
             Top-Rated Realtor · Licensed Since 2017 · DRE #02034120
           </span>
           <h1 className="font-serif text-[36px] sm:text-[48px] lg:text-[56px] text-white font-bold leading-[1.1] mb-6 drop-shadow-md">
-            Temecula Homes Are Selling in 25 Days — Are You Ready?
+            Your Temecula Valley Realtor — George Khazanovskiy
           </h1>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] max-w-lg font-light drop-shadow mb-8">
             Temecula median price $740K. George Khazanovskiy — top-rated, in real estate since 2000, licensed Realtor since 2017, and Temecula's only Russian & Ukrainian speaking agent.
@@ -79,7 +79,7 @@ export default function HeroSection() {
             <button
               onClick={() => setActiveTab('buy')}
               className={`flex-1 pb-3 text-[15px] font-medium transition-colors relative ${
-                activeTab === 'buy' ? 'text-secondary' : 'text-gray-400 hover:text-gray-600'
+                activeTab === 'buy' ? 'text-secondary' : 'text-gray-600 hover:text-gray-800'
               }`}
             >
               I Want to Buy
@@ -90,7 +90,7 @@ export default function HeroSection() {
             <button
               onClick={() => setActiveTab('sell')}
               className={`flex-1 pb-3 text-[15px] font-medium transition-colors relative ${
-                activeTab === 'sell' ? 'text-secondary' : 'text-gray-400 hover:text-gray-600'
+                activeTab === 'sell' ? 'text-secondary' : 'text-gray-600 hover:text-gray-800'
               }`}
             >
               I Want to Sell

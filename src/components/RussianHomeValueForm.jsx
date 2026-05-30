@@ -106,6 +106,7 @@ export default function RussianHomeValueForm() {
       </div>
       <div>
         <select
+          aria-label="Когда вы планируете продавать?"
           className={`w-full bg-[#FAF6EF] text-[#12202A] h-12 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:border-[#C8920A] focus:ring-1 focus:ring-[#C8920A] transition-all text-[15px] ${formData.timeline === '' ? 'text-gray-500' : ''}`}
           value={formData.timeline}
           onChange={(e) => setFormData({...formData, timeline: e.target.value})}

@@ -89,7 +89,7 @@ export default function SellMyHousePage() {
           {/* Primary CTA */}
           <a
             href="#valuation-form"
-            className="inline-block w-full sm:w-auto bg-[#C8920A] hover:bg-[#B38209] text-white font-bold text-lg px-10 py-4 rounded-lg transition-colors shadow-lg"
+            className="inline-block w-full sm:w-auto bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold text-lg px-10 py-4 rounded-lg transition-colors shadow-lg"
           >
             GET MY FREE HOME VALUATION
           </a>
@@ -156,7 +156,7 @@ export default function SellMyHousePage() {
                 <input type="text" name="name" required placeholder="Your name" className={inputClasses} />
                 <input type="tel" name="phone" required placeholder="Your phone number" className={inputClasses} />
                 <input type="email" name="email" placeholder="Your email (optional)" className={inputClasses} />
-                <select name="timeline" defaultValue="" className={inputClasses + " bg-white"}>
+                <select name="timeline" aria-label="When are you looking to sell?" defaultValue="" className={inputClasses + " bg-white"}>
                   <option value="" disabled>When are you looking to sell?</option>
                   <option value="asap">As soon as possible</option>
                   <option value="1-3months">1–3 months</option>
@@ -166,7 +166,7 @@ export default function SellMyHousePage() {
                 </select>
                 <button
                   type="submit"
-                  className="w-full bg-[#C8920A] hover:bg-[#B38209] text-white font-bold py-4 rounded-lg text-[16px] transition-colors min-h-[52px] shadow-md"
+                  className="w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold py-4 rounded-lg text-[16px] transition-colors min-h-[52px] shadow-md"
                 >
                   GET MY FREE HOME VALUATION
                 </button>
@@ -216,7 +216,7 @@ export default function SellMyHousePage() {
           <p className="text-gray-400 text-sm mb-3">Prefer to talk? Call George directly.</p>
           <a
             href="tel:+16192772766"
-            className="inline-block w-full sm:w-auto bg-[#C8920A] hover:bg-[#B38209] text-white text-center font-bold text-lg py-4 px-10 rounded-lg transition-colors min-h-[56px] shadow-lg"
+            className="inline-block w-full sm:w-auto bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] text-center font-bold text-lg py-4 px-10 rounded-lg transition-colors min-h-[56px] shadow-lg"
           >
             CALL (619) 277-2766
           </a>

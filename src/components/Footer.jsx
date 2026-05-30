@@ -12,7 +12,7 @@ export default function Footer() {
         <div className="bg-[#C8920A] rounded-lg p-8 mb-12 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="font-serif text-[24px] text-[#12202A] font-bold">Ready to Make Your Move?</h3>
-            <p className="font-sans text-[14px] text-[#12202A]/80">Free consultation. No obligation. Available 7 days a week.</p>
+            <p className="font-sans text-[14px] text-[#12202A]">Free consultation. No obligation. Available 7 days a week.</p>
           </div>
           <a href="tel:6192772766" className="bg-[#12202A] hover:bg-[#1a3a4a] text-white font-bold py-4 px-8 rounded-lg text-[16px] transition-colors whitespace-nowrap">
             Call (619) 277-2766
