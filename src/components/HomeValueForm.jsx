@@ -108,7 +108,7 @@ export default function HomeValueForm() {
                 <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
               </div>
               <div>
-                <select required name="selling_timeline" className={inputClasses} defaultValue="">
+                <select required name="selling_timeline" aria-label="When are you thinking of selling?" className={inputClasses} defaultValue="">
                   <option value="" disabled className="text-gray-400">When Are You Thinking of Selling?</option>
                   <option value="curious">Just curious</option>
                   <option value="1-3">1-3 months</option>

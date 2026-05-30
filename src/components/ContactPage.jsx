@@ -84,7 +84,7 @@ export default function ContactPage() {
           {/* Phone CTA */}
           <a
             href="tel:+16192772766"
-            className="block w-full bg-[#C8920A] hover:bg-[#B38209] text-white text-center font-bold text-lg py-4 rounded-lg mb-2 transition-colors min-h-[56px] flex items-center justify-center gap-2 shadow-lg"
+            className="block w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] text-center font-bold text-lg py-4 rounded-lg mb-2 transition-colors min-h-[56px] flex items-center justify-center gap-2 shadow-lg"
           >
             📞 CALL GEORGE — (619) 277-2766
           </a>
@@ -138,7 +138,7 @@ export default function ContactPage() {
                   <input type="text" name="name" required placeholder="Your name" className={inputClasses} />
                   <input type="tel" name="phone" required placeholder="Your phone number" className={inputClasses} />
                   <input type="email" name="email" placeholder="Your email (optional)" className={inputClasses} />
-                  <select name="intent" defaultValue="buy" className={inputClasses + " bg-white"}>
+                  <select name="intent" aria-label="What can George help you with?" defaultValue="buy" className={inputClasses + " bg-white"}>
                     <option value="buy">I want to buy a home</option>
                     <option value="sell">I want to sell my home</option>
                     <option value="both">Buy and sell</option>

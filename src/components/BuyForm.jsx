@@ -43,7 +43,7 @@ export default function BuyForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-      <input type="text" name="website_url" style={{position:'absolute',left:'-9999px',tabIndex:'-1'}} autoComplete="off" />
+      <input type="text" name="website_url" tabIndex={-1} aria-hidden="true" style={{position:'absolute',left:'-9999px'}} autoComplete="off" />
       
       <div>
         <input required type="text" name="name" placeholder="Your Name" className={inputClasses} />
@@ -55,7 +55,7 @@ export default function BuyForm() {
         <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
       </div>
       <div>
-        <select name="neighborhood" className={inputClasses} defaultValue="">
+        <select name="neighborhood" aria-label="Target neighborhood or ZIP" className={inputClasses} defaultValue="">
           <option value="" disabled>Target Neighborhood / ZIP (optional)</option>
           <option value="wolf-creek">Wolf Creek</option>
           <option value="redhawk">Redhawk</option>
@@ -65,7 +65,7 @@ export default function BuyForm() {
         </select>
       </div>
       <div>
-        <select name="budget" className={inputClasses} defaultValue="">
+        <select name="budget" aria-label="Budget range" className={inputClasses} defaultValue="">
           <option value="" disabled>Budget Range (optional)</option>
           <option value="300-500">$300K - $500K</option>
           <option value="500-750">$500K - $750K</option>
@@ -82,7 +82,7 @@ export default function BuyForm() {
         Find My Dream Home — Free
       </button>
       
-      <p className="text-center text-[13px] text-gray-500 mt-3 font-light">
+      <p className="text-center text-[13px] text-gray-600 mt-3 font-light">
         ✓ No spam &nbsp; ✓ Instant alerts &nbsp; ✓ Unsubscribe anytime
       </p>
     </form>

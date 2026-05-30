@@ -60,7 +60,7 @@ export default function SellForm() {
         <input required type="email" name="email" placeholder="your@email.com" className={inputClasses} />
       </div>
       <div>
-        <select name="timeline" className={inputClasses} defaultValue="">
+        <select name="timeline" aria-label="Selling timeline" className={inputClasses} defaultValue="">
           <option value="" disabled>Timeline</option>
           <option value="immediate">Immediate</option>
           <option value="1-3">1 - 3 months</option>
@@ -76,7 +76,7 @@ export default function SellForm() {
         Get My Free Valuation →
       </button>
       
-      <p className="text-center text-[13px] text-gray-500 mt-3 font-light">
+      <p className="text-center text-[13px] text-gray-600 mt-3 font-light">
         ✓ Licensed Realtor® &nbsp; ✓ 24-hour response &nbsp; ✓ No obligation
       </p>
     </form>
