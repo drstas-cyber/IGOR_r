@@ -103,6 +103,11 @@ export default function AboutGeorgePage() {
 
       <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
         <StickyNavigation />
+        <section className="bg-secondary px-6 py-14 text-center">
+          <h1 className="font-serif text-[34px] sm:text-[44px] lg:text-[52px] text-white font-bold leading-tight max-w-3xl mx-auto">
+            Meet George Khazanovskiy — Temecula Valley Realtor
+          </h1>
+        </section>
         <AgentBioSection />
         <GoogleReviews />
         <BilingualBand />
