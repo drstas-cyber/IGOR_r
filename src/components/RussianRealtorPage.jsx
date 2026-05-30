@@ -61,9 +61,9 @@ export default function RussianRealtorPage() {
     <div className="min-h-screen font-sans bg-background text-foreground selection:bg-primary selection:text-white">
       <Helmet>
         <html lang="ru" />
-        <title>Русскоязычный риэлтор в Темекуле | Джордж Хазановский | DRE #02034120</title>
+        <title>Русскоязычный риэлтор в Темекуле | Джордж Хазановский</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/russian-speaking-realtor-temecula/" />
-        <meta name="description" content="Единственный русскоязычный риэлтор в долине Темекула. Джордж Хазановский помогает русскоязычным семьям покупать и продавать дома. Бесплатная оценка дома. DRE #02034120." />
+        <meta name="description" content="Единственный русскоязычный риэлтор в долине Темекула. Джордж Хазановский помогает покупать и продавать дома. Бесплатная оценка дома. DRE #02034120." />
         <meta property="og:locale" content="ru_RU" />
         <meta property="og:title" content="Русскоязычный риэлтор в Темекуле | Джордж Хазановский" />
         <meta property="og:description" content="Единственный русскоязычный риэлтор в долине Темекула. Бесплатная оценка дома. DRE #02034120." />

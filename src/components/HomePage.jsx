@@ -21,9 +21,9 @@ export default function HomePage() {
     <>
       <Helmet>
         <html lang="en" />
-        <title>Temecula Valley Homes For Sale | George Khazanovskiy Realtor® | DRE #02034120</title>
+        <title>Temecula Valley Homes For Sale | George Khazanovskiy</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/" />
-        <meta name="description" content="Search all Temecula Valley homes for sale. Free instant home valuation. Russian & Ukrainian speaking Realtor. George Khazanovskiy, DRE #02034120, Allison James Estates & Homes." />
+        <meta name="description" content="Search all Temecula Valley homes for sale. Free instant home valuation. Russian & Ukrainian speaking Realtor George Khazanovskiy, DRE #02034120." />
         <meta name="keywords" content="Temecula homes for sale, Temecula Valley real estate, Temecula Realtor, George Khazanovskiy, DRE #02034120, Russian speaking realtor, Ukrainian speaking realtor, Temecula Valley Homes, wine country real estate, Murrieta homes" />
 
         <meta property="og:title" content="Temecula Valley Homes For Sale | George Khazanovskiy Realtor® | DRE #02034120" />

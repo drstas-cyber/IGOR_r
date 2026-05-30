@@ -17,11 +17,11 @@ export default function BuyerHomesPage() {
     <>
       <Helmet>
         <html lang="en" />
-        <title>Homes For Sale in Temecula | Live MLS Search | George Khazanovskiy Realtor® DRE #02034120</title>
+        <title>Homes For Sale in Temecula | Live MLS Search</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/homes-for-sale-temecula/" />
         <meta
           name="description"
-          content="Search every active home for sale in Temecula Valley — Wolf Creek, Harveston, Redhawk, La Cresta, Wine Country, Old Town. Daily MLS updates. Filter by price, beds, neighborhood. Free with George Khazanovskiy, DRE #02034120, Allison James Estates & Homes."
+          content="Search every active Temecula Valley home for sale — Wolf Creek, Harveston, Redhawk, Wine Country & more. Daily MLS updates. Free with George Khazanovskiy."
         />
         <meta
           name="keywords"

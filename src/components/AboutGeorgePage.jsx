@@ -15,9 +15,9 @@ export default function AboutGeorgePage() {
     <>
       <Helmet>
         <html lang="en" />
-        <title>About George Khazanovskiy | Temecula Valley Realtor® | DRE #02034120</title>
+        <title>About George Khazanovskiy | Temecula Realtor</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/about-george/" />
-        <meta name="description" content="Meet George Khazanovskiy — Temecula, Murrieta + Menifee Realtor. Licensed since 2017, in real estate since 2000, five-star reviewed. The only Russian/Ukrainian-speaking real estate agent in the region. Allison James Estates & Homes, DRE #02034120." />
+        <meta name="description" content="Meet George Khazanovskiy — Temecula, Murrieta & Menifee Realtor licensed since 2017, and the only Russian & Ukrainian-speaking agent in the area." />
         <meta name="keywords" content="George Khazanovskiy, Temecula realtor, Russian speaking realtor Temecula, Ukrainian realtor Temecula, Allison James, DRE 02034120, Temecula real estate agent, trilingual realtor" />
 
         <meta property="og:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
