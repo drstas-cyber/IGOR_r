@@ -9,11 +9,29 @@ export default function HeroSection() {
   return (
     <section className="relative min-h-[100vh] lg:h-[100vh] flex items-center bg-secondary overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.unsplash.com/photo-1698276427006-0573e67c4f6a"
-          alt="Temecula Valley vineyard landscape"
-          className="w-full h-full object-cover object-center"
-        />
+        <picture>
+          <source
+            type="image/avif"
+            srcSet="/assets/hero/hero-400.avif 400w, /assets/hero/hero-800.avif 800w, /assets/hero/hero-1200.avif 1200w, /assets/hero/hero-1600.avif 1600w"
+            sizes="100vw"
+          />
+          <source
+            type="image/webp"
+            srcSet="/assets/hero/hero-400.webp 400w, /assets/hero/hero-800.webp 800w, /assets/hero/hero-1200.webp 1200w, /assets/hero/hero-1600.webp 1600w"
+            sizes="100vw"
+          />
+          <img
+            src="/assets/hero/hero-800.jpg"
+            srcSet="/assets/hero/hero-400.jpg 400w, /assets/hero/hero-800.jpg 800w, /assets/hero/hero-1200.jpg 1200w, /assets/hero/hero-1600.jpg 1600w"
+            sizes="100vw"
+            width="1600"
+            height="1067"
+            fetchPriority="high"
+            decoding="async"
+            alt="Temecula Valley vineyard landscape"
+            className="w-full h-full object-cover object-center"
+          />
+        </picture>
         <div className="absolute inset-0 bg-gradient-to-r from-[#0D2E3A]/90 via-[#0D2E3A]/70 to-transparent" />
         <div className="absolute inset-0 bg-[#0D2E3A]/40 lg:hidden" />
       </div>
