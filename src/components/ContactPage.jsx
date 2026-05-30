@@ -172,7 +172,7 @@ export default function ContactPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               ['Buyer-Side Specialist', '~80% of George’s practice is buyer representation.'],
-              ['Homes Sell in 25 Days', 'Faster than the valley average — strategic pricing works.'],
+              ['Active Local Market', 'Strategic pricing and full-service marketing for Temecula sellers.'],
               ['Only Trilingual Agent', 'English, Russian, Ukrainian — serving all families.'],
               ['Allison James Estates & Homes', 'Licensed since 2017 with a trusted, full-service brokerage.'],
             ].map(([title, desc], i) => (

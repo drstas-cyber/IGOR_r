@@ -61,7 +61,7 @@ export default function HomeValueForm() {
             Your Temecula Home May Be Worth More Than You Think
           </h2>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] mb-8 font-light">
-            With Temecula median prices at $740,000, now is the ideal time to know your number. Get a free, expert-backed valuation from a local agent who knows your street.
+            Know your home's current value with a free, expert-backed valuation from a local agent who knows your street — prepared within 24 hours.
           </p>
 
           <div className="space-y-4 mb-8">

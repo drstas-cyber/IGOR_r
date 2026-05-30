@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 
 export default function StatsBar() {
   const stats = [
-    { value: "$740K", label: "Median Sale Price" },
-    { value: "176 Sold", label: "January 2026" },
-    { value: "25 Days", label: "Hot Homes Sell" },
-    { value: "5.0★", label: "George's Rating" },
+    { value: "Since 2017", label: "Licensed Realtor" },
+    { value: "Buyer-Side", label: "Specialist" },
+    { value: "EN · RU · UA", label: "Languages Spoken" },
+    { value: "Five-Star", label: "Reviewed Realtor" },
   ];
 
   return (
