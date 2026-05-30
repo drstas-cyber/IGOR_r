@@ -17,19 +17,19 @@ export default function BuyerHomesPage() {
     <>
       <Helmet>
         <html lang="en" />
-        <title>Homes For Sale in Temecula | Live MLS Search | George Khazanovskiy Realtor® DRE #02034120</title>
+        <title>Homes For Sale in Temecula | George Khazanovskiy</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/homes-for-sale-temecula/" />
         <meta
           name="description"
-          content="Search every active home for sale in Temecula Valley — Wolf Creek, Harveston, Redhawk, La Cresta, Wine Country, Old Town. Daily MLS updates. Filter by price, beds, neighborhood. Free with George Khazanovskiy, DRE #02034120, Allison James Estates & Homes."
+          content="Buying in Temecula? George Khazanovskiy guides buyers across Wolf Creek, Redhawk, Wine Country, Old Town & more. Free buyer consultation. DRE #02034120."
         />
         <meta
           name="keywords"
           content="homes for sale in temecula, temecula homes for sale, temecula houses for sale, houses for sale temecula, temecula real estate, real estate agent temecula, realtor temecula, homes for sale murrieta, homes for sale menifee, wolf creek temecula homes, harveston temecula, la cresta real estate"
         />
 
-        <meta property="og:title" content="Homes For Sale in Temecula | Live MLS Search | George K." />
-        <meta property="og:description" content="Browse every active Temecula home. Updated daily. Free MLS access with George Khazanovskiy, Realtor®." />
+        <meta property="og:title" content="Homes For Sale in Temecula | George Khazanovskiy" />
+        <meta property="og:description" content="Buying in Temecula? George Khazanovskiy guides buyers across Wolf Creek, Redhawk, Wine Country & more. Free buyer consultation." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://temeculavalleyhomes.us/homes-for-sale-temecula/" />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
@@ -37,8 +37,8 @@ export default function BuyerHomesPage() {
         <meta property="og:image:height" content="630" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Homes For Sale in Temecula | Live MLS Search | George K." />
-        <meta name="twitter:description" content="Browse every active Temecula home. Updated daily. Free MLS access." />
+        <meta name="twitter:title" content="Homes For Sale in Temecula | George Khazanovskiy" />
+        <meta name="twitter:description" content="Buying in Temecula with George Khazanovskiy — neighborhood guidance and a free buyer consultation." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
 
         <script type="application/ld+json">{JSON.stringify({
@@ -66,20 +66,20 @@ export default function BuyerHomesPage() {
             transition={{ duration: 0.6 }}
           >
             <span className="font-sans text-[12px] text-[#C8920A] uppercase tracking-[0.2em] font-semibold block mb-4">
-              Live MLS Access · Updated Daily
+              Your Local Temecula Valley Buyer's Agent
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-white max-w-4xl mx-auto leading-tight">
               Homes For Sale in Temecula
             </h1>
             <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto mt-5">
-              Search every active listing in Temecula Valley — Wolf Creek, Harveston, Redhawk, La Cresta, Wine Country, and Old Town. Filter by price, beds, and neighborhood.
+              Explore Temecula Valley neighborhoods — Wolf Creek, Redhawk, Wine Country, Old Town and more — with George Khazanovskiy, your local buyer's agent.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <a
                 href="#featured-listings"
                 className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold px-8 py-4 rounded-md text-lg shadow-lg transition-colors"
               >
-                Browse Listings
+                See Featured Listings
               </a>
               <a
                 href="tel:6192772766"

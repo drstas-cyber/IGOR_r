@@ -50,8 +50,8 @@ export default function SellMyHousePage() {
   return (
     <>
       <Helmet>
-        <title>Sell Your Temecula Home for Top Dollar | George Khazanovskiy | (619) 277-2766</title>
-        <meta name="description" content="Get a free home valuation from George Khazanovskiy — licensed Realtor since 2017, in real estate since 2000, deep Temecula market knowledge. No-obligation seller consultation." />
+        <title>Sell Your Temecula Home for Top Dollar</title>
+        <meta name="description" content="Free home valuation from George Khazanovskiy, licensed Temecula Realtor since 2017. No-obligation seller consultation." />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />
