@@ -44,6 +44,7 @@ export default function HomePage() {
         <ScrollingTicker />
         <StickyNavigation />
 
+        <main>
         {/* 1. Hero + Buy/Sell Forms */}
         <HeroSection />
         <StatsBar />
@@ -58,15 +59,16 @@ export default function HomePage() {
         <AgentBioSection />
 
         {/* 5. Contact Form */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ContactForm />
-        </main>
+        </div>
 
         {/* 7. Bilingual Band */}
         <BilingualBand />
 
         {/* 8. Listing Alerts */}
         <ListingAlertsSection />
+        </main>
 
         <Footer />
         <MobileBottomBar />

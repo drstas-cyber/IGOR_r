@@ -6,5 +6,23 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://api.emailjs.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net https://www.google.com https://www.googleadservices.com https://static.cloudflareinsights.com https://connect.facebook.net; frame-src 'self' https://www.googletagmanager.com https://td.doubleclick.net https://*.doubleclick.net https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; report-uri /csp-report
 
+# Edge-cache the HTML shell per-route (s-maxage=300). NOT on /* — CF Pages
+# concatenates Cache-Control across matching rules, which would pollute
+# /assets/* (breaking immutable) and /version.json. Per-route avoids overlap.
+# /version.json + the SPA fallback keep the CF default (max-age=0) → instant
+# deploy-provenance check. Keep in sync with seo-prerender ROUTES.
+/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/homes-for-sale-temecula/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/russian-speaking-realtor-temecula/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/sell-my-house/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/about-george/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/contact/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

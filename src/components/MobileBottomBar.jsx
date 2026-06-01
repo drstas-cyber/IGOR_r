@@ -10,7 +10,7 @@ export default function MobileBottomBar() {
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-accent/20" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+    <div role="navigation" aria-label="Quick contact" className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-accent/20" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       <div className="flex items-stretch min-h-[56px]">
         <a
           href="tel:6192772766"

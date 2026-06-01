@@ -5,6 +5,8 @@ export default function ScrollingTicker() {
 
   return (
     <div
+      role="complementary"
+      aria-label="Highlights"
       style={{ backgroundColor: '#0D2E3A', color: '#C8920A' }}
       className="py-3 overflow-hidden whitespace-nowrap font-sans text-[14px] z-50 relative border-b border-accent/20"
     >

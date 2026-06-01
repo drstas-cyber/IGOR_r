@@ -54,6 +54,7 @@ function extractHelmet(src) {
     ogUrl:              grab(/<meta\s+property="og:url"[\s\S]*?content="([\s\S]*?)"\s*\/?>/),
     twitterTitle:       grab(/<meta\s+name="twitter:title"[\s\S]*?content="([\s\S]*?)"\s*\/?>/),
     twitterDescription: grab(/<meta\s+name="twitter:description"[\s\S]*?content="([\s\S]*?)"\s*\/?>/),
+    htmlLang:           grab(/<html\s+lang="([^"]*)"\s*\/?>/),
   };
 }
 
@@ -78,6 +79,10 @@ function patchHead(html, seo, routePath) {
   const twitterDescription = seo.twitterDescription || description;
 
   let out = html;
+
+  if (seo.htmlLang) {
+    out = out.replace(/<html lang="[^"]*">/, `<html lang="${htmlEscapeAttr(seo.htmlLang)}">`);
+  }
 
   if (title) {
     out = out.replace(/<title>[\s\S]*?<\/title>/,
