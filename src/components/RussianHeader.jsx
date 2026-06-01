@@ -28,7 +28,7 @@ export default function RussianHeader() {
 
   return (
     <>
-      <div className="flex w-full h-2">
+      <div className="flex w-full h-2" aria-hidden="true">
         <div className="flex-1 bg-white"></div>
         <div className="flex-1 bg-blue-600"></div>
         <div className="flex-1 bg-red-600"></div>

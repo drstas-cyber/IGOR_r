@@ -73,6 +73,7 @@ export default function RussianRealtorPage() {
 
       <RussianHeader />
 
+      <main>
       {/* SECTION 1 (HERO) */}
       <section className="bg-[#FAF6EF] py-20 px-6 lg:px-8 flex items-center justify-center min-h-[70vh]">
         <div className="max-w-4xl mx-auto text-center">
@@ -303,6 +304,7 @@ export default function RussianRealtorPage() {
           </p>
         </motion.div>
       </section>
+      </main>
 
       <Footer />
       <MobileBottomBar />

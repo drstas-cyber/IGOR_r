@@ -65,9 +65,13 @@
     scroll-behavior: smooth;
   }
 
+  html {
+    overflow-x: clip; /* clips minor horizontal overflow without breaking position:sticky (unlike overflow:hidden) */
+  }
   body {
     @apply bg-background text-foreground;
     font-family: 'Outfit', sans-serif;
+    overflow-x: clip;
   }
 
   h1, h2, h3, h4, h5, h6 {
