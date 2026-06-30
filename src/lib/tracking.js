@@ -43,3 +43,14 @@ export function trackPhoneClick() {
     event_label: 'click_to_call',
   });
 }
+
+// Outbound MLS-search click (nav/footer "Search Homes" → ApexIDX). GA4 engagement
+// event only — no Ads conversion, since the destination is a third-party domain.
+export function trackSearchHomesClick(location) {
+  if (typeof window.gtag !== 'function') return;
+  window.gtag('event', 'click_search_homes', {
+    event_category: 'engagement',
+    event_label: location,
+    location,
+  });
+}

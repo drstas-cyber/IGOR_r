@@ -1,5 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { trackSearchHomesClick } from '@/lib/tracking';
+
+// Outbound MLS search (ApexIDX). New tab; rel="noopener" only (no noreferrer).
+const APEX_SEARCH_FOOTER_URL =
+  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=footer';
 
 export default function Footer() {
   const linkClasses = "block font-sans text-[14px] sm:text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors duration-300 py-1 sm:py-0";
@@ -50,6 +55,15 @@ export default function Footer() {
           <div>
             <h3 className={headingClasses}>Buy a Home</h3>
             <div className="space-y-4 md:space-y-[24px]">
+              <a
+                href={APEX_SEARCH_FOOTER_URL}
+                target="_blank"
+                rel="noopener"
+                onClick={() => trackSearchHomesClick('footer')}
+                className={linkClasses}
+              >
+                Search Homes ↗
+              </a>
               <a href="#search" className={linkClasses}>Search All Homes</a>
               <a href="#search" className={linkClasses}>Homes Under $600K</a>
               <a href="#search" className={linkClasses}>Wine Country Estates</a>

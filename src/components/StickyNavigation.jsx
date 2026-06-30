@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Phone } from 'lucide-react';
+import { trackSearchHomesClick } from '@/lib/tracking';
+
+// Outbound MLS search (ApexIDX). New tab; rel="noopener" only (no noreferrer — ApexIDX
+// may use the referrer for attribution). Site Referrer-Policy already sends origin.
+const APEX_SEARCH_NAV_URL =
+  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=nav';
 
 export default function StickyNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -14,11 +20,14 @@ export default function StickyNavigation() {
   }, []);
 
   const navLinks = [
-    { label: 'Search Homes', href: '#home-value' },
+    { label: 'Search Homes', href: APEX_SEARCH_NAV_URL, external: true },
     { label: 'Home Value', href: '#home-value' },
     { label: 'About George', href: '#about-george' },
     { label: 'Contact', href: '#contact' }
   ];
+
+  const linkClass =
+    'text-[14px] text-foreground font-medium hover:text-accent relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left transition-colors';
 
   return (
     <nav
@@ -40,13 +49,26 @@ export default function StickyNavigation() {
 
           <div className="flex items-center gap-6">
             {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-[14px] text-foreground font-medium hover:text-accent relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left transition-colors"
-              >
-                {link.label}
-              </a>
+              link.external ? (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener"
+                  onClick={() => trackSearchHomesClick('nav')}
+                  className={linkClass}
+                >
+                  {link.label} ↗
+                </a>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className={linkClass}
+                >
+                  {link.label}
+                </a>
+              )
             ))}
           </div>
 
