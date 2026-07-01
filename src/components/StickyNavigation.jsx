@@ -31,12 +31,12 @@ export default function StickyNavigation() {
 
   return (
     <nav
-      className={`hidden md:block sticky top-0 z-40 bg-background transition-all duration-300 ${
+      className={`sticky top-0 z-40 bg-background transition-all duration-300 ${
         isScrolled ? 'py-2 shadow-lg' : 'py-5 shadow-sm'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="flex items-center justify-between">
+        <div className="hidden md:flex items-center justify-between">
 
           <div className="flex flex-col cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className={`font-serif text-[#12202A] transition-all duration-300 ${isScrolled ? 'text-xl' : 'text-2xl'}`}>
@@ -87,6 +87,32 @@ export default function StickyNavigation() {
             </a>
           </div>
 
+        </div>
+
+        {/* Mobile: compact, always-visible primary links */}
+        <div className="flex md:hidden items-center justify-between gap-2 overflow-x-auto">
+          {navLinks.map((link) => (
+            link.external ? (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noopener"
+                onClick={() => trackSearchHomesClick('nav')}
+                className="text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent"
+              >
+                {link.label} ↗
+              </a>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent"
+              >
+                {link.label}
+              </a>
+            )
+          ))}
         </div>
       </div>
     </nav>
