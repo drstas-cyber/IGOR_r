@@ -11,6 +11,11 @@ import ContactForm from '@/components/ContactForm';
 import BilingualBand from '@/components/BilingualBand';
 import MobileBottomBar from '@/components/MobileBottomBar';
 import Footer from '@/components/Footer';
+import { trackSearchHomesClick } from '@/lib/tracking';
+
+// Outbound MLS search (ApexIDX) — same URL pattern as nav/footer, buyer-LP UTM.
+const APEX_SEARCH_BUYER_URL =
+  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=buyer_lp';
 
 export default function BuyerHomesPage() {
   return (
@@ -50,7 +55,6 @@ export default function BuyerHomesPage() {
           "telephone": "+1-619-277-2766",
           "areaServed": ["Temecula", "Murrieta", "Menifee", "Lake Elsinore", "Wildomar", "Winchester", "Fallbrook"],
           "address": { "@type": "PostalAddress", "streetAddress": "30777 Rancho California Rd", "addressLocality": "Temecula", "addressRegion": "CA", "postalCode": "92592", "addressCountry": "US" },
-          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5" },
           "knowsLanguage": ["English", "Russian", "Ukrainian"],
         })}</script>
       </Helmet>
@@ -89,6 +93,27 @@ export default function BuyerHomesPage() {
               </a>
             </div>
           </motion.div>
+        </section>
+
+        {/* 1b. SEARCH — real MLS browse path; also the target for the hero's #featured-listings CTA */}
+        <section id="featured-listings" className="bg-[#FAF6EF] py-16 px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="font-serif text-[36px] sm:text-[42px] text-[#12202A] leading-tight mb-3">
+              Search Homes for Sale in Temecula
+            </h2>
+            <p className="font-sans text-[16px] text-gray-600 max-w-2xl mx-auto mb-8">
+              Browse current Temecula Valley MLS listings by price, beds, and neighborhood.
+            </p>
+            <a
+              href={APEX_SEARCH_BUYER_URL}
+              target="_blank"
+              rel="noopener"
+              onClick={() => trackSearchHomesClick('buyer_lp')}
+              className="inline-block bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold px-8 py-4 rounded-md text-lg shadow-lg transition-colors"
+            >
+              Search Live Temecula Listings ↗
+            </a>
+          </div>
         </section>
 
         {/* 2. STATS — quick credibility bar */}

@@ -17,7 +17,7 @@ export default function GoogleReviews() {
     },
     {
       id: 3,
-      text: "The market was very competitive, but George's negotiation skills helped us get our dream home below asking price. His knowledge of the local wine country area is unmatched.",
+      text: "The market was very competitive, but George guided us through every offer with patience and clear advice. His deep knowledge of the local wine country area was a huge help.",
       name: "Alina Kompaniyets",
       details: "Bought a home in Temecula Wine Country"
     }

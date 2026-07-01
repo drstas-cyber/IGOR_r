@@ -3,14 +3,14 @@ import { motion } from 'framer-motion';
 
 export default function NeighborhoodsGrid() {
   const neighborhoods = [
-    { name: "Wolf Creek", active: 32, price: "$620,000" },
-    { name: "Redhawk", active: 18, price: "$545,000" },
-    { name: "Wine Country", active: 14, price: "$1,200,000" },
-    { name: "Paloma Del Sol", active: 21, price: "$575,000" },
-    { name: "Old Town", active: 9, price: "$480,000" },
-    { name: "Vail Ranch", active: 11, price: "$510,000" },
-    { name: "Morgan Hill", active: 7, price: "$780,000" },
-    { name: "Crown Hill", active: 5, price: "$850,000" }
+    { name: "Wolf Creek" },
+    { name: "Redhawk" },
+    { name: "Wine Country" },
+    { name: "Paloma Del Sol" },
+    { name: "Old Town" },
+    { name: "Vail Ranch" },
+    { name: "Morgan Hill" },
+    { name: "Crown Hill" }
   ];
 
   return (
@@ -54,11 +54,11 @@ export default function NeighborhoodsGrid() {
             >
               <h3 className="font-serif text-[28px] text-[#12202A] mb-2">{hood.name}</h3>
               <p className="font-sans text-[14px] text-gray-500 mb-6 flex-grow">
-                {hood.active} Active Listings
+                Explore homes and neighborhood info in {hood.name}.
               </p>
               <div className="flex items-center justify-between mt-auto">
                 <span className="font-sans text-[14px] text-[#C8920A] font-bold">
-                  From {hood.price}
+                  Browse {hood.name}
                 </span>
                 <span className="font-sans text-[18px] text-[#C8920A] transform group-hover:translate-x-1 transition-transform">
                   &rarr;

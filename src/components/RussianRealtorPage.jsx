@@ -54,7 +54,7 @@ export default function RussianRealtorPage() {
   const reviews = [
     { text: "George was always available to answer any questions we had. He made the process of buying our first home so smooth and stress-free. Highly recommend his services to anyone looking in Temecula!", name: "V.V. — Viacheslav", details: "Купили дом в Темекуле, Калифорния" },
     { text: "As first-time homebuyers, we were nervous about the process. George guided us every step of the way, explaining everything clearly in both English and Russian. We couldn't be happier with our new home!", name: "Viktor Smirnov", details: "Купили дом в Мурриете, Калифорния" },
-    { text: "The market was very competitive, but George's negotiation skills helped us get our dream home below asking price. His knowledge of the local wine country area is unmatched.", name: "Alina Kompaniyets", details: "Купили дом в Temecula Wine Country" }
+    { text: "The market was very competitive, but George guided us through every offer with patience and clear advice. His deep knowledge of the local wine country area was a huge help.", name: "Alina Kompaniyets", details: "Купили дом в Temecula Wine Country" }
   ];
 
   return (
