@@ -17,11 +17,11 @@ export default function AboutGeorgePage() {
         <html lang="en" />
         <title>About George Khazanovskiy | Temecula Realtor</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/about-george/" />
-        <meta name="description" content="Meet George Khazanovskiy — Temecula, Murrieta & Menifee Realtor licensed since 2017, and the only Russian & Ukrainian-speaking agent in the area." />
+        <meta name="description" content="Meet George Khazanovskiy — experienced Temecula, Murrieta & Menifee Realtor, a Russian & Ukrainian-speaking agent in the area." />
         <meta name="keywords" content="George Khazanovskiy, Temecula realtor, Russian speaking realtor Temecula, Ukrainian realtor Temecula, Allison James, DRE 02034120, Temecula real estate agent, trilingual realtor" />
 
         <meta property="og:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta property="og:description" content="Licensed since 2017 (in real estate since 2000), five-star reviewed, only Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee. Allison James Estates & Homes." />
+        <meta property="og:description" content="Experienced, five-star reviewed, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee. Allison James Estates & Homes." />
         <meta property="og:type" content="profile" />
         <meta property="og:url" content="https://temeculavalleyhomes.us/about-george/" />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
@@ -30,7 +30,7 @@ export default function AboutGeorgePage() {
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta name="twitter:description" content="Licensed since 2017, five-star reviewed, only Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee." />
+        <meta name="twitter:description" content="Experienced, five-star reviewed, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
 
         <script type="application/ld+json">{JSON.stringify({

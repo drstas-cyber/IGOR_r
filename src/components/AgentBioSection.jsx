@@ -60,7 +60,7 @@ export default function AgentBioSection() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-8 w-full max-w-sm">
-              {['Buyer-Side Specialist', 'Licensed Since 2017', 'Trilingual Service', '7-Day Availability'].map((stat, i) => (
+              {['Buyer-Side Specialist', 'Licensed Realtor', 'Trilingual Service', '7-Day Availability'].map((stat, i) => (
                 <div key={i} className="bg-[#F5E6D3] text-[#12202A] font-sans text-[13px] sm:text-[12px] py-[10px] px-[16px] rounded-full text-center font-medium shadow-sm">
                   {stat}
                 </div>
@@ -84,7 +84,7 @@ export default function AgentBioSection() {
             className="w-full lg:w-2/3"
           >
             <p className="font-sans text-[16px] text-[#12202A] leading-[1.8] mb-10">
-              With over a decade of experience in the Temecula Valley and Southern California markets, I pride myself on delivering white-glove service to every client. Whether you are buying your first home, upgrading to a luxury estate, or looking for the perfect investment property in Wine Country, my deep local knowledge and relentless negotiation skills ensure you get the best possible outcome. Real estate is more than a transaction; it's about building lasting relationships and helping families achieve their dreams.
+              As an experienced Realtor in the Temecula Valley and Southern California markets, I pride myself on delivering white-glove service to every client. Whether you are buying your first home, upgrading to a luxury estate, or looking for the perfect investment property in Wine Country, my deep local knowledge and relentless negotiation skills ensure you get the best possible outcome. Real estate is more than a transaction; it's about building lasting relationships and helping families achieve their dreams.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-12">

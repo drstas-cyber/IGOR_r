@@ -44,7 +44,7 @@ export default function BilingualBand() {
         >
           <div className="bg-[#FAF6EF] rounded-[8px] p-[24px] shadow-lg max-w-sm mx-auto md:mx-0 border border-[#C8920A]/20">
             <p className="font-sans text-[14px] text-[#12202A] text-center font-medium leading-relaxed">
-              Единственный русскоязычный риэлтор<br />в долине Темекула
+              Русскоязычный риэлтор<br />в долине Темекула
             </p>
             <div className="text-center">
               <a 

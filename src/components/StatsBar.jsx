@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 export default function StatsBar() {
   const stats = [
-    { value: "Since 2017", label: "Licensed Realtor" },
+    { value: "Experienced", label: "Licensed Realtor" },
     { value: "Buyer-Side", label: "Specialist" },
     { value: "EN · RU · UA", label: "Languages Spoken" },
     { value: "Five-Star", label: "Reviewed Realtor" },

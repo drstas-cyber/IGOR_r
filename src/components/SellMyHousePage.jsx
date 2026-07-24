@@ -51,7 +51,7 @@ export default function SellMyHousePage() {
     <>
       <Helmet>
         <title>Sell Your Temecula Home for Top Dollar</title>
-        <meta name="description" content="Free home valuation from George Khazanovskiy, licensed Temecula Realtor since 2017. No-obligation seller consultation." />
+        <meta name="description" content="Free home valuation from George Khazanovskiy, an experienced Temecula Realtor. No-obligation seller consultation." />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />
@@ -69,14 +69,14 @@ export default function SellMyHousePage() {
             Sell Your Temecula Home<br className="hidden sm:block" /> for Top Dollar
           </h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-md mx-auto mb-4">
-            George Khazanovskiy — licensed Temecula Realtor since 2017, in real estate since 2000. <span className="text-[#C8920A] font-semibold">Free, expert-backed valuation</span> from a local agent.
+            George Khazanovskiy — an experienced Temecula Realtor. <span className="text-[#C8920A] font-semibold">Free, expert-backed valuation</span> from a local agent.
           </p>
 
           {/* Quick stats row */}
           <div className="flex flex-wrap justify-center gap-4 sm:gap-8 mb-6">
             {[
               ['Full-Service', 'Pricing & Marketing'],
-              ['Since 2017', 'Licensed Realtor'],
+              ['Experienced', 'Licensed Realtor'],
               ['Trilingual', 'EN · RU · UA'],
             ].map(([stat, label]) => (
               <div key={label}>
@@ -172,7 +172,7 @@ export default function SellMyHousePage() {
             {[
               ['Strategic Pricing & Negotiation', 'Hyper-local market data drives pricing and offer-response decisions, helping you net more at closing.'],
               ['Professional Staging & Photography', 'Professional staging guidance, photography, and aggressive marketing for your listing.'],
-              ['Licensed Realtor Since 2017', 'In real estate since 2000. George knows every neighborhood, school zone, and price trend in the valley.'],
+              ['Experienced Temecula Realtor', 'George knows every neighborhood, school zone, and price trend in the valley.'],
               ['Trilingual — English, Russian, Ukrainian', 'Reaching more qualified buyers expands your pool and drives competition.'],
               ['Full-Service Marketing Plan', 'MLS, Zillow, Realtor.com, social media, and targeted advertising from day one.'],
               ['No Obligation Free Consultation', 'Get a professional valuation and selling strategy with zero pressure.'],

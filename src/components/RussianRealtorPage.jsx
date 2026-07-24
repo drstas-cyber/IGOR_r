@@ -36,9 +36,9 @@ export default function RussianRealtorPage() {
   };
 
   const whyGeorgeFeatures = [
-    { icon: "🥇", title: "Только один", description: "Единственный русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
+    { icon: "📍", title: "Местный эксперт", description: "Русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
     { icon: "⭐", title: "5.0★ отзывов", description: "Исключительно положительные отзывы от десятков довольных семей в Южной Калифорнии." },
-    { icon: "📅", title: "С 2017", description: "Лицензированный риэлтор с 2017 года, в недвижимости с 2000 года — глубокий опыт переговоров и инвестиций." },
+    { icon: "📅", title: "Опытный риэлтор", description: "Лицензированный риэлтор с глубоким опытом переговоров и инвестиций." },
     { icon: "🗣️", title: "Двуязычный", description: "Свободно владею русским, украинским и английским. Никаких языковых барьеров." },
     { icon: "📝", title: "Сделки на русском", description: "Полное объяснение всех контрактов, инспекций и эскроу на вашем родном языке." },
     { icon: "⚡", title: "7 дней в неделю", description: "Всегда на связи для ответов на ваши вопросы и показа горячих объектов." }
@@ -63,10 +63,10 @@ export default function RussianRealtorPage() {
         <html lang="ru" />
         <title>Русскоязычный риэлтор в Темекуле | Джордж Хазановский</title>
         <link rel="canonical" href="https://temeculavalleyhomes.us/russian-speaking-realtor-temecula/" />
-        <meta name="description" content="Единственный русскоязычный риэлтор в долине Темекула. Джордж Хазановский помогает покупать и продавать дома. Бесплатная оценка дома. DRE #02034120." />
+        <meta name="description" content="Русскоязычный риэлтор в долине Темекула. Джордж Хазановский помогает покупать и продавать дома. Бесплатная оценка дома. DRE #02034120." />
         <meta property="og:locale" content="ru_RU" />
         <meta property="og:title" content="Русскоязычный риэлтор в Темекуле | Джордж Хазановский" />
-        <meta property="og:description" content="Единственный русскоязычный риэлтор в долине Темекула. Бесплатная оценка дома. DRE #02034120." />
+        <meta property="og:description" content="Русскоязычный риэлтор в долине Темекула. Бесплатная оценка дома. DRE #02034120." />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
         <meta property="og:url" content="https://temeculavalleyhomes.us/russian-speaking-realtor-temecula/" />
       </Helmet>
@@ -87,7 +87,7 @@ export default function RussianRealtorPage() {
               Ваш надёжный риэлтор в Темекуле, Калифорния
             </h1>
             <p className="font-sans text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              Единственный русскоязычный риэлтор в долине Темекула. Я помогу вам купить дом мечты или выгодно продать вашу недвижимость без языковых барьеров.
+              Русскоязычный риэлтор в долине Темекула. Я помогу вам купить дом мечты или выгодно продать вашу недвижимость без языковых барьеров.
             </p>
             <Button 
               onClick={handleCall}
@@ -108,7 +108,7 @@ export default function RussianRealtorPage() {
             viewport={{ once: true }}
             className="font-serif text-[28px] sm:text-[34px] lg:text-[40px] text-white leading-tight"
           >
-            В Темекуле только один русскоязычный риэлтор.
+            Русскоязычный риэлтор в долине Темекула.
           </motion.h2>
         </div>
       </section>
@@ -212,7 +212,7 @@ export default function RussianRealtorPage() {
               <p className="font-sans text-[16px] text-gray-600 mb-6">Realtor® &middot; DRE #02034120</p>
               
               <div className="grid grid-cols-2 gap-3 mb-8 w-full">
-                {['Топ Риэлтор', 'Лицензия с 2017', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
+                {['Топ Риэлтор', 'Лицензированный риэлтор', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
                   <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[13px] sm:text-[12px] py-2 px-3 rounded-full text-center font-medium">
                     {stat}
                   </div>

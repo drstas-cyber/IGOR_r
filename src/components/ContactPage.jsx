@@ -52,7 +52,7 @@ export default function ContactPage() {
     <>
       <Helmet>
         <title>Contact George Khazanovskiy | Temecula Realtor</title>
-        <meta name="description" content="Contact George Khazanovskiy — experienced Temecula Valley Realtor, licensed since 2017. Free buyer consultation. Call (619) 277-2766." />
+        <meta name="description" content="Contact George Khazanovskiy — experienced Temecula Valley Realtor. Free buyer consultation. Call (619) 277-2766." />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />
@@ -75,7 +75,7 @@ export default function ContactPage() {
               <span className="flex items-center gap-1">
                 <span className="text-[#C8920A]">★★★★★</span> 5.0 · 23 Reviews
               </span>
-              <span>Licensed Realtor Since 2017</span>
+              <span>Experienced Realtor</span>
             </div>
             <p className="text-gray-400 text-sm mt-1">English · Russian · Ukrainian</p>
             <p className="text-[#C8920A] text-xs font-medium mt-2">Buyer-side specialist · 7-day response</p>
@@ -173,8 +173,8 @@ export default function ContactPage() {
             {[
               ['Buyer-Side Specialist', '~80% of George’s practice is buyer representation.'],
               ['Active Local Market', 'Strategic pricing and full-service marketing for Temecula sellers.'],
-              ['Only Trilingual Agent', 'English, Russian, Ukrainian — serving all families.'],
-              ['Allison James Estates & Homes', 'Licensed since 2017 with a trusted, full-service brokerage.'],
+              ['Trilingual Agent', 'English, Russian, Ukrainian — serving all families.'],
+              ['Allison James Estates & Homes', 'A trusted, full-service brokerage.'],
             ].map(([title, desc], i) => (
               <div key={i} className="bg-[#12384a] rounded-lg p-4 border border-white/10">
                 <div className="text-[#C8920A] font-bold text-sm mb-1">✓ {title}</div>
