@@ -70,12 +70,12 @@ export default function Footer() {
               >
                 Search Homes ↗
               </a>
-              <a href="#search" className={linkClasses}>Search All Homes</a>
-              <a href="#search" className={linkClasses}>Homes Under $600K</a>
-              <a href="#search" className={linkClasses}>Wine Country Estates</a>
-              <a href="#search" className={linkClasses}>New Construction</a>
-              <a href="#alerts" className={linkClasses}>Listing Alerts</a>
-              <a href="#about" className={linkClasses}>First-Time Buyer Guide</a>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>Search All Homes</Link>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>Homes Under $600K</Link>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>Wine Country Estates</Link>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>New Construction</Link>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>Listing Alerts</Link>
+              <Link to="/homes-for-sale-temecula/" className={linkClasses}>First-Time Buyer Guide</Link>
             </div>
           </div>
 
@@ -83,11 +83,11 @@ export default function Footer() {
           <div>
             <h3 className={headingClasses}>Sell Your Home</h3>
             <div className="space-y-4 md:space-y-[24px]">
-              <a href="#homevalue" className={linkClasses}>Free Home Valuation</a>
-              <a href="#homevalue" className={linkClasses}>What's My Home Worth?</a>
-              <a href="#about" className={linkClasses}>How We Market Homes</a>
-              <a href="#about" className={linkClasses}>Seller's Process</a>
-              <a href="#about" className={linkClasses}>Free Seller's Guide</a>
+              <Link to="/sell-my-house/" className={linkClasses}>Free Home Valuation</Link>
+              <Link to="/sell-my-house/" className={linkClasses}>What's My Home Worth?</Link>
+              <Link to="/sell-my-house/" className={linkClasses}>How We Market Homes</Link>
+              <Link to="/sell-my-house/" className={linkClasses}>Seller's Process</Link>
+              <Link to="/sell-my-house/" className={linkClasses}>Free Seller's Guide</Link>
             </div>
           </div>
 
