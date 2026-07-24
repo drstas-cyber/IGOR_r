@@ -24,5 +24,19 @@
 /contact/
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
+# /blog was unrouted 2026-07-24 (falls through to the NotFound catch-all) but
+# was never added above, so it silently inherited CF's 7-day default HTML
+# cache and kept serving stale pre-unpublish content at the edge — required
+# a manual purge to clear. no-store here (not the 300s pattern above) so any
+# currently-unlisted path — /blog now, or whatever's next — can never again
+# go stale for days unnoticed. Explicit no-slash + slash + wildcard so this
+# can't depend on exact CF Pages glob semantics for the bare route.
+/blog
+  Cache-Control: no-store
+/blog/
+  Cache-Control: no-store
+/blog/*
+  Cache-Control: no-store
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
