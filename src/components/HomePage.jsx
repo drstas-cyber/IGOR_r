@@ -6,7 +6,6 @@ import HeroSection from '@/components/HeroSection';
 import StatsBar from '@/components/StatsBar';
 import HomeValueForm from '@/components/HomeValueForm';
 import BilingualBand from '@/components/BilingualBand';
-import GoogleReviews from '@/components/GoogleReviews';
 import ContactForm from '@/components/ContactForm';
 import AgentBioSection from '@/components/AgentBioSection';
 import ListingAlertsSection from '@/components/ListingAlertsSection';
@@ -48,9 +47,6 @@ export default function HomePage() {
         {/* 1. Hero + Buy/Sell Forms */}
         <HeroSection />
         <StatsBar />
-
-        {/* 2. Social Proof — early for trust */}
-        <GoogleReviews />
 
         {/* 3. Seller Lead Capture */}
         <HomeValueForm />

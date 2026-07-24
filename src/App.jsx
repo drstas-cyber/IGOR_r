@@ -8,8 +8,6 @@ import ContactPage from '@/components/ContactPage';
 import SellMyHousePage from '@/components/SellMyHousePage';
 import BuyerHomesPage from '@/components/BuyerHomesPage';
 import AboutGeorgePage from '@/components/AboutGeorgePage';
-import BlogIndexPage from '@/components/BlogIndexPage';
-import BlogPostPage from '@/components/BlogPostPage';
 import NotFound from '@/components/NotFound';
 import { captureFirstTouch } from '@/lib/attribution';
 
@@ -41,10 +39,12 @@ function App() {
           <Route path="/homes-for-sale-temecula/" element={<BuyerHomesPage />} />
           <Route path="/about-george" element={<AboutGeorgePage />} />
           <Route path="/about-george/" element={<AboutGeorgePage />} />
-          <Route path="/blog" element={<BlogIndexPage />} />
-          <Route path="/blog/" element={<BlogIndexPage />} />
-          <Route path="/blog/:slug" element={<BlogPostPage />} />
-          <Route path="/blog/:slug/" element={<BlogPostPage />} />
+          {/* Blog routes removed 2026-07-24 — AI-authored content fabricates
+              first-person claims attributed to George, reintroduces removed
+              tenure/exclusivity language. BlogIndexPage/BlogPostPage, the
+              article data, and the fetch pipeline stay on disk untouched;
+              /blog/* now falls through to the catch-all below (soft-404,
+              noindex) until content is fixed and re-verified. */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

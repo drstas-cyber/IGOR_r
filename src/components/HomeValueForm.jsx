@@ -117,10 +117,7 @@ export default function HomeValueForm() {
                   <option value="over-1">Over 1 year out</option>
                 </select>
               </div>
-              
-              <p className="font-sans text-[14px] sm:text-[13px] text-[#C8920A] font-semibold text-center mt-2">
-                12 homeowners requested valuations this week
-              </p>
+
               <button
                 type="submit"
                 className="w-full bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] py-4 rounded font-bold text-[16px] transition-colors mt-2 shadow-md"

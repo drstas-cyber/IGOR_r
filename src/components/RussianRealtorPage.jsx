@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import RussianHeader from './RussianHeader';
 import RussianFeatureCard from './RussianFeatureCard';
 import RussianServiceCard from './RussianServiceCard';
-import RussianReviewCard from './RussianReviewCard';
 import RussianFAQAccordion from './RussianFAQAccordion';
 import RussianHomeValueForm from './RussianHomeValueForm';
 import Footer from './Footer';
@@ -49,12 +48,6 @@ export default function RussianRealtorPage() {
     { icon: "💰", title: "Продажа дома", description: "Профессиональный маркетинг, качественные фото и стратегическое ценообразование для продажи по максимальной цене." },
     { icon: "📊", title: "Оценка стоимости", description: "Точный сравнительный анализ рынка (CMA), чтобы вы знали реальную стоимость вашей недвижимости сегодня." },
     { icon: "🌐", title: "Инвестиции", description: "Поиск высокодоходной недвижимости, анализ арендных ставок и помощь в создании портфеля в Винной Стране." }
-  ];
-
-  const reviews = [
-    { text: "George was always available to answer any questions we had. He made the process of buying our first home so smooth and stress-free. Highly recommend his services to anyone looking in Temecula!", name: "V.V. — Viacheslav", details: "Купили дом в Темекуле, Калифорния" },
-    { text: "As first-time homebuyers, we were nervous about the process. George guided us every step of the way, explaining everything clearly in both English and Russian. We couldn't be happier with our new home!", name: "Viktor Smirnov", details: "Купили дом в Мурриете, Калифорния" },
-    { text: "The market was very competitive, but George guided us through every offer with patience and clear advice. His deep knowledge of the local wine country area was a huge help.", name: "Alina Kompaniyets", details: "Купили дом в Temecula Wine Country" }
   ];
 
   return (
@@ -169,21 +162,6 @@ export default function RussianRealtorPage() {
               <RussianHomeValueForm />
             </div>
           </motion.div>
-        </div>
-      </section>
-
-      {/* SECTION 6 (REVIEWS) */}
-      <section className="bg-[#0D2E3A] py-20 px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-white font-bold mb-4">Что говорят наши клиенты</h2>
-            <p className="font-sans text-[16px] text-gray-300">Реальные отзывы от реальных клиентов</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {reviews.map((review, i) => (
-              <RussianReviewCard key={i} index={i} {...review} />
-            ))}
-          </div>
         </div>
       </section>
 

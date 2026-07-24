@@ -72,9 +72,6 @@ export default function ContactPage() {
             <h1 className="text-2xl font-serif font-bold text-white mb-1">George Khazanovskiy</h1>
             <p className="text-[#C8920A] font-semibold text-sm mb-2">Licensed Realtor® · DRE #02034120 · Allison James Estates & Homes</p>
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-gray-300">
-              <span className="flex items-center gap-1">
-                <span className="text-[#C8920A]">★★★★★</span> 5.0 · 23 Reviews
-              </span>
               <span>Experienced Realtor</span>
             </div>
             <p className="text-gray-400 text-sm mt-1">English · Russian · Ukrainian</p>
@@ -154,12 +151,6 @@ export default function ContactPage() {
                 <div className="flex items-center justify-center gap-1.5 mt-3">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   <p className="text-gray-400 text-xs">Your info is private. George responds within 1 hour.</p>
-                </div>
-
-                {/* Testimonial */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-gray-600 text-sm italic leading-relaxed">"George helped us find our dream home in Temecula in just 3 weeks. His knowledge of the area and responsiveness were outstanding."</p>
-                  <p className="text-gray-400 text-xs mt-1">— Recent Google Review ★★★★★</p>
                 </div>
               </div>
             </>

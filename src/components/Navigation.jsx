@@ -31,7 +31,6 @@ export default function Navigation() {
     { label: 'Home Value', id: 'homevalue' },
     { label: 'About', id: 'about' },
     { label: 'Contact', id: 'contact', href: '/contact/' },
-    { label: 'Blog', id: 'blog', href: '/blog/' },
     { label: 'Alerts', id: 'alerts' }
   ];
 

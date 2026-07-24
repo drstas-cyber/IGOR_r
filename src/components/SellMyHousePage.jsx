@@ -185,16 +185,6 @@ export default function SellMyHousePage() {
           </div>
         </section>
 
-        {/* ── TESTIMONIAL ── */}
-        <section className="max-w-xl mx-auto px-4 pb-10">
-          <div className="bg-[#12384a] rounded-xl p-6 border border-white/10 text-center">
-            <p className="text-gray-300 text-sm italic leading-relaxed mb-3">
-              "George sold our Temecula home in under three weeks and we got over asking price. His market knowledge and negotiation skills are second to none. Highly recommend!"
-            </p>
-            <p className="text-gray-500 text-xs">— Recent Google Review <span className="text-[#C8920A]">★★★★★</span></p>
-          </div>
-        </section>
-
         {/* ── PHONE CTA ── */}
         <section className="max-w-xl mx-auto px-4 pb-12 text-center">
           <p className="text-gray-400 text-sm mb-3">Prefer to talk? Call George directly.</p>

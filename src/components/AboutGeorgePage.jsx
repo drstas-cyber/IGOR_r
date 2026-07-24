@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import StickyNavigation from '@/components/StickyNavigation';
 import AgentBioSection from '@/components/AgentBioSection';
-import GoogleReviews from '@/components/GoogleReviews';
 import BilingualBand from '@/components/BilingualBand';
 import ContactForm from '@/components/ContactForm';
 import MobileBottomBar from '@/components/MobileBottomBar';
@@ -90,12 +89,7 @@ export default function AboutGeorgePage() {
                 "addressCountry": "US"
               },
               "founder": { "@id": "https://temeculavalleyhomes.us/#person" },
-              "knowsLanguage": ["English", "Russian", "Ukrainian"],
-              "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": "5.0",
-                "bestRating": "5"
-              }
+              "knowsLanguage": ["English", "Russian", "Ukrainian"]
             }
           ]
         })}</script>
@@ -110,7 +104,6 @@ export default function AboutGeorgePage() {
           </h1>
         </section>
         <AgentBioSection />
-        <GoogleReviews />
         <BilingualBand />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ContactForm />

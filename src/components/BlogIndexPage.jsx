@@ -19,6 +19,10 @@ export default function BlogIndexPage() {
       <Helmet>
         <title>{TITLE}</title>
         <meta name="description" content={DESCRIPTION} />
+        {/* Interim: AI-authored article content is unvetted for compliance
+            (fabricated claims, reintroduced tenure/exclusivity language) —
+            noindex until BabyLoveGrowth's content fix ships. Feature stays live. */}
+        <meta name="robots" content="noindex, follow" />
         <link rel="canonical" href="https://temeculavalleyhomes.us/blog/" />
         <meta property="og:title" content={TITLE} />
         <meta property="og:description" content={DESCRIPTION} />

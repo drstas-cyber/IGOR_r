@@ -51,6 +51,10 @@ export default function BlogPostPage() {
       <Helmet>
         <title>{article.title}</title>
         <meta name="description" content={description} />
+        {/* Interim: AI-authored article content is unvetted for compliance
+            (fabricated claims, reintroduced tenure/exclusivity language) —
+            noindex until BabyLoveGrowth's content fix ships. Feature stays live. */}
+        <meta name="robots" content="noindex, follow" />
         <link rel="canonical" href={canonical} />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={article.title} />
