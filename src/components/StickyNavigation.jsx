@@ -23,7 +23,8 @@ export default function StickyNavigation() {
     { label: 'Search Homes', href: APEX_SEARCH_NAV_URL, external: true },
     { label: 'Home Value', href: '#home-value' },
     { label: 'About George', href: '#about-george' },
-    { label: 'Contact', href: '#contact' }
+    { label: 'Contact', href: '#contact' },
+    { label: 'Blog', href: '/blog/' }
   ];
 
   const linkClass =
