@@ -8,6 +8,8 @@ import ContactPage from '@/components/ContactPage';
 import SellMyHousePage from '@/components/SellMyHousePage';
 import BuyerHomesPage from '@/components/BuyerHomesPage';
 import AboutGeorgePage from '@/components/AboutGeorgePage';
+import BlogIndexPage from '@/components/BlogIndexPage';
+import BlogPostPage from '@/components/BlogPostPage';
 import NotFound from '@/components/NotFound';
 import { captureFirstTouch } from '@/lib/attribution';
 
@@ -39,6 +41,10 @@ function App() {
           <Route path="/homes-for-sale-temecula/" element={<BuyerHomesPage />} />
           <Route path="/about-george" element={<AboutGeorgePage />} />
           <Route path="/about-george/" element={<AboutGeorgePage />} />
+          <Route path="/blog" element={<BlogIndexPage />} />
+          <Route path="/blog/" element={<BlogIndexPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/blog/:slug/" element={<BlogPostPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

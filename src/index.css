@@ -102,3 +102,88 @@
     100% { transform: translateX(-50%); }
   }
 }
+
+/* Scoped prose styles for raw content_html from the BabyLoveGrowth blog API. */
+.blog-prose {
+  color: #E2E8F0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.blog-prose > * + * {
+  margin-top: 1.25em;
+}
+.blog-prose h1, .blog-prose h2, .blog-prose h3, .blog-prose h4 {
+  font-family: 'Cormorant Garamond', serif;
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
+}
+.blog-prose h1 { font-size: 1.875rem; }
+.blog-prose h2 { font-size: 1.5rem; }
+.blog-prose h3 { font-size: 1.25rem; }
+.blog-prose h4 { font-size: 1.125rem; }
+.blog-prose p { margin: 0; }
+.blog-prose a {
+  color: #C8920A;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.blog-prose a:hover { color: #ffffff; }
+.blog-prose strong { color: #ffffff; font-weight: 700; }
+.blog-prose ul, .blog-prose ol { padding-left: 1.5em; }
+.blog-prose ul { list-style: disc; }
+.blog-prose ol { list-style: decimal; }
+.blog-prose li { margin-top: 0.4em; }
+.blog-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 1.5em 0;
+}
+.blog-prose blockquote {
+  border-left: 4px solid #C8920A;
+  padding-left: 1.25em;
+  margin: 1.5em 0;
+  font-style: italic;
+  color: #cbd5e1;
+}
+.blog-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-x: auto;
+  display: block;
+  margin: 1.5em 0;
+}
+.blog-prose th, .blog-prose td {
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 0.6em 0.9em;
+  text-align: left;
+}
+.blog-prose th {
+  background: rgba(255,255,255,0.05);
+  color: #ffffff;
+}
+.blog-prose hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  margin: 2em 0;
+}
+.blog-prose code {
+  background: rgba(255,255,255,0.08);
+  padding: 0.15em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+.blog-prose pre {
+  background: rgba(0,0,0,0.3);
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.blog-prose pre code {
+  background: none;
+  padding: 0;
+}

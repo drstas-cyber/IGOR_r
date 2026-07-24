@@ -4,6 +4,7 @@ dist
 *.local
 .env
 .env.*
+!.env.example
 001_web/.netlify/
 
 # Deploy / tooling state — never commit

@@ -8,12 +8,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { toJsonLdScript } from '../src/lib/blog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(PROJECT_ROOT, 'dist');
 const COMPONENTS = path.join(PROJECT_ROOT, 'src', 'components');
+const BLOG_DATA_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
 const SITE = 'https://temeculavalleyhomes.us';
 
 // `head` (optional): raw markup injected before </head> for THIS route only.
@@ -100,6 +102,17 @@ function patchHead(html, seo, routePath) {
       `<meta name="robots" content="${htmlEscapeAttr(robots)}" />`);
   }
 
+  if (seo.ogImage) {
+    out = out.replace(/<meta\s+property="og:image"\s+content="[^"]*"\s*\/>/,
+      `<meta property="og:image" content="${htmlEscapeAttr(seo.ogImage)}" />`);
+    out = out.replace(/<meta\s+property="og:image:secure_url"\s+content="[^"]*"\s*\/>/,
+      `<meta property="og:image:secure_url" content="${htmlEscapeAttr(seo.ogImage)}" />`);
+  }
+  if (seo.twitterImage) {
+    out = out.replace(/<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/>/,
+      `<meta name="twitter:image" content="${htmlEscapeAttr(seo.twitterImage)}" />`);
+  }
+
   out = out.replace(/<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/,
     `<meta property="og:title" content="${htmlEscapeAttr(ogTitle)}" />`);
   out = out.replace(/<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/,
@@ -137,6 +150,63 @@ ${entries}
 `;
 }
 
+function loadBlogArticles() {
+  try {
+    const raw = fs.readFileSync(BLOG_DATA_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn(`[seo-prerender] could not read blog-articles.json (${err.message}) — treating blog as empty.`);
+    return [];
+  }
+}
+
+function buildBlogPostHead(article) {
+  const parts = [];
+  const ld = toJsonLdScript(article.jsonLd);
+  const faqLd = toJsonLdScript(article.faqJsonLd);
+  if (ld) parts.push(`<script type="application/ld+json">${ld}</script>`);
+  if (faqLd) parts.push(`<script type="application/ld+json">${faqLd}</script>`);
+  return parts.join('\n');
+}
+
+function prerenderBlog(baseHtml, indexable) {
+  const articles = loadBlogArticles();
+
+  const blogIndexSeo = {
+    title: 'Temecula Real Estate Blog | George Khazanovskiy',
+    description: 'Real estate insights, market updates, and home buying/selling guides for Temecula Valley, Murrieta, and Menifee.',
+    canonical: `${SITE}/blog/`,
+  };
+  writeRouteHtml('/blog/', patchHead(baseHtml, blogIndexSeo, '/blog/'));
+  indexable.push({ path: '/blog/', priority: 0.8, changefreq: 'weekly' });
+  console.log(`[seo-prerender] /blog/ (${articles.length} articles)`);
+
+  for (const article of articles) {
+    if (!article.slug) {
+      console.warn(`[seo-prerender] blog article ${article.id || '(no id)'} missing slug — skipping`);
+      continue;
+    }
+    const routePath = `/blog/${article.slug}/`;
+    const seo = {
+      title: article.title,
+      description: article.meta_description || article.excerpt || '',
+      canonical: `${SITE}${routePath}`,
+      ogImage: article.hero_image_url,
+      twitterImage: article.hero_image_url,
+    };
+    let patched = patchHead(baseHtml, seo, routePath);
+    const blogHead = buildBlogPostHead(article);
+    if (blogHead) {
+      patched = patched.replace('</head>', `  ${blogHead}\n</head>`);
+    }
+    writeRouteHtml(routePath, patched);
+    indexable.push({ path: routePath, priority: 0.6, changefreq: 'monthly' });
+    console.log(`[seo-prerender] ${routePath}`);
+    console.log(`    title: ${(seo.title || '(missing)').slice(0, 90)}`);
+  }
+}
+
 function main() {
   if (!fs.existsSync(DIST)) {
     console.error('[seo-prerender] dist/ not found — run vite build first.');
@@ -145,6 +215,7 @@ function main() {
   const baseHtml = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8');
 
   const indexable = [];
+  let excludedNoindex = 0;
   for (const route of ROUTES) {
     const componentPath = path.join(COMPONENTS, route.component);
     if (!fs.existsSync(componentPath)) {
@@ -168,6 +239,7 @@ function main() {
 
     const noindex = !!seo.robots && /noindex/i.test(seo.robots);
     if (!noindex) indexable.push(route);
+    else excludedNoindex += 1;
 
     const canonical = seo.canonical || `${SITE}${route.path}`;
     console.log(`[seo-prerender] ${route.path}`);
@@ -176,9 +248,11 @@ function main() {
     console.log(`    robots:    ${seo.robots || '(inherits index,follow)'}`);
   }
 
+  prerenderBlog(baseHtml, indexable);
+
   const sitemap = buildSitemap(indexable);
   fs.writeFileSync(path.join(DIST, 'sitemap.xml'), sitemap, 'utf8');
-  console.log(`[seo-prerender] sitemap.xml written with ${indexable.length} indexable routes (excluded ${ROUTES.length - indexable.length} noindex)`);
+  console.log(`[seo-prerender] sitemap.xml written with ${indexable.length} indexable routes (excluded ${excludedNoindex} noindex)`);
 }
 
 main();
