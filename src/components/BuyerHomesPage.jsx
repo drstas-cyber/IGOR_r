@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import StickyNavigation from '@/components/StickyNavigation';
 import StatsBar from '@/components/StatsBar';
 import NeighborhoodsGrid from '@/components/NeighborhoodsGrid';
+import GoogleReviews from '@/components/GoogleReviews';
 import AgentBioSection from '@/components/AgentBioSection';
 import ListingAlertsSection from '@/components/ListingAlertsSection';
 import ContactForm from '@/components/ContactForm';
@@ -120,6 +121,9 @@ export default function BuyerHomesPage() {
 
         {/* 4. NEIGHBORHOODS — answers "homes for sale in [neighborhood]" intent */}
         <NeighborhoodsGrid />
+
+        {/* 5. SOCIAL PROOF — real Google reviews */}
+        <GoogleReviews />
 
         {/* 6. AGENT */}
         <AgentBioSection />
