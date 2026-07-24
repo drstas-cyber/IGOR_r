@@ -22,6 +22,15 @@ const REQUEST_TIMEOUT_MS = 15000;
 // its "max 500 per call" claim — both wrong. Pagination loop below still
 // works unchanged for any limit value.
 const PAGE_LIMIT = 50;
+// Confirmed live: article-detail fetches are rate-limited to "max 2 requests
+// per second per API key". 600ms between request starts (plus each request's
+// own round-trip time) stays safely under that.
+const DETAIL_FETCH_SPACING_MS = 600;
+const RATE_LIMIT_RETRY_DELAY_MS = 2000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function writeArticles(articles) {
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
@@ -43,7 +52,9 @@ async function apiGet(pathAndQuery, apiKey) {
       } catch {
         // response body unreadable — fall through with just the status
       }
-      throw new Error(`HTTP ${res.status} ${res.statusText}${bodyText ? ` — ${bodyText}` : ''}`);
+      const err = new Error(`HTTP ${res.status} ${res.statusText}${bodyText ? ` — ${bodyText}` : ''}`);
+      err.status = res.status;
+      throw err;
     }
     return await res.json();
   } finally {
@@ -122,11 +133,24 @@ async function main() {
 
   const articles = [];
   for (const summary of publishedSummaries) {
+    await sleep(DETAIL_FETCH_SPACING_MS);
+    try {
+      const full = await fetchFullArticle(summary.id, apiKey);
+      articles.push({ ...summary, ...full });
+      continue;
+    } catch (err) {
+      if (err.status !== 429) {
+        console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'}): ${err.message} — skipping.`);
+        continue;
+      }
+    }
+    // Rate-limited despite the spacing above — one retry after a longer backoff.
+    await sleep(RATE_LIMIT_RETRY_DELAY_MS);
     try {
       const full = await fetchFullArticle(summary.id, apiKey);
       articles.push({ ...summary, ...full });
     } catch (err) {
-      console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'}): ${err.message} — skipping.`);
+      console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'}) after retry: ${err.message} — skipping.`);
     }
   }
 
