@@ -43,9 +43,15 @@ export default function Footer() {
               <a href="https://maps.google.com/?q=30777+Rancho+California+Rd,+Temecula,+CA+92592" target="_blank" rel="noopener noreferrer" className="font-sans text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors">
                 📍 30777 Rancho California Rd, Temecula, CA 92592
               </a>
+              <a href="https://www.facebook.com/GeorgeKHomes/" target="_blank" rel="noopener noreferrer" aria-label="George Khazanovskiy on Facebook" className="font-sans text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors">
+                Facebook
+              </a>
+              <a href="https://www.yelp.com/biz/george-khazanovskiy-temecula" target="_blank" rel="noopener noreferrer" aria-label="George Khazanovskiy on Yelp" className="font-sans text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors">
+                Yelp
+              </a>
             </div>
             <div className="pt-4">
-              <Link to="/russian-speaking-realtor-temecula" className="inline-flex items-center gap-2 font-sans text-[13px] text-white font-bold hover:text-[#C8920A] transition-colors bg-white/10 px-4 py-2 rounded-md border border-white/20 hover:border-[#C8920A]/50">
+              <Link to="/russian-speaking-realtor-temecula/" className="inline-flex items-center gap-2 font-sans text-[13px] text-white font-bold hover:text-[#C8920A] transition-colors bg-white/10 px-4 py-2 rounded-md border border-white/20 hover:border-[#C8920A]/50">
                 <span>🇷🇺</span> Русскоязычный риэлтор
               </Link>
             </div>
