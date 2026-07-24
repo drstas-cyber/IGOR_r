@@ -33,7 +33,13 @@ async function apiGet(pathAndQuery, apiKey) {
       signal: controller.signal,
     });
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      let bodyText = '';
+      try {
+        bodyText = (await res.text()).slice(0, 500);
+      } catch {
+        // response body unreadable — fall through with just the status
+      }
+      throw new Error(`HTTP ${res.status} ${res.statusText}${bodyText ? ` — ${bodyText}` : ''}`);
     }
     return await res.json();
   } finally {
