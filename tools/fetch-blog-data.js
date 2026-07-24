@@ -17,7 +17,11 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const OUT_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
 const API_BASE = 'https://api.babylovegrowth.ai/api/integrations';
 const REQUEST_TIMEOUT_MS = 15000;
-const PAGE_LIMIT = 100;
+// Confirmed live: the API rejects limit > 50 ("limit must be an integer
+// between 1 and 50") despite the integration brief's limit=100 example and
+// its "max 500 per call" claim — both wrong. Pagination loop below still
+// works unchanged for any limit value.
+const PAGE_LIMIT = 50;
 
 function writeArticles(articles) {
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
