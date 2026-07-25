@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import ScrollingTicker from '@/components/ScrollingTicker';
 import StickyNavigation from '@/components/StickyNavigation';
@@ -16,6 +16,32 @@ import { useToast } from '@/components/ui/use-toast';
 
 export default function HomePage() {
   const { toast } = useToast();
+
+  // Cross-page "/#home-value" links (StickyNavigation, on pages other than
+  // "/") land here via a full page load, which the browser tries to
+  // hash-scroll before React has mounted anything — too early, since this is
+  // a client-rendered SPA. Retry once React has actually rendered the target.
+  useEffect(() => {
+    if (window.location.hash !== '#home-value') return;
+    const scrollToHomeValue = () => {
+      const el = document.getElementById('home-value');
+      if (!el) return false;
+      // index.css sets `html { scroll-behavior: smooth }` sitewide. scrollIntoView's
+      // `behavior` option defers to that CSS property, so this became an
+      // rAF-driven animation that never got a frame this early in a cold SPA
+      // load. Override inline (wins over the stylesheet rule) for one
+      // synchronous jump, then restore normal smooth-scroll for everything else.
+      const prevBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      el.scrollIntoView();
+      document.documentElement.style.scrollBehavior = prevBehavior;
+      return true;
+    };
+    if (!scrollToHomeValue()) {
+      const timer = setTimeout(scrollToHomeValue, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <>

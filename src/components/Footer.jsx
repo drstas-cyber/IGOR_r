@@ -2,10 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { trackSearchHomesClick } from '@/lib/tracking';
 import { GOOGLE_RATING, GOOGLE_REVIEW_COUNT, GOOGLE_REVIEWS_URL } from '@/lib/reviews';
+import { apexAdvancedSearchUrl } from '@/lib/apexSearch';
 
-// Outbound MLS search (ApexIDX). New tab; rel="noopener" only (no noreferrer).
-const APEX_SEARCH_FOOTER_URL =
-  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=footer';
+// Outbound MLS search (ApexIDX). New tab; rel="noopener noreferrer" — see
+// StickyNavigation.jsx for why noreferrer costs no attribution here.
+const APEX_SEARCH_FOOTER_URL = apexAdvancedSearchUrl('footer');
 
 const FACEBOOK_URL = 'https://www.facebook.com/GeorgeKHomes/';
 const YELP_URL = 'https://www.yelp.com/biz/george-khazanovskiy-temecula';
@@ -134,7 +135,7 @@ export default function Footer() {
               <a
                 href={APEX_SEARCH_FOOTER_URL}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 onClick={() => trackSearchHomesClick('footer')}
                 className={linkClasses}
               >

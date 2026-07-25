@@ -12,10 +12,10 @@ import BilingualBand from '@/components/BilingualBand';
 import MobileBottomBar from '@/components/MobileBottomBar';
 import Footer from '@/components/Footer';
 import { trackSearchHomesClick } from '@/lib/tracking';
+import { apexAdvancedSearchUrl } from '@/lib/apexSearch';
 
 // Outbound MLS search (ApexIDX) — same URL pattern as nav/footer, buyer-LP UTM.
-const APEX_SEARCH_BUYER_URL =
-  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=buyer_lp';
+const APEX_SEARCH_BUYER_URL = apexAdvancedSearchUrl('buyer_lp');
 
 export default function BuyerHomesPage() {
   return (
@@ -107,7 +107,7 @@ export default function BuyerHomesPage() {
             <a
               href={APEX_SEARCH_BUYER_URL}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               onClick={() => trackSearchHomesClick('buyer_lp')}
               className="inline-block bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold px-8 py-4 rounded-md text-lg shadow-lg transition-colors"
             >

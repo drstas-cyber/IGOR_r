@@ -1,15 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Phone } from 'lucide-react';
 import { trackSearchHomesClick } from '@/lib/tracking';
+import { apexAdvancedSearchUrl } from '@/lib/apexSearch';
 
-// Outbound MLS search (ApexIDX). New tab; rel="noopener" only (no noreferrer — ApexIDX
-// may use the referrer for attribution). Site Referrer-Policy already sends origin.
-const APEX_SEARCH_NAV_URL =
-  'https://apexidx.com/idx_lite/advancedsearch/EN_LA?utm_source=tvh&utm_medium=referral&utm_campaign=search_homes&utm_content=nav';
+// Outbound MLS search (ApexIDX). New tab; rel="noopener noreferrer" — the site's
+// Referrer-Policy (strict-origin-when-cross-origin) already caps any cross-origin
+// referrer to the bare origin, so dropping the path/query via noreferrer loses no
+// attribution ApexIDX didn't already lack; utm_content on the URL is the real signal.
+const APEX_SEARCH_NAV_URL = apexAdvancedSearchUrl('nav');
 
 export default function StickyNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
+  // #home-value only exists on the homepage (HomeValueForm isn't rendered on
+  // every page). On the homepage, plain "#home-value" scrolls in place. On
+  // any other page, "/#home-value" is a full <a> page navigation that lands
+  // on the homepage with the hash already set; HomePage's own effect handles
+  // the actual scroll once React has rendered the target (see HomePage.jsx).
+  const homeValueHref = location.pathname === '/' ? '#home-value' : '/#home-value';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,7 +31,7 @@ export default function StickyNavigation() {
 
   const navLinks = [
     { label: 'Search Homes', href: APEX_SEARCH_NAV_URL, external: true },
-    { label: 'Home Value', href: '#home-value' },
+    { label: 'Home Value', href: homeValueHref },
     { label: 'About George', href: '#about-george' },
     { label: 'Contact', href: '#contact' }
   ];
@@ -54,7 +64,7 @@ export default function StickyNavigation() {
                   key={link.label}
                   href={link.href}
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   onClick={() => trackSearchHomesClick('nav')}
                   className={linkClass}
                 >
@@ -73,7 +83,7 @@ export default function StickyNavigation() {
           </div>
 
           <div className="flex items-center gap-5">
-            <a href="#home-value">
+            <a href={homeValueHref}>
               <Button className="bg-accent hover:bg-accent/90 text-white rounded text-[14px] px-5 py-2 h-auto transition-transform hover:scale-105">
                 Free Home Value
               </Button>
@@ -97,7 +107,7 @@ export default function StickyNavigation() {
                 key={link.label}
                 href={link.href}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 onClick={() => trackSearchHomesClick('nav')}
                 className="text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent"
               >

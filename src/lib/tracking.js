@@ -54,3 +54,14 @@ export function trackSearchHomesClick(location) {
     location,
   });
 }
+
+// Outbound neighborhood-card click (NeighborhoodsGrid → ApexIDX, city-scoped).
+// GA4 engagement event only — same reasoning as trackSearchHomesClick above.
+export function trackNeighborhoodSearchClick(slug) {
+  if (typeof window.gtag !== 'function') return;
+  window.gtag('event', 'click_neighborhood_search', {
+    event_category: 'engagement',
+    event_label: slug,
+    neighborhood: slug,
+  });
+}

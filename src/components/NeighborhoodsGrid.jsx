@@ -1,16 +1,25 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { apexSearchUrl } from '@/lib/apexSearch';
+import { trackNeighborhoodSearchClick } from '@/lib/tracking';
+
+// City-scoped to Temecula — no per-neighborhood filtering exists on ApexIDX
+// (confirmed empirically against the advancedsearch form — city/subdivision/
+// area/location/neighborhood query params all no-op there), so every card
+// and the "Explore Neighborhoods" control resolve to the same city-scoped
+// search, distinguished only by utm_content for attribution. See
+// src/lib/apexSearch.js for the URL itself and how it was captured.
 
 export default function NeighborhoodsGrid() {
   const neighborhoods = [
-    { name: "Wolf Creek" },
-    { name: "Redhawk" },
-    { name: "Wine Country" },
-    { name: "Paloma Del Sol" },
-    { name: "Old Town" },
-    { name: "Vail Ranch" },
-    { name: "Morgan Hill" },
-    { name: "Crown Hill" }
+    { name: "Wolf Creek", slug: "wolf_creek" },
+    { name: "Redhawk", slug: "redhawk" },
+    { name: "Wine Country", slug: "wine_country" },
+    { name: "Paloma Del Sol", slug: "paloma_del_sol" },
+    { name: "Old Town", slug: "old_town" },
+    { name: "Vail Ranch", slug: "vail_ranch" },
+    { name: "Morgan Hill", slug: "morgan_hill" },
+    { name: "Crown Hill", slug: "crown_hill" }
   ];
 
   return (
@@ -30,8 +39,11 @@ export default function NeighborhoodsGrid() {
               Browse Temecula Neighborhoods
             </h2>
           </motion.div>
-          <motion.a 
-            href="#neighborhoods"
+          <motion.a
+            href={apexSearchUrl('explore_neighborhoods')}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackNeighborhoodSearchClick('explore_neighborhoods')}
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -44,7 +56,10 @@ export default function NeighborhoodsGrid() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {neighborhoods.map((hood, idx) => (
             <motion.a
-              href="#neighborhoods"
+              href={apexSearchUrl(`neighborhood_${hood.slug}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackNeighborhoodSearchClick(hood.slug)}
               key={idx}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -58,7 +73,7 @@ export default function NeighborhoodsGrid() {
               </p>
               <div className="flex items-center justify-between mt-auto">
                 <span className="font-sans text-[14px] text-[#C8920A] font-bold">
-                  Browse {hood.name}
+                  Search Homes Near {hood.name}
                 </span>
                 <span className="font-sans text-[18px] text-[#C8920A] transform group-hover:translate-x-1 transition-transform">
                   &rarr;
