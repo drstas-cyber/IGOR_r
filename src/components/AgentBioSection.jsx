@@ -32,12 +32,26 @@ export default function AgentBioSection() {
           >
             {/* Updated Circular Container */}
             <div className="w-[220px] h-[220px] md:w-[260px] md:h-[260px] lg:w-[300px] lg:h-[300px] rounded-full overflow-hidden mb-8 shadow-xl border-4 border-white ring-2 ring-[#C8920A]/20">
-              <img
-                src="/images/george-photo.jpg"
-                alt="George Khazanovskiy Professional Headshot"
-                loading="lazy"
-                className="w-full h-full object-cover object-top"
-              />
+              <picture>
+                <source
+                  type="image/avif"
+                  srcSet="/images/george-photo/george-photo-400.avif 400w, /images/george-photo/george-photo-800.avif 800w, /images/george-photo/george-photo-1200.avif 1200w, /images/george-photo/george-photo-1600.avif 1600w"
+                  sizes="(min-width: 1024px) 300px, (min-width: 768px) 260px, 220px"
+                />
+                <source
+                  type="image/webp"
+                  srcSet="/images/george-photo/george-photo-400.webp 400w, /images/george-photo/george-photo-800.webp 800w, /images/george-photo/george-photo-1200.webp 1200w, /images/george-photo/george-photo-1600.webp 1600w"
+                  sizes="(min-width: 1024px) 300px, (min-width: 768px) 260px, 220px"
+                />
+                <img
+                  src="/images/george-photo/george-photo-400.jpg"
+                  srcSet="/images/george-photo/george-photo-400.jpg 400w, /images/george-photo/george-photo-800.jpg 800w, /images/george-photo/george-photo-1200.jpg 1200w, /images/george-photo/george-photo-1600.jpg 1600w"
+                  sizes="(min-width: 1024px) 300px, (min-width: 768px) 260px, 220px"
+                  alt="George Khazanovskiy Professional Headshot"
+                  loading="lazy"
+                  className="w-full h-full object-cover object-top"
+                />
+              </picture>
             </div>
             
             <h3 className="font-serif text-[24px] text-[#12202A] font-bold mb-1">

@@ -63,12 +63,26 @@ export default function ContactPage() {
 
           {/* George's Profile */}
           <div className="text-center mb-4">
-            <img
-              src="/images/george-photo.jpg"
-              alt="George Khazanovskiy — Temecula Valley Realtor"
-              className="rounded-full mx-auto mb-3 object-cover"
-              style={{width:'161px',height:'161px',objectPosition:'center 15%',border:'3px solid #C8920A',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}
-            />
+            <picture>
+              <source
+                type="image/avif"
+                srcSet="/images/george-photo/george-photo-400.avif 400w, /images/george-photo/george-photo-800.avif 800w, /images/george-photo/george-photo-1200.avif 1200w, /images/george-photo/george-photo-1600.avif 1600w"
+                sizes="161px"
+              />
+              <source
+                type="image/webp"
+                srcSet="/images/george-photo/george-photo-400.webp 400w, /images/george-photo/george-photo-800.webp 800w, /images/george-photo/george-photo-1200.webp 1200w, /images/george-photo/george-photo-1600.webp 1600w"
+                sizes="161px"
+              />
+              <img
+                src="/images/george-photo/george-photo-400.jpg"
+                srcSet="/images/george-photo/george-photo-400.jpg 400w, /images/george-photo/george-photo-800.jpg 800w, /images/george-photo/george-photo-1200.jpg 1200w, /images/george-photo/george-photo-1600.jpg 1600w"
+                sizes="161px"
+                alt="George Khazanovskiy — Temecula Valley Realtor"
+                className="rounded-full mx-auto mb-3 object-cover"
+                style={{width:'161px',height:'161px',objectPosition:'center 15%',border:'3px solid #C8920A',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}
+              />
+            </picture>
             <h1 className="text-2xl font-serif font-bold text-white mb-1">George Khazanovskiy</h1>
             <p className="text-[#C8920A] font-semibold text-sm mb-2">Licensed Realtor® · DRE #02034120 · Allison James Estates & Homes</p>
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-gray-300">

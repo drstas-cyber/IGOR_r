@@ -59,12 +59,26 @@ export default function SellMyHousePage() {
 
         {/* ── HERO ── */}
         <section className="max-w-2xl mx-auto px-4 pt-6 pb-8 text-center">
-          <img
-            src="/images/george-photo.jpg"
-            alt="George Khazanovskiy — Temecula Valley Realtor"
-            className="rounded-full mx-auto mb-4 object-cover"
-            style={{width:'140px',height:'140px',objectPosition:'center 15%',border:'3px solid #C8920A',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}
-          />
+          <picture>
+            <source
+              type="image/avif"
+              srcSet="/images/george-photo/george-photo-400.avif 400w, /images/george-photo/george-photo-800.avif 800w, /images/george-photo/george-photo-1200.avif 1200w, /images/george-photo/george-photo-1600.avif 1600w"
+              sizes="140px"
+            />
+            <source
+              type="image/webp"
+              srcSet="/images/george-photo/george-photo-400.webp 400w, /images/george-photo/george-photo-800.webp 800w, /images/george-photo/george-photo-1200.webp 1200w, /images/george-photo/george-photo-1600.webp 1600w"
+              sizes="140px"
+            />
+            <img
+              src="/images/george-photo/george-photo-400.jpg"
+              srcSet="/images/george-photo/george-photo-400.jpg 400w, /images/george-photo/george-photo-800.jpg 800w, /images/george-photo/george-photo-1200.jpg 1200w, /images/george-photo/george-photo-1600.jpg 1600w"
+              sizes="140px"
+              alt="George Khazanovskiy — Temecula Valley Realtor"
+              className="rounded-full mx-auto mb-4 object-cover"
+              style={{width:'140px',height:'140px',objectPosition:'center 15%',border:'3px solid #C8920A',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}
+            />
+          </picture>
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white leading-tight mb-3">
             Sell Your Temecula Home<br className="hidden sm:block" /> for Top Dollar
           </h1>

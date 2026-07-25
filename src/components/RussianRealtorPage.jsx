@@ -168,12 +168,26 @@ export default function RussianRealtorPage() {
               className="w-full lg:w-1/3 flex flex-col items-center lg:items-start text-center lg:text-left"
             >
               <div className="w-[280px] h-[280px] rounded-full overflow-hidden mb-8 shadow-xl border-4 border-white">
-                <img
-                  src="/images/george-photo.jpg"
-                  alt="Джордж Хазановский"
-                  loading="lazy"
-                  className="w-full h-full object-cover object-top"
-                />
+                <picture>
+                  <source
+                    type="image/avif"
+                    srcSet="/images/george-photo/george-photo-400.avif 400w, /images/george-photo/george-photo-800.avif 800w, /images/george-photo/george-photo-1200.avif 1200w, /images/george-photo/george-photo-1600.avif 1600w"
+                    sizes="280px"
+                  />
+                  <source
+                    type="image/webp"
+                    srcSet="/images/george-photo/george-photo-400.webp 400w, /images/george-photo/george-photo-800.webp 800w, /images/george-photo/george-photo-1200.webp 1200w, /images/george-photo/george-photo-1600.webp 1600w"
+                    sizes="280px"
+                  />
+                  <img
+                    src="/images/george-photo/george-photo-400.jpg"
+                    srcSet="/images/george-photo/george-photo-400.jpg 400w, /images/george-photo/george-photo-800.jpg 800w, /images/george-photo/george-photo-1200.jpg 1200w, /images/george-photo/george-photo-1600.jpg 1600w"
+                    sizes="280px"
+                    alt="Джордж Хазановский"
+                    loading="lazy"
+                    className="w-full h-full object-cover object-top"
+                  />
+                </picture>
               </div>
               <h3 className="font-serif text-3xl text-[#12202A] font-bold mb-2">Джордж Хазановский</h3>
               <p className="font-sans text-[16px] text-gray-600 mb-6">Realtor® &middot; DRE #02034120</p>
