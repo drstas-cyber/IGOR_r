@@ -1,5 +1,12 @@
 # Ad Copy Archive — Russian-Realtor-Flavored (intended-for-future-russian-ad-group)
 
+> **Historical snapshot — dated 2026-05-06, superseded.** The "What the site actually
+> is right now" section below describes `MLSSearchSection.jsx`'s gated lead-capture
+> modal and `GoogleReviews.jsx`'s hardcoded reviews as they existed on that date. Both
+> have since been replaced (real ApexIDX outbound links; real Google reviews). Useful
+> for the ad-copy history and substantiation reasoning, not as a description of the
+> current site.
+
 **Status:** Three Temecula Buyers ad-group RSAs paused 2026-05-04, kept paused 2026-05-06 to avoid Frankenstein-ing onto `/homes-for-sale-temecula/` (different intent than copy). Total accumulated cost across the three: ~$398.35 over 90 days, **0 conversions** when serving against `/contact/`.
 
 **Intent:** Preserve the creative work for a future dedicated **Russian-Speaking Realtor ad group** (the planned 4-ad-group restructure — see project memory). Same copy, paired with Russian-search keywords and `/russian-speaking-realtor-temecula/` as the destination, may convert. The copy is "Russian-speaking realtor" positioning regardless of search intent — it landed on the wrong combination of (English buyer keywords) × (`/contact/` LP) and produced 0 conversions, but that does not mean the copy is dead.
