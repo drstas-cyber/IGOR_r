@@ -2,10 +2,17 @@ import React from 'react';
 import { Phone, Home } from 'lucide-react';
 
 export default function MobileBottomBar() {
+  // Same fallback as StickyNavigation's #home-value href: scroll in place if the
+  // section exists on this page, otherwise do a full navigation to "/#home-value"
+  // and let HomePage's own hash-scroll effect (see HomePage.jsx) handle the rest
+  // once it mounts. Checked by element presence rather than a hardcoded page list,
+  // since more than one page (English homepage, Russian page) now has the section.
   const handleHomeValueClick = () => {
     const el = document.getElementById('home-value');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.location.href = '/#home-value';
     }
   };
 

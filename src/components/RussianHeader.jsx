@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { apexAdvancedSearchUrl } from '@/lib/apexSearch';
+import { trackSearchHomesClick } from '@/lib/tracking';
+
+// Outbound MLS search (ApexIDX), Russian-nav variant of StickyNavigation's
+// "Search Homes" link — same destination, distinct utm_content for attribution.
+const APEX_SEARCH_NAV_RU_URL = apexAdvancedSearchUrl('nav_ru');
 
 export default function RussianHeader() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -19,12 +25,17 @@ export default function RussianHeader() {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // "Районы" (Neighborhoods) removed — no Russian neighborhoods section exists
+  // to point it at; it was previously aliased to the same target as "Оценка",
+  // which was worse than not offering the link. Re-add if NeighborhoodsGrid
+  // is ever localized.
   const navLinks = [
-    { label: 'Поиск Домов', target: 'home-value' },
-    { label: 'Районы', target: 'home-value' },
     { label: 'Оценка', target: 'home-value' },
     { label: 'О Джордже', target: 'about-george' }
   ];
+
+  const linkClass =
+    'text-[14px] text-foreground font-medium hover:text-accent relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left transition-colors';
 
   return (
     <>
@@ -56,11 +67,20 @@ export default function RussianHeader() {
             </div>
 
             <div className="flex items-center gap-6">
+              <a
+                href={APEX_SEARCH_NAV_RU_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackSearchHomesClick('nav_ru')}
+                className={linkClass}
+              >
+                Поиск Домов
+              </a>
               {navLinks.map((link) => (
                 <button
                   key={link.label}
                   onClick={() => scrollTo(link.target)}
-                  className="text-[14px] text-foreground font-medium hover:text-accent relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left transition-colors"
+                  className={linkClass}
                 >
                   {link.label}
                 </button>

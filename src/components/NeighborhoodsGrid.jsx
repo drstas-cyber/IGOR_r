@@ -69,7 +69,7 @@ export default function NeighborhoodsGrid() {
             >
               <h3 className="font-serif text-[28px] text-[#12202A] mb-2">{hood.name}</h3>
               <p className="font-sans text-[14px] text-gray-500 mb-6 flex-grow">
-                Explore homes and neighborhood info in {hood.name}.
+                See Temecula-area listings near {hood.name}.
               </p>
               <div className="flex items-center justify-between mt-auto">
                 <span className="font-sans text-[14px] text-[#C8920A] font-bold">

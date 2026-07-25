@@ -23,17 +23,6 @@ export default function RussianRealtorPage() {
     window.location.href = "mailto:george@temeculavalleyhomes.us";
   };
 
-  const handleAction = (feature) => {
-    const targets = {
-      'search': 'home-value',
-      'neighborhoods': 'home-value',
-      'home-value': 'home-value',
-      'about': 'about',
-    };
-    const el = document.getElementById(targets[feature] || 'home-value');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const whyGeorgeFeatures = [
     { icon: "📍", title: "Местный эксперт", description: "Русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
     { icon: "⭐", title: "5.0★ отзывов", description: "Исключительно положительные отзывы от десятков довольных семей в Южной Калифорнии." },
@@ -137,7 +126,7 @@ export default function RussianRealtorPage() {
       </section>
 
       {/* SECTION 5 (HOME VALUE FORM) */}
-      <section className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
+      <section id="home-value" className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
           <motion.div 
             initial={{ opacity: 0, x: -30 }}
