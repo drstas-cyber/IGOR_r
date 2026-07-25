@@ -1,12 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { GOOGLE_RATING, GOOGLE_REVIEW_COUNT, GOOGLE_REVIEWS_URL } from '@/lib/reviews';
 
 // Real, attributed Google reviews from George's live Birdeye/Google profile
 // (verified 2026-07-26). Text is used verbatim — do not paraphrase, embellish,
 // or add reviews without updating the source verification date/link below.
-const SOURCE_URL = 'https://www.google.com/maps?q=place_id:ChIJPRmE4Vd_24ARRp3Jx_5WMq8';
-const RATING = '5.0';
-const REVIEW_COUNT = 17;
+const SOURCE_URL = GOOGLE_REVIEWS_URL;
+const RATING = GOOGLE_RATING;
+const REVIEW_COUNT = GOOGLE_REVIEW_COUNT;
 
 const reviews = [
   {
