@@ -1,0 +1,237 @@
+{
+  "label": "PRE-REGENERATION BASELINE",
+  "patternCommitHash": "30d8154",
+  "fixtureSha256": "e8d2ef952311d5d3aed934edf2b845a86a670393683a7063bf22573cc958af9f",
+  "fetchedAt": "2026-07-26T03:05:47.218Z",
+  "generatedAt": "2026-07-26T03:11:29.023Z",
+  "totalArticles": 25,
+  "trippedCount": 25,
+  "tripRate": 1,
+  "results": [
+    {
+      "slug": "why-home-values-fluctuate",
+      "tripped": true,
+      "findingCount": 5,
+      "categories": [
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "role-of-open-house-visits",
+      "tripped": true,
+      "findingCount": 5,
+      "categories": [
+        "exclusivity",
+        "tenure"
+      ]
+    },
+    {
+      "slug": "factors-affecting-home-market-value",
+      "tripped": true,
+      "findingCount": 7,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "what-is-a-real-estate-bidding-war",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "exclusivity",
+        "tenure"
+      ]
+    },
+    {
+      "slug": "meekerrealtygroupcom-alternatives",
+      "tripped": true,
+      "findingCount": 8,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "disparagement"
+      ]
+    },
+    {
+      "slug": "what-is-a-low-inventory-real-estate-market",
+      "tripped": true,
+      "findingCount": 6,
+      "categories": [
+        "exclusivity",
+        "tenure"
+      ]
+    },
+    {
+      "slug": "how-home-condition-shapes-your-propertys-value",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "real-estate-market-cycle-explained-for-buyers-and-investors",
+      "tripped": true,
+      "findingCount": 2,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "debonisteam-com-alternatives-4-providers",
+      "tripped": true,
+      "findingCount": 17,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "reviews-ratings",
+        "disparagement"
+      ]
+    },
+    {
+      "slug": "property-management-investor-guide-maximize-returns-in-2026",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "exclusivity",
+        "tenure"
+      ]
+    },
+    {
+      "slug": "temecula-real-estate-investment-benefits-2026-guide",
+      "tripped": true,
+      "findingCount": 2,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "how-to-track-neighborhood-home-price-trends",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "how-to-negotiate-commercial-property-price-effectively",
+      "tripped": true,
+      "findingCount": 1,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "real-estate-price-trends-explained-for-homebuyers",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "the-role-of-professional-realtors-in-home-valuation",
+      "tripped": true,
+      "findingCount": 6,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "types-of-wine-country-investment-properties-2026-guide",
+      "tripped": true,
+      "findingCount": 4,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "get-free-home-valuation-locally-in-temecula-valley",
+      "tripped": true,
+      "findingCount": 4,
+      "categories": [
+        "exclusivity",
+        "tenure"
+      ]
+    },
+    {
+      "slug": "yukomiyata-com-alternatives-5-real-estate-experts",
+      "tripped": true,
+      "findingCount": 14,
+      "categories": [
+        "exclusivity",
+        "tenure",
+        "reviews-ratings",
+        "disparagement"
+      ]
+    },
+    {
+      "slug": "why-new-construction-listings-differ-a-buyers-guide",
+      "tripped": true,
+      "findingCount": 5,
+      "categories": [
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "home-valuation-methods-compared-2026-buyers-guide",
+      "tripped": true,
+      "findingCount": 2,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "what-is-a-real-estate-watchlist-a-buyers-guide",
+      "tripped": true,
+      "findingCount": 1,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "how-comparable-homes-shape-property-pricing",
+      "tripped": true,
+      "findingCount": 3,
+      "categories": [
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "market-conditions-affecting-local-home-prices-in-2026",
+      "tripped": true,
+      "findingCount": 2,
+      "categories": [
+        "tenure",
+        "urgency-stat"
+      ]
+    },
+    {
+      "slug": "how-to-interpret-home-valuation-reports-in-2026",
+      "tripped": true,
+      "findingCount": 2,
+      "categories": [
+        "tenure"
+      ]
+    },
+    {
+      "slug": "housing-market-absorption-rate-a-buyers-guide",
+      "tripped": true,
+      "findingCount": 1,
+      "categories": [
+        "tenure"
+      ]
+    }
+  ]
+}
