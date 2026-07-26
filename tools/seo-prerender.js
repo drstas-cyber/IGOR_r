@@ -34,6 +34,10 @@ const ROUTES = [
   { path: '/sell-my-house/',                    component: 'SellMyHousePage.jsx',    priority: 0.8, changefreq: 'monthly' },
   { path: '/about-george/',                     component: 'AboutGeorgePage.jsx',    priority: 0.7, changefreq: 'monthly' },
   { path: '/contact/',                          component: 'ContactPage.jsx',        priority: 0.7, changefreq: 'yearly'  },
+  // Placeholder only — noindex means the existing !noindex sitemap filter
+  // below excludes it automatically, no special-casing needed. Do not point
+  // this at BlogIndexPage.jsx; that's the real (currently unrouted) blog.
+  { path: '/blog/',                             component: 'BlogPlaceholderPage.jsx', priority: 0.1, changefreq: 'monthly' },
 ];
 
 function extractHelmet(src) {
