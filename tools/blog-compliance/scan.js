@@ -288,3 +288,14 @@ export function evaluateBatch(results, maxTripRate = MAX_TRIP_RATE) {
   const shouldFailBuild = total > 0 && tripRate > maxTripRate;
   return { total, trippedCount, tripRate, shouldFailBuild };
 }
+
+// Fail-closed as of 2026-07-26: a missing/unset BLOG_COMPLIANCE_ENFORCE means
+// enforce, not report-only. Before this, the only thing preventing a
+// non-compliant batch from shipping indexable was a deleted API key and
+// memory of why it's deleted — not something a build config should rely on.
+// Pass process.env.BLOG_COMPLIANCE_ENFORCE (or any string) in; only the
+// literal string 'false' opts back into report-only. Pure, no I/O —
+// unit-testable directly, same reasoning as evaluateBatch above.
+export function resolveEnforceMode(envValue) {
+  return envValue !== 'false';
+}

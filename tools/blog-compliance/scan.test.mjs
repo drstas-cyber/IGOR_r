@@ -3,7 +3,7 @@
 //   node --test tools/blog-compliance/scan.test.mjs
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanArticle, htmlToText, evaluateBatch, scanAllArticles } from './scan.js';
+import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode } from './scan.js';
 
 function article({ slug = 'test-article', title = 'Test Article', html = '' } = {}) {
   return { slug, title, content_html: html };
@@ -430,5 +430,76 @@ describe('evaluateBatch — batch-level fail threshold', () => {
   test('uses the imported MAX_TRIP_RATE default when no override is passed', () => {
     const b = evaluateBatch(fakeResults(24, 24));
     assert.equal(b.shouldFailBuild, true);
+  });
+});
+
+describe('resolveEnforceMode — fail-closed by default (2026-07-26)', () => {
+  test('undefined (env var never set) resolves to enforce=true', () => {
+    assert.equal(resolveEnforceMode(undefined), true);
+  });
+
+  test('empty string (var set but blank) resolves to enforce=true', () => {
+    assert.equal(resolveEnforceMode(''), true);
+  });
+
+  test('any value other than the literal "false" resolves to enforce=true, including the old "true"', () => {
+    assert.equal(resolveEnforceMode('true'), true);
+    assert.equal(resolveEnforceMode('yes'), true);
+    assert.equal(resolveEnforceMode('0'), true);
+  });
+
+  test('ONLY the literal string "false" opts into report-only', () => {
+    assert.equal(resolveEnforceMode('false'), false);
+  });
+
+  test('"False" / "FALSE" (wrong case) does NOT opt out — fails closed on a typo too', () => {
+    assert.equal(resolveEnforceMode('False'), true);
+    assert.equal(resolveEnforceMode('FALSE'), true);
+  });
+});
+
+// THE "PROVE IT GOES RED" TEST — the actual scenario the fail-closed change
+// exists for: a real non-compliant article, present in a batch, with
+// BLOG_COMPLIANCE_ENFORCE left completely unset (as it would be if someone
+// forgot to configure it, or a key came back without anyone remembering the
+// old opt-in). Chains resolveEnforceMode + a real scanArticle() trip +
+// evaluateBatch exactly the way runComplianceFilter() in fetch-blog-data.js
+// does, without importing that self-executing file. This is what actually
+// answers "does the build fail" — the unit tests above only prove the
+// boolean; this proves the boolean's real consequence.
+describe('fail-closed integration — the build actually goes red', () => {
+  test('a non-compliant article, unset BLOG_COMPLIANCE_ENFORCE, exceeds MAX_TRIP_RATE alone -> shouldFailBuild', () => {
+    const enforce = resolveEnforceMode(process.env.SOME_VAR_THAT_IS_NEVER_SET);
+    assert.equal(enforce, true, 'sanity: an unset var must resolve to enforce');
+
+    const nonCompliant = scanArticle({
+      slug: 'red-test',
+      title: 'George: Only Trilingual Agent',
+      content_html: '<p>George brings over a decade of local market knowledge and is the only trilingual agent in the valley.</p>',
+    });
+    assert.equal(nonCompliant.tripped, true, 'sanity: this fixture must actually trip layer 1');
+
+    // A single tripped article in a batch of one is a 100% trip rate — well
+    // above MAX_TRIP_RATE regardless of its value.
+    const batch = evaluateBatch([nonCompliant]);
+    assert.equal(batch.shouldFailBuild, true);
+
+    // This is the exact condition runComplianceFilter() checks before
+    // throwing the fatal, build-failing error — reproduced here without
+    // importing fetch-blog-data.js.
+    const wouldFailTheBuild = enforce && batch.shouldFailBuild;
+    assert.equal(wouldFailTheBuild, true, 'a non-compliant article with BLOG_COMPLIANCE_ENFORCE unset must fail the build');
+  });
+
+  test('the same non-compliant article does NOT fail the build when BLOG_COMPLIANCE_ENFORCE=false is explicit', () => {
+    const enforce = resolveEnforceMode('false');
+    const nonCompliant = scanArticle({
+      slug: 'red-test-2',
+      title: 'George: Only Trilingual Agent',
+      content_html: '<p>George brings over a decade of local market knowledge and is the only trilingual agent in the valley.</p>',
+    });
+    const batch = evaluateBatch([nonCompliant]);
+    const wouldFailTheBuild = enforce && batch.shouldFailBuild;
+    assert.equal(wouldFailTheBuild, false, 'an explicit opt-out must still work — fail-closed is a default, not a lockout');
   });
 });

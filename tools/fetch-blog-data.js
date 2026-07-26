@@ -11,10 +11,12 @@
 // below. A misfiring filter that quietly ships zero articles is worse than a
 // loud build failure; "never fail the build" was never meant to cover that.
 //
-// Compliance filter is REPORT-ONLY by default (BLOG_COMPLIANCE_ENFORCE unset
-// or not 'true') — it logs what it would exclude and why, but excludes
-// nothing. Do not set BLOG_COMPLIANCE_ENFORCE=true until the report-only
-// false-positive rate has been reviewed. See tools/blog-compliance/README.md.
+// Compliance filter is FAIL-CLOSED (ENFORCE) by default as of 2026-07-26 —
+// only the literal BLOG_COMPLIANCE_ENFORCE=false opts into report-only
+// (logs what it would exclude, excludes nothing). A missing/unset var must
+// never mean "ship everything" — see resolveEnforceMode() in
+// tools/blog-compliance/scan.js and its "prove it goes red" test. See
+// tools/blog-compliance/README.md for the report-only opt-out use case.
 //
 // OFFLINE FIXTURE MODE (BLOG_COMPLIANCE_FIXTURE=true): reads
 // tools/blog-compliance/.articles-cache.json instead of hitting the live API
@@ -27,7 +29,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanArticle, evaluateBatch } from './blog-compliance/scan.js';
+import { scanArticle, evaluateBatch, resolveEnforceMode } from './blog-compliance/scan.js';
 import { MAX_TRIP_RATE } from './blog-compliance/patterns.js';
 import { fetchAllSummaries, fetchFullDetailForAll } from './blog-compliance/babyLoveApi.js';
 import { readFixture } from './blog-compliance/fixture.js';
@@ -62,11 +64,14 @@ function buildAndWrite(babyLoveArticles) {
 
 // Scans every article, logs every finding loudly (matched sentence, not just
 // a category name), and writes a machine-readable report file for review.
-// REPORT-ONLY unless BLOG_COMPLIANCE_ENFORCE=true — even then, exclusion
-// only, never rewriting: a tripped article is dropped from the array
-// entirely, its content is never modified.
+// FAIL-CLOSED as of 2026-07-26: enforce unless BLOG_COMPLIANCE_ENFORCE is the
+// literal string 'false' — a missing/unset var means enforce, not
+// report-only (see resolveEnforceMode() in blog-compliance/scan.js). Set
+// BLOG_COMPLIANCE_ENFORCE=false explicitly for a report-only run. Exclusion
+// only, never rewriting either way: a tripped article is dropped from the
+// array entirely, its content is never modified.
 function runComplianceFilter(articles) {
-  const enforce = process.env.BLOG_COMPLIANCE_ENFORCE === 'true';
+  const enforce = resolveEnforceMode(process.env.BLOG_COMPLIANCE_ENFORCE);
   // results[i] corresponds to articles[i] — kept index-aligned throughout
   // rather than reconstructed by slug lookup, since slugs aren't guaranteed
   // unique/present and a lookup-based rebuild would be fragile.
