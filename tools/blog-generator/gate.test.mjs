@@ -31,6 +31,7 @@ const CLEAN_CHECKLIST = {
   uncited_statistic: false, statistic_evidence: null,
   competitor_mention: false, competitor_evidence: null,
   contact_mismatch: false, contact_evidence: null,
+  legal_duty_overstated: false, legal_duty_evidence: null,
 };
 
 describe('layer 1 (regex scanner) — via real scanArticle, no mocking needed', () => {
@@ -80,6 +81,45 @@ describe('layer 2 (independent LLM claim review) — mocked API', () => {
       () => runLlmClaimGate({ apiKey: 'test-key', model: 'claude-haiku-4-5-20251001', title: 't', contentHtml: '<p>x</p>' }),
       /expected a "report_compliance_check" tool_use block/
     );
+  });
+
+  // New category, not a tightening of an existing one (2026-07-26) -- the
+  // Mello-Roos disclosure-duty gap found in article 2's independent
+  // verification: a citation exists, but the article's phrasing ("the law
+  // requires X") is stronger than what the cited source actually says
+  // ("must make a good-faith effort to" do X). No regex will ever
+  // adjudicate this; it requires reading the cited source's own language.
+  test('legal_duty_overstated trips the gate on its own, even with everything else clean', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', {
+      ...CLEAN_CHECKLIST,
+      legal_duty_overstated: true,
+      legal_duty_evidence: 'Article says "California law requires sellers to disclose"; cited Civil Code section 1102.6b actually says "must make a good faith effort to obtain and deliver."',
+    }));
+    const result = await runLlmClaimGate({ apiKey: 'test-key', model: 'claude-haiku-4-5-20251001', title: 't', contentHtml: '<p>x</p>', citations: [] });
+    assert.equal(result.tripped, true);
+    assert.equal(result.checklist.legal_duty_overstated, true);
+  });
+
+  test('the citations array is serialized into the request body for the model to cross-reference', async () => {
+    let capturedBody = null;
+    globalThis.fetch = async (url, init) => {
+      capturedBody = JSON.parse(init.body);
+      return {
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => toolUseResponse('report_compliance_check', CLEAN_CHECKLIST),
+        text: async () => '',
+      };
+    };
+    const citations = [{ id: '1', sourceName: 'Test Source', url: 'https://example.gov/x', sourceType: 'statute' }];
+    await runLlmClaimGate({ apiKey: 'test-key', model: 'claude-haiku-4-5-20251001', title: 't', contentHtml: '<p>x</p>', citations });
+    const userMessage = capturedBody.messages[0].content;
+    assert.match(userMessage, /CITATIONS ARRAY/);
+    assert.match(userMessage, /Test Source/);
+  });
+
+  test('an undefined citations param does not throw -- serializes as an empty array', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST));
+    await assert.doesNotReject(() => runLlmClaimGate({ apiKey: 'test-key', model: 'claude-haiku-4-5-20251001', title: 't', contentHtml: '<p>x</p>' }));
   });
 });
 

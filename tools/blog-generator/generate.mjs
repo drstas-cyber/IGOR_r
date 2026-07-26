@@ -213,6 +213,7 @@ export async function runGates({ apiKey, article }) {
     model: REVIEWER_MODEL,
     title: article.title,
     contentHtml: article.content_html,
+    citations: article.citations,
   });
   const layer2 = { tripped: layer2Result.tripped, checklist: layer2Result.checklist };
 
