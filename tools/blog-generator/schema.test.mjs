@@ -1,19 +1,22 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateArticleSchema, META_DESCRIPTION_MIN, META_DESCRIPTION_MAX } from './schema.js';
+import { validateArticleSchema, META_DESCRIPTION_MIN, META_DESCRIPTION_MAX, CITATION_SOURCE_TYPES } from './schema.js';
 
 function validArticle(overrides = {}) {
   return {
     id: 'local-abc123',
     title: 'Understanding Escrow',
     slug: 'understanding-escrow',
-    content_html: '<p>Escrow is a neutral third-party process.</p>',
+    content_html: '<p>Escrow is a neutral third-party process. Closing typically occurs within 30 days.<sup class="citation" data-cite="1">[1]</sup></p>',
     meta_description: 'A clear, practical explanation of how escrow works for California homebuyers from start to close of sale.',
     hero_image_url: null,
     jsonLd: { '@context': 'https://schema.org', '@type': 'Article' },
     faqJsonLd: null,
     created_at: '2026-07-25T00:00:00.000Z',
     keywords: ['escrow', 'homebuying'],
+    citations: [
+      { id: '1', sourceName: 'California Civil Code section 1057', url: 'https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=1057', sourceType: 'statute' },
+    ],
     published: false,
     sourceTopic: 'What to Expect During Escrow When Buying a Home',
     ...overrides,
@@ -128,5 +131,92 @@ describe('validateArticleSchema — required fields', () => {
     const result = validateArticleSchema(validArticle({ title: '', slug: 'BAD SLUG', keywords: [] }));
     assert.equal(result.valid, false);
     assert.ok(result.errors.length >= 3);
+  });
+});
+
+describe('validateArticleSchema — citations (added 2026-07-26)', () => {
+  test('an empty citations array is valid when content_html has no data-cite markers', () => {
+    const result = validateArticleSchema(validArticle({ citations: [], content_html: '<p>No specific claims here.</p>' }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('rejects a non-array citations field', () => {
+    const result = validateArticleSchema(validArticle({ citations: null }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /citations must be an array/);
+  });
+
+  test('rejects a citation entry missing sourceName', () => {
+    const result = validateArticleSchema(validArticle({ citations: [{ id: '1', url: 'https://leginfo.legislature.ca.gov/x', sourceType: 'statute' }] }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /missing sourceName/);
+  });
+
+  test('rejects a citation entry missing url', () => {
+    const result = validateArticleSchema(validArticle({ citations: [{ id: '1', sourceName: 'x', sourceType: 'statute' }] }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /missing url/);
+  });
+
+  test('rejects a sourceType outside the primary-source allowlist', () => {
+    const result = validateArticleSchema(validArticle({ citations: [{ id: '1', sourceName: 'x', url: 'https://example.com', sourceType: 'blog' }] }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not a primary-source category/);
+  });
+
+  test('every real CITATION_SOURCE_TYPES value is accepted', () => {
+    for (const sourceType of CITATION_SOURCE_TYPES) {
+      const result = validateArticleSchema(validArticle({ citations: [{ id: '1', sourceName: 'x', url: 'https://example.gov', sourceType }] }));
+      assert.equal(result.valid, true, `${sourceType} should be valid: ${JSON.stringify(result.errors)}`);
+    }
+  });
+
+  test('rejects a citation URL containing the competitor domain (prompt.md rule 7, defense in depth)', () => {
+    const result = validateArticleSchema(validArticle({
+      citations: [{ id: '1', sourceName: 'x', url: 'https://temeculavalleyhomes.com/blog/property-taxes', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /cites the competitor domain/);
+  });
+
+  test('rejects duplicate citation ids', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Claim A.<sup class="citation" data-cite="1">[1]</sup> Claim B.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [
+        { id: '1', sourceName: 'Source A', url: 'https://example.gov/a', sourceType: 'statute' },
+        { id: '1', sourceName: 'Source B', url: 'https://example.gov/b', sourceType: 'statute' },
+      ],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /duplicate id "1"/);
+  });
+
+  test('rejects a data-cite marker in content_html with no matching citations[] entry', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Closing typically occurs within 30 days.<sup class="citation" data-cite="2">[2]</sup></p>',
+      // citations still has id "1" from the base fixture -- "2" is referenced but never defined
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /data-cite="2" with no matching citations\[\] entry/);
+  });
+
+  test('rejects a citations[] entry with no matching data-cite marker (orphaned citation)', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>No markers in this body at all.</p>',
+      // citations still has id "1" from the base fixture -- nothing references it
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /orphaned citation/);
+  });
+
+  test('a fully consistent multi-citation article passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Claim A.<sup class="citation" data-cite="1">[1]</sup> Claim B.<sup class="citation" data-cite="2">[2]</sup></p>',
+      citations: [
+        { id: '1', sourceName: 'Source A', url: 'https://example.gov/a', sourceType: 'statute' },
+        { id: '2', sourceName: 'Source B', url: 'https://example.gov/b', sourceType: 'county-assessor' },
+      ],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
   });
 });

@@ -8,6 +8,16 @@ export const META_DESCRIPTION_MAX = 160;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const ID_PREFIX = 'local-';
 
+// prompt.md rule 6: primary sources only.
+export const CITATION_SOURCE_TYPES = ['statute', 'constitution', 'government-code', 'county-assessor', 'county-tax-collector', 'court-opinion', 'other-primary'];
+// prompt.md rule 7: never cite the competitor, defense in depth alongside
+// the Layer 1 scanner (which also gets the citations array as of the
+// scanner-widening change -- this check exists independently so schema
+// validation itself never lets a competitor URL through even if that
+// widening is ever reverted).
+const CITATION_URL_FORBIDDEN_SUBSTRING = 'temeculavalleyhomes.com';
+const CITATION_MARKER_PATTERN = /data-cite="([^"]+)"/g;
+
 export function validateArticleSchema(article) {
   const errors = [];
 
@@ -55,6 +65,51 @@ export function validateArticleSchema(article) {
   }
   if (typeof article.sourceTopic !== 'string' || article.sourceTopic.trim().length === 0) {
     errors.push('sourceTopic must be a non-empty string — the exact topics.json "topic" text this article was generated from, used by topicAvailability.mjs to avoid regenerating the same topic. Added 2026-07-26.');
+  }
+
+  // citations array (added 2026-07-26, prompt.md rules 4-8): source of
+  // truth for every specific claim in content_html. Validated at two
+  // levels -- per-entry shape, then a cross-check that the array and the
+  // inline data-cite markers in content_html agree with each other exactly.
+  // Fail-closed: any mismatch is an error, never a warning, matching the
+  // rest of this pipeline's standard (resolveEnforceMode, getKnownSlugs,
+  // getOpenPrAttemptedTopics).
+  if (!Array.isArray(article.citations)) {
+    errors.push('citations must be an array (empty if the article makes no citable claims)');
+  } else {
+    const ids = new Set();
+    for (const c of article.citations) {
+      if (typeof c?.id !== 'string' || c.id.trim().length === 0) {
+        errors.push(`citations[]: missing/invalid id in ${JSON.stringify(c)}`);
+      } else if (ids.has(c.id)) {
+        errors.push(`citations[]: duplicate id "${c.id}"`);
+      } else {
+        ids.add(c.id);
+      }
+      if (typeof c?.sourceName !== 'string' || c.sourceName.trim().length === 0) {
+        errors.push(`citations[]: missing sourceName (id ${JSON.stringify(c?.id)})`);
+      }
+      if (typeof c?.url !== 'string' || c.url.trim().length === 0) {
+        errors.push(`citations[]: missing url (id ${JSON.stringify(c?.id)})`);
+      } else if (c.url.toLowerCase().includes(CITATION_URL_FORBIDDEN_SUBSTRING)) {
+        errors.push(`citations[]: url cites the competitor domain (id ${JSON.stringify(c?.id)}, url ${JSON.stringify(c.url)})`);
+      }
+      if (!CITATION_SOURCE_TYPES.includes(c?.sourceType)) {
+        errors.push(`citations[]: sourceType ${JSON.stringify(c?.sourceType)} is not a primary-source category (id ${JSON.stringify(c?.id)}) — must be one of ${JSON.stringify(CITATION_SOURCE_TYPES)}`);
+      }
+    }
+
+    // Cross-check: source of truth (citations) and its use in prose
+    // (data-cite markers) must never silently drift apart -- a marker with
+    // no entry renders a dead footnote link; an entry with no marker is an
+    // orphaned citation nothing in the article actually points to.
+    const markerIds = new Set([...(String(article.content_html || '')).matchAll(CITATION_MARKER_PATTERN)].map((m) => m[1]));
+    for (const id of markerIds) {
+      if (!ids.has(id)) errors.push(`content_html references data-cite="${id}" with no matching citations[] entry`);
+    }
+    for (const id of ids) {
+      if (!markerIds.has(id)) errors.push(`citations[] has id ${JSON.stringify(id)} that no data-cite marker in content_html references (orphaned citation)`);
+    }
   }
 
   return { valid: errors.length === 0, errors };

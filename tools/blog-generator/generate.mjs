@@ -55,6 +55,20 @@ const ARTICLE_TOOL_SCHEMA = {
     meta_description: { type: 'string', description: 'Between 70 and 160 characters.' },
     content_html: { type: 'string', description: 'Semantic HTML body: headings, paragraphs, lists. No inline styles, no script tags.' },
     keywords: { type: 'array', items: { type: 'string' }, minItems: 1 },
+    citations: {
+      type: 'array',
+      description: 'One entry per <sup class="citation" data-cite="ID"> marker in content_html (prompt.md rules 4-6). Empty array if content_html has zero citable claims. Never invent an entry with no corresponding marker, and never a source that is not a primary source (statute, constitution, government code, county assessor, county tax collector, court opinion).',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Matches data-cite="ID" in content_html. Sequential: "1", "2", "3"...' },
+          sourceName: { type: 'string', description: 'Human-readable source name, e.g. "California Constitution, Article XIII A, section 1" or "Riverside County Tax Collector".' },
+          url: { type: 'string', description: 'Direct URL to the primary source. Never temeculavalleyhomes.com (prompt.md rule 7).' },
+          sourceType: { type: 'string', enum: ['statute', 'constitution', 'government-code', 'county-assessor', 'county-tax-collector', 'court-opinion', 'other-primary'] },
+        },
+        required: ['id', 'sourceName', 'url', 'sourceType'],
+      },
+    },
     faq_items: {
       type: 'array',
       description: 'Question/answer pairs ONLY if the article naturally includes a Q&A section. Empty array if not.',
@@ -65,7 +79,7 @@ const ARTICLE_TOOL_SCHEMA = {
       },
     },
   },
-  required: ['title', 'slug_suggestion', 'meta_description', 'content_html', 'keywords', 'faq_items'],
+  required: ['title', 'slug_suggestion', 'meta_description', 'content_html', 'keywords', 'citations', 'faq_items'],
 };
 
 const DRAFT_TOOL = {
@@ -179,6 +193,7 @@ export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
     faqJsonLd: buildFaqJsonLd(reviewed.faq_items),
     created_at: createdAt,
     keywords: reviewed.keywords,
+    citations: reviewed.citations,
     published: false,
     sourceTopic,
   };

@@ -136,6 +136,7 @@ function mockAnthropicRouter({ checklist }) {
         meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
         content_html: '<p>HOA fees fund shared community amenities and routine maintenance for planned developments.</p>',
         keywords: ['hoa fees'],
+        citations: [],
         faq_items: [],
       }));
     }
@@ -147,6 +148,7 @@ function mockAnthropicRouter({ checklist }) {
         meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
         content_html: '<p>HOA fees fund shared community amenities and routine maintenance for planned developments.</p>',
         keywords: ['hoa fees'],
+        citations: [],
         faq_items: [],
       }));
     }
