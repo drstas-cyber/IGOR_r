@@ -153,6 +153,129 @@ Generated articles are only merged in if `published: true` — the generator
 always writes `published: false` by default, so simply running the pipeline
 never makes anything appear in a build. See "Publishing" below.
 
+## Why seven layers — the incident behind each
+
+This is now a seven-layer pipeline: prompt rules → self-review pass →
+Layer 1 regex → Layer 2 independent LLM checklist → Layer 3 citation URL
+resolution → schema validation → human PR read. A future reader looking at
+that list has every right to ask whether it's over-engineered. It isn't —
+every layer below exists because something real got past the layer before
+it, this weekend, not as a hypothetical. Recorded here while the reasons
+are still known, not left to live only in a chat transcript.
+
+1. **Prompt rules (`prompt.md`)** — the reason this pipeline exists at
+   all: BabyLoveGrowth's upstream content generation produced fabricated
+   tenure and exclusivity claims, confirmed false even after BabyLoveGrowth
+   shipped its own fix (a post-fix article still carried both "has spent
+   over a decade" and "the only Russian and Ukrainian-speaking agent").
+   The rules are stated explicitly rather than assumed, because leaving
+   the compliance bar implicit was exactly BabyLoveGrowth's failure mode.
+
+2. **Self-review pass** — a second call to the *same* writer model,
+   reviewing its own draft. Catches real, ordinary mistakes (articles 1
+   and 2 each found and fixed one violation in this pass). **Proven not
+   sufficient alone**, not just assumed insufficient: workflow run
+   `30200350767` (2026-07-26) logged `[generate] self-review: draft was
+   already clean per the model` — the writer was confident there was
+   nothing wrong — and Layer 2 tripped it anyway, on an uncited statistic
+   self-review had no reason to flag as *its own* mistake: "buyers have a
+   defined inspection contingency period — often around 17 days, though
+   the exact number can be negotiated." That exact hedge shape (a number
+   gestured at, never sourced) is what prompt.md rule 4's omit-or-cite
+   rewrite exists to close. A model reviewing its own work will not
+   reliably catch its own blind spots; that's what "independent" in Layer
+   2 is for.
+
+3. **Layer 1 — regex scanner** (`tools/blog-compliance/`, frozen pattern
+   set at commit `30d8154`, citations JSON widened in as of 2026-07-26).
+   Justified twice over: originally, the 2026-07-26 BabyLoveGrowth audit
+   found "over a decade of local market knowledge" was the single
+   dominant fabricated claim across an entire 25-article corpus, and the
+   pattern set *missed it* (no digit, no "of experience" suffix) until
+   manually widened after a human read caught it — proof that lexical
+   matching alone drifts into whatever the patterns don't happen to
+   cover. Widened again to scan the citations array because a competitor
+   URL could otherwise enter through a citation with no disparagement
+   language nearby and never reach the scanner at all — and the first
+   implementation of that widening (`JSON.stringify()`) would have
+   silently defeated it entirely (zero-whitespace JSON collapses into one
+   unsplittable token for the proximity checks), caught before it shipped
+   by inspecting the actual output, not assumed correct.
+
+4. **Layer 2 — independent LLM claim review** (different model from the
+   writer: `claude-haiku-4-5-20251001` vs. `claude-sonnet-5`). Justified
+   by run `30200350767` above — it is the layer that actually caught what
+   self-review missed. The `legal_duty_overstated` check specifically:
+   article 2's independently-verified claim ("California law requires
+   sellers to disclose known Mello-Roos assessments") was confirmed
+   stronger than what the actual cited statute (Civil Code §1102.6b) says
+   ("must make a good-faith effort to obtain and deliver") — a real,
+   human-caught overstatement no regex could ever adjudicate, which is
+   why it's its own checklist category rather than a tightening of
+   `uncited_statistic`.
+
+5. **Layer 3 — citation URL resolution, tiered host policy** (added
+   2026-07-26). The citation requirement itself creates a risk none of
+   the earlier layers had to guard against: a model with no real source
+   for a claim can produce a plausible-looking URL instead of omitting
+   the claim, and a fabricated citation is worse than the hedged
+   vagueness it replaces. The host-policy tiering specifically is
+   justified by a real demonstrated gap, not a hypothetical one: this
+   file's own sample citation fixture cited `law.justia.com` — a
+   republisher, an aggregator by rule 6's own definition — labeled
+   `sourceType: "statute"`, with nothing checking that pairing. That
+   mislabeled-mirror fixture is what `CITATION_HOST_POLICY`'s paired
+   host↔sourceType check exists to catch.
+
+6. **Schema validation** — per-entry citation shape, the paired
+   host↔sourceType check (same mislabeled-mirror justification as Layer
+   3), and a marker↔array consistency cross-check between `content_html`'s
+   `data-cite` markers and the `citations` array. The consistency check
+   runs at **two** checkpoints (generation time and again at build time)
+   because a human hand-editing `content_html` during PR review — the
+   pipeline's own stated "review-and-EDIT, not rubber-stamp" workflow —
+   can delete a marker after generation-time validation already passed.
+   Not theoretical: the first implementation of the build-time checkpoint
+   (`renderArticleFootnotes()`) had exactly this hole — it early-returned
+   on an empty `citations` array *before* checking for an orphaned marker
+   in `content_html`, which is precisely the inconsistency that checkpoint
+   exists to catch — caught by its own test suite before it ever shipped.
+
+7. **Human PR read** — the floor under all six layers above, not a step
+   retired once the gates look reliable. The single most decisive finding
+   of this whole project: the 2026-07-26 BabyLoveGrowth audit found a real
+   fabricated claim survived in 25 of 25 articles in a corpus until a
+   human read caught the pattern the automated scanner had missed
+   entirely. No combination of automated gates has been proven sufficient
+   on its own — see "Acceptance discipline for the rollout itself" below.
+
+**Two more incidents worth recording here even though they're not one of
+the seven content-compliance layers above** — pipeline-*reliability* bugs
+from the same 2026-07-26 session, same discipline, different failure
+class:
+
+- **The implicit `success()` bug.** The rejected-attempt PR step's `if:`
+  condition had no `success()`/`always()`/`failure()`/`cancelled()` in it.
+  GitHub Actions applies an implicit `success()` to any custom `if:`
+  lacking one of those functions — and `has_rejected_marker` only ever
+  becomes true when the *previous* step already failed, so without
+  `always()` this step would have been silently skipped on every real
+  gate trip, in real CI, forever. The rejected-attempt PR mechanism —
+  the reason a discarded run leaves ground-truth evidence instead of
+  silently blocking a topic forever — would never have actually fired.
+  Found by re-deriving GitHub Actions' own `if:` semantics from first
+  principles while answering an unrelated question ("what if this step
+  fails"), not by a failing test.
+- **The `getKnownSlugs()` key bug.** Read `baseline.articles` when the
+  file's real key is `results` — silently returned 3 of 28 known slugs in
+  any clean environment, including every real GitHub Actions run this
+  pipeline had ever made, for as long as the file existed. Masked for
+  hours on the dev machine by a separate, gitignored local fixture whose
+  own fallback path happened to use the correct key. The exact shape of
+  bug this whole session's testing discipline (isolated temp
+  directories, never real/gitignored local state) exists to prevent from
+  hiding again.
+
 ## The two-layer gate
 
 **Layer 1** — the existing regex compliance scanner
