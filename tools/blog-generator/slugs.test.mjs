@@ -106,6 +106,28 @@ describe('getKnownSlugs — fail-closed against a degraded slug set (2026-07-26)
       getKnownSlugs({ baselinePath: truncatedBaseline });
     }, /expected exactly 28/i);
   });
+
+  // The tripwire check, raised during review: EXPECTED_FROZEN_SLUG_COUNT=28
+  // must gate ONLY the frozen BLG baseline portion, never the union with
+  // generated articles -- otherwise article 2 landing would flip the total
+  // to 29 and detonate the build inside a real GitHub Actions run. Proves
+  // the assertion is scoped correctly by simulating exactly that scenario.
+  test('2 and 3 simulated generated articles present: does NOT throw, count grows past 28 freely', () => {
+    const dir = isolatedTempDir();
+    writeTempJson(dir, 'generated-2.json', { slug: 'simulated-generated-article-2' });
+    writeTempJson(dir, 'generated-3.json', { slug: 'simulated-generated-article-3' });
+    let known;
+    assert.doesNotThrow(() => {
+      known = getKnownSlugs({
+        generatedDir: dir,
+        blogArticlesPath: path.join(dir, 'does-not-exist.json'),
+        localFixturePath: path.join(dir, 'does-not-exist-2.json'),
+      });
+    });
+    assert.equal(known.size, 30, '28 frozen + 2 simulated generated');
+    assert.ok(known.has('simulated-generated-article-2'));
+    assert.ok(known.has('simulated-generated-article-3'));
+  });
 });
 
 describe('uniqueSlug — collision resolution', () => {
