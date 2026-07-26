@@ -8,8 +8,10 @@ so this is deliberately built as a **low-volume, human-edited pipeline**,
 not a content farm:
 
 - `topics.json` seeds **20** topics, not 100. It's trivially extensible
-  (just add another `{topic, target_keyword, status: "pending"}` entry), but
-  20 is the deliberate starting scope.
+  (just add another `{topic, target_keyword}` entry), but 20 is the
+  deliberate starting scope. It carries **no status field** — see "How
+  topic availability is decided" below for why and how "already attempted"
+  is derived instead.
 - Every PR this pipeline opens is a **review-and-EDIT step, not a rubber
   stamp.** Read the article. Both gates passing means "no known automated
   red flag," not "ready to publish as-is."
@@ -35,17 +37,99 @@ export ANTHROPIC_API_KEY=sk-ant-...
 node tools/blog-generator/generate.mjs
 ```
 
-This picks the next `status: "pending"` topic from `topics.json`, generates
-a draft, self-reviews it, runs both compliance gates, and either:
+This picks the next available topic from `topics.json` (see "How topic
+availability is decided" below), generates a draft, self-reviews it, runs
+both compliance gates, and either:
 
-- writes `src/data/generated-articles/<slug>.json` and marks the topic
-  `"generated"` (exit 0), or
-- writes nothing, marks the topic `"skipped"`, prints every finding from
+- writes `src/data/generated-articles/<slug>.json` (exit 0), or
+- writes nothing to that path, writes a rejected-attempt marker instead
+  (see "A gate trip is not silent" below), prints every finding from
   whichever gate(s) tripped, and **exits non-zero** (a tripped article is a
   prompt problem to fix, not noise — never retried silently).
 
+Requires `GITHUB_REPOSITORY=owner/repo` in the environment (already set
+automatically inside GitHub Actions) — topic selection needs it to check
+open generator PR branches; the script refuses to guess rather than skip
+that check.
+
 A full report of the run (topic, gate results, findings) is written to
 `tools/blog-generator/.last-run-report.json` (gitignored, ephemeral).
+
+## How topic availability is decided
+
+`topics.json` carries no status field. Earlier it did (`status: "pending"`
+/ `"generated"`), and that was the root cause of a real collision: the
+status flip only ever happened on the generator's own PR branch, so `main`
+never learned a topic had been consumed. The generator would regenerate
+the same topic indefinitely until that PR merged, and every unmerged run
+wrote to the same output path — a guaranteed collision, not a fluke (this
+is exactly what happened to articles 1 and 2 of this pipeline's real
+rollout).
+
+Instead, `tools/blog-generator/topicAvailability.mjs` derives "already
+attempted" fresh, every run, from ground truth:
+
+1. **Real article files** already on `main`, under
+   `src/data/generated-articles/` (read via `sourceTopic`, see below).
+2. **Rejected-attempt marker files** under
+   `src/data/generated-articles/.rejected/`, on `main` *and* on any
+   **open** generator PR branch (`gh pr list` + targeted `git fetch`/
+   `ls-tree`/`show` per branch — never a full clone).
+3. **Real article files** on any open generator PR branch, same mechanism.
+
+This check is **fail-closed**: any failure gathering that state — the `gh`
+CLI, `git fetch`, `git ls-tree`, `git show`, a JSON parse — throws
+immediately, before any model call happens, rather than silently treating
+"couldn't check" as "nothing attempted."
+
+**The join key is `sourceTopic`, not slug.** Every generated article and
+rejected marker carries the *exact* `topics.json` "topic" string it came
+from. This is deliberately **exact-string, case-sensitive matching** — if
+you edit a topic's wording in `topics.json`, it becomes newly-eligible for
+regeneration. That's intentional, not a bug: it gives you a cheap way to
+retry a topic that keeps producing bad drafts (rewrite the prompt angle in
+`topics.json`) without needing a special "force retry" flag. But it also
+means a trivial whitespace/punctuation edit silently un-blocks a topic —
+if that's not what you meant, don't touch the wording of a topic you want
+to stay attempted.
+
+## A gate trip is not silent — the rejected-attempt PR
+
+A discarded run used to leave **no trace anywhere ground-truth-visible**.
+That meant a topic that fails the gates every single time became a silent,
+permanent head-of-line block, with nothing anywhere recording why. This
+pipeline lived through exactly that during its own rollout.
+
+On a trip, `generate.mjs` writes a marker file to
+`src/data/generated-articles/.rejected/<slugified-topic>.json` containing
+**exactly four fields**: `sourceTopic`, `rejectedAt`, `layer1`, `layer2`
+(the gate findings — quoted evidence snippets, the same level of quoting
+already used in every PR report). **Never** the discarded draft's title,
+slug, or `content_html` — a rejected-attempt PR carries evidence for why
+the draft was discarded, never the draft itself.
+
+The workflow opens a PR for that marker the same way it opens a PR for a
+real article, on a distinctly-named branch
+(`blog-generator/rejected-<run id>`, so a human closing this PR and
+rerunning always gets a fresh branch name — no collision even on repeated
+rejections of the same topic).
+
+**The unified rule**, stated explicitly rather than left as emergent
+behavior:
+
+- An **open** generator PR (real-article or rejected-attempt) means the
+  topic is spoken for — `getOpenPrAttemptedTopics()` sees it, no new run
+  will pick it.
+- **Closing that PR unmerged releases the topic** — the next run is free
+  to try it again.
+- **Merging it — rejection or real article — permanently blocks the
+  topic**, because `getLocallyAttemptedTopics()` reads
+  `src/data/generated-articles/.rejected/` on `main` too, same as it reads
+  real article files there. If a rejected-attempt PR is ever accidentally
+  merged, the topic is blocked going forward, not silently released. This
+  is a stated decision: a merged rejection is treated as a permanent
+  record that the topic was tried and discarded, exactly like a merged
+  real article is a permanent record it was written.
 
 To pull a generated article into the normal build output for local preview:
 
@@ -85,8 +169,9 @@ second check rather than a self-assessment.
 
 On a trip from **either** layer: the article is discarded, not retried, not
 rewritten automatically. Every finding (matched sentence for layer 1,
-evidence field for layer 2) is logged. The topic goes back to `"skipped"` so
-a human can look at *why* — usually a prompt problem — before trying again.
+evidence field for layer 2) is logged into a rejected-attempt marker (see
+"A gate trip is not silent" above) so a human can look at *why* — usually a
+prompt problem — before trying again.
 
 **A mocked layer-2 test proves plumbing, not judgment.** `gate.test.mjs`
 confirms the wiring is correct — layer 2 can trip independently of layer 1,
@@ -121,12 +206,25 @@ appears later.
 
 ## The GitHub Actions workflow
 
-`.github/workflows/generate-article.yml` — `workflow_dispatch` only. On a
-run: generate → both gates → if an article was actually produced, open a PR
-via `peter-evans/create-pull-request` with the full gate report (both
-layers, every finding) in the PR body. A tripped/failed run opens **no PR**
-and the job itself fails (red), which is the visible signal — there is no
-silent partial-success state.
+`.github/workflows/generate-article.yml` — `workflow_dispatch` only, with a
+`concurrency` group (`generate-article`, `cancel-in-progress: false`) so a
+second trigger queues behind an in-flight run instead of racing it — two
+runs starting close together could otherwise both read the same
+not-yet-attempted topic before either's PR exists to make it unavailable
+to the other. On a run: generate → both gates → exactly one of two PRs
+opens, mutually exclusive by construction:
+
+- **A real article was produced** → PR via `peter-evans/create-pull-request`
+  with the full gate report (both layers, every finding — outcome
+  `generated`) in the body, branch `blog-generator/auto-<run id>`.
+- **A gate tripped** → PR for the rejected-attempt marker only (see "A gate
+  trip is not silent" above), branch `blog-generator/rejected-<run id>`.
+  The report body omits the article's title/slug for any outcome other
+  than `generated`.
+
+Either way the job itself still fails (red) on a trip — the rejected-PR
+path is additive ground-truth evidence, not a replacement for the visible
+failure signal. There is no silent partial-success state.
 
 Required repo setup before the first run:
 
