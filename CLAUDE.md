@@ -26,6 +26,28 @@ A healthy production deploy reports `buildEnv: "cf-pages"` and `dirty: false`. T
 `"ci"` only appears in `build-check` workflow artifacts (validation, not deployment).
 `"local"` on the live site means a wrangler-from-local upload bypassed the canonical path.
 
+**`dirty` open diagnostic, 2026-07-26:** reported `true` on every production deploy checked
+that night despite two ruled-out candidate mechanisms (`version-stamp.js` computes `dirty`
+before writing anything, and only ever writes into gitignored `dist/`; `public/llms.txt` is
+correctly gitignored). `dirtyFiles` was added to `version-stamp.js`'s output to diagnose it
+next time it appears, but the deploy at commit `790a421` came back `dirty: false` with no
+code change identified across the 4 commits between that could explain the flip (confirmed:
+none of them touch `.gitignore`, `package.json`, or `package-lock.json`; the one tracked file
+the build writes, `src/data/blog-articles.json`, produces byte-identical output regardless of
+those changes). Treat `dirty` as unreliable until it's actually diagnosed with `dirtyFiles`
+data from a `true` reading — it is not yet a trustworthy gate on its own in either direction.
+
+**Post-deploy verification of `_headers`/`_redirects` changes specifically:** `version.json`
+propagating (commit matches, `buildEnv: cf-pages`) confirms the base HTML/worker deploy, but
+header/redirect rules were observed to still be rolling across edge nodes for a short window
+after that — a header assertion checked immediately on `version.json` matching returned a
+false negative once (missing header on one URL) and passed on an identical re-check seconds
+later. **Wait at least 60 seconds after `version.json` confirms before treating any single
+`_headers`/`_redirects` check as authoritative.** A failed header/redirect check inside that
+window is inconclusive, not a failure — do one confirmation re-check before reporting
+anything as broken, and report both results if they disagree (don't silently keep polling
+past that).
+
 ## Forbidden
 
 - ❌ **`wrangler pages deploy`** from this working tree. Never. If you do, `/version.json`
