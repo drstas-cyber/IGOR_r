@@ -187,3 +187,39 @@
   background: none;
   padding: 0;
 }
+
+/* Citation footnotes (2026-07-26) -- rendered at build time from the
+   generated-article citations array (see tools/blog-generator/
+   renderCitations.mjs), never hand-authored. The relaunch batch is
+   already the riskiest commit on the calendar; this is deliberately
+   in place ahead of it so a footnote isn't unstyled the first time
+   anyone sees one. .citations-divider reuses .blog-prose hr above --
+   no separate rule needed, it already matches. */
+.blog-prose sup.citation {
+  font-size: 0.7em;
+  margin-left: 0.1em;
+}
+.blog-prose sup.citation a {
+  text-decoration: none;
+}
+.blog-prose sup.citation a:hover {
+  text-decoration: underline;
+}
+.blog-prose ol.citations-footnotes {
+  list-style: decimal;
+  padding-left: 1.5em;
+  font-size: 0.85em;
+  color: #94a3b8;
+}
+.blog-prose ol.citations-footnotes li {
+  margin-top: 0.4em;
+}
+.blog-prose ol.citations-footnotes a {
+  color: #94a3b8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+.blog-prose ol.citations-footnotes a:hover {
+  color: #C8920A;
+}

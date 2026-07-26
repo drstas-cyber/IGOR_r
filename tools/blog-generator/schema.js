@@ -18,6 +18,28 @@ export const CITATION_SOURCE_TYPES = ['statute', 'constitution', 'government-cod
 const CITATION_URL_FORBIDDEN_SUBSTRING = 'temeculavalleyhomes.com';
 const CITATION_MARKER_PATTERN = /data-cite="([^"]+)"/g;
 
+// Extracted so BOTH checkpoints -- generation-time (validateArticleSchema
+// below) and build-time (renderCitations.mjs, re-validating whatever's
+// actually on main before rendering footnotes) -- share the exact same
+// consistency logic, not two implementations that could quietly drift
+// apart from each other. Self-contained: recomputes citation ids from
+// article.citations directly rather than depending on a Set built
+// elsewhere, so it can be called independently of the rest of schema
+// validation. Returns an array of error strings, empty if consistent.
+export function getCitationConsistencyErrors(article) {
+  const errors = [];
+  if (!Array.isArray(article.citations)) return ['citations must be an array (empty if the article makes no citable claims)'];
+  const ids = new Set(article.citations.map((c) => c?.id).filter((id) => typeof id === 'string'));
+  const markerIds = new Set([...(String(article.content_html || '')).matchAll(CITATION_MARKER_PATTERN)].map((m) => m[1]));
+  for (const id of markerIds) {
+    if (!ids.has(id)) errors.push(`content_html references data-cite="${id}" with no matching citations[] entry`);
+  }
+  for (const id of ids) {
+    if (!markerIds.has(id)) errors.push(`citations[] has id ${JSON.stringify(id)} that no data-cite marker in content_html references (orphaned citation)`);
+  }
+  return errors;
+}
+
 export function validateArticleSchema(article) {
   const errors = [];
 
@@ -103,13 +125,7 @@ export function validateArticleSchema(article) {
     // (data-cite markers) must never silently drift apart -- a marker with
     // no entry renders a dead footnote link; an entry with no marker is an
     // orphaned citation nothing in the article actually points to.
-    const markerIds = new Set([...(String(article.content_html || '')).matchAll(CITATION_MARKER_PATTERN)].map((m) => m[1]));
-    for (const id of markerIds) {
-      if (!ids.has(id)) errors.push(`content_html references data-cite="${id}" with no matching citations[] entry`);
-    }
-    for (const id of ids) {
-      if (!markerIds.has(id)) errors.push(`citations[] has id ${JSON.stringify(id)} that no data-cite marker in content_html references (orphaned citation)`);
-    }
+    errors.push(...getCitationConsistencyErrors(article));
   }
 
   return { valid: errors.length === 0, errors };

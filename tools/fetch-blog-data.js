@@ -34,6 +34,7 @@ import { MAX_TRIP_RATE } from './blog-compliance/patterns.js';
 import { fetchAllSummaries, fetchFullDetailForAll } from './blog-compliance/babyLoveApi.js';
 import { readFixture } from './blog-compliance/fixture.js';
 import { loadGeneratedArticles, mergeArticleSources } from './blog-generator/loadGenerated.js';
+import { renderAllFootnotes } from './blog-generator/renderCitations.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,8 +59,22 @@ function buildAndWrite(babyLoveArticles) {
   if (generated.length > 0) console.log(`[fetch-blog-data] ${generated.length} locally-generated article(s) eligible (published:true) from src/data/generated-articles/`);
   const combined = mergeArticleSources(babyLoveArticles, generated);
   const surviving = runComplianceFilter(combined);
-  writeArticles(surviving);
-  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to src/data/blog-articles.json`);
+  // Footnote rendering runs AFTER the compliance filter, on survivors only
+  // -- this is purely a display transform (citations array -> rendered
+  // <ol> footnotes), not a compliance concern, so it doesn't need to see
+  // articles the filter already excluded. FAILS THE BUILD on any
+  // marker<->array inconsistency (see renderCitations.mjs) -- caught here,
+  // via renderCitationsFatal below, not silently shipped as a dead
+  // footnote link a reader clicks.
+  let rendered;
+  try {
+    rendered = renderAllFootnotes(surviving);
+  } catch (err) {
+    err.renderCitationsFatal = true;
+    throw err;
+  }
+  writeArticles(rendered);
+  console.log(`[fetch-blog-data] wrote ${rendered.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to src/data/blog-articles.json`);
 }
 
 // Scans every article, logs every finding loudly (matched sentence, not just
@@ -213,10 +228,15 @@ async function main() {
 }
 
 main().catch((err) => {
-  if (err.blogComplianceFatal) {
-    // The one deliberate exception to "never fail the build" — see the
-    // header comment and runComplianceFilter(). Must actually exit non-zero,
-    // not fall through to the soft-fail path below.
+  if (err.blogComplianceFatal || err.renderCitationsFatal) {
+    // Two deliberate exceptions to "never fail the build" — see the header
+    // comment, runComplianceFilter(), and buildAndWrite()'s footnote-
+    // rendering step. Both must actually exit non-zero, not fall through
+    // to the soft-fail path below: a citations[]<->data-cite mismatch is a
+    // pipeline defect (most likely a hand-edit during PR review breaking a
+    // marker after generation-time validation already passed), not a
+    // transient API/network problem "ship with an empty blog" exists to
+    // absorb.
     console.error(err.message);
     process.exitCode = 1;
     return;
