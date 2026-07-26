@@ -3,13 +3,23 @@
 // writes them to src/data/blog-articles.json, which Vite bundles as a plain JS
 // import — the client ships pre-fetched article data, never the API key.
 //
-// Must never fail the build: any error (missing key, network, bad response)
-// logs a warning and leaves an empty (or last-known-good) articles file rather
-// than throwing.
+// Must never fail the build on API/network problems: any error (missing key,
+// network, bad response) logs a warning and leaves an empty (or last-known-good)
+// articles file rather than throwing. ONE deliberate exception: if the
+// compliance filter (see tools/blog-compliance/) is in enforce mode and EVERY
+// fetched article trips it, that's treated as fatal — see runComplianceFilter()
+// below. A misfiring filter that quietly ships zero articles is worse than a
+// loud build failure; "never fail the build" was never meant to cover that.
+//
+// Compliance filter is REPORT-ONLY by default (BLOG_COMPLIANCE_ENFORCE unset
+// or not 'true') — it logs what it would exclude and why, but excludes
+// nothing. Do not set BLOG_COMPLIANCE_ENFORCE=true until the report-only
+// false-positive rate has been reviewed. See tools/blog-compliance/README.md.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scanArticle } from './blog-compliance/scan.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +45,65 @@ function sleep(ms) {
 function writeArticles(articles) {
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
   fs.writeFileSync(OUT_PATH, `${JSON.stringify(articles, null, 2)}\n`, 'utf8');
+}
+
+const COMPLIANCE_REPORT_PATH = path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json');
+
+// Scans every article, logs every finding loudly (matched sentence, not just
+// a category name), and writes a machine-readable report file for review.
+// REPORT-ONLY unless BLOG_COMPLIANCE_ENFORCE=true — even then, exclusion
+// only, never rewriting: a tripped article is dropped from the array
+// entirely, its content is never modified.
+function runComplianceFilter(articles) {
+  const enforce = process.env.BLOG_COMPLIANCE_ENFORCE === 'true';
+  // results[i] corresponds to articles[i] — kept index-aligned throughout
+  // rather than reconstructed by slug lookup, since slugs aren't guaranteed
+  // unique/present and a lookup-based rebuild would be fragile.
+  const results = articles.map((a) => scanArticle(a));
+  const tripped = results.filter((r) => r.tripped);
+  const clean = results.filter((r) => !r.tripped);
+
+  console.log(
+    `[blog-compliance] ${enforce ? 'ENFORCE' : 'REPORT-ONLY'} mode: ` +
+    `${tripped.length}/${results.length} article(s) tripped the filter.`
+  );
+
+  for (const r of tripped) {
+    console.log(`[blog-compliance] ${enforce ? 'EXCLUDED' : 'WOULD EXCLUDE'}: "${r.title}" (${r.slug})`);
+    for (const f of r.findings) {
+      console.log(`    [${f.category}${f.subcategory ? ':' + f.subcategory : ''}] matched "${f.matchedText}"`);
+      console.log(`        sentence: ${f.sentence}`);
+    }
+  }
+
+  fs.mkdirSync(path.dirname(COMPLIANCE_REPORT_PATH), { recursive: true });
+  fs.writeFileSync(
+    COMPLIANCE_REPORT_PATH,
+    JSON.stringify({ mode: enforce ? 'enforce' : 'report-only', generatedAt: new Date().toISOString(), results }, null, 2) + '\n',
+    'utf8'
+  );
+  console.log(`[blog-compliance] full report written to ${path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH)}`);
+
+  if (!enforce) {
+    return articles; // report-only: exclude nothing
+  }
+
+  if (articles.length > 0 && clean.length === 0) {
+    // Deliberate exception to this file's "never fail the build" policy —
+    // see the header comment. A filter that trips 100% of articles is
+    // broken (or the upstream content generation is), and shipping an
+    // empty blog silently would hide that instead of surfacing it.
+    const fatal = new Error(
+      `[blog-compliance] FATAL: all ${articles.length} article(s) tripped the compliance filter in enforce mode. ` +
+      `Refusing to silently ship an empty blog — see ${path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH)} for details. ` +
+      `This means either every article genuinely has a real compliance problem (check the upstream BabyLoveGrowth ` +
+      `Special Instructions), or the filter itself is misconfigured — it does not mean "build without a blog."`
+    );
+    fatal.blogComplianceFatal = true; // must actually fail the build — see main().catch() below
+    throw fatal;
+  }
+
+  return articles.filter((_, i) => !results[i].tripped);
 }
 
 async function apiGet(pathAndQuery, apiKey) {
@@ -154,11 +223,20 @@ async function main() {
     }
   }
 
-  writeArticles(articles);
-  console.log(`[fetch-blog-data] wrote ${articles.length} of ${publishedSummaries.length} published articles (${summaries.length} total fetched) to src/data/blog-articles.json`);
+  const surviving = runComplianceFilter(articles);
+  writeArticles(surviving);
+  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${publishedSummaries.length} published articles (${summaries.length} total fetched) to src/data/blog-articles.json`);
 }
 
 main().catch((err) => {
+  if (err.blogComplianceFatal) {
+    // The one deliberate exception to "never fail the build" — see the
+    // header comment and runComplianceFilter(). Must actually exit non-zero,
+    // not fall through to the soft-fail path below.
+    console.error(err.message);
+    process.exitCode = 1;
+    return;
+  }
   console.warn(`[fetch-blog-data] unexpected error: ${err.message} — building with an empty blog.`);
   try {
     writeArticles([]);
