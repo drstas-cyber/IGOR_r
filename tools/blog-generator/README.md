@@ -88,6 +88,19 @@ rewritten automatically. Every finding (matched sentence for layer 1,
 evidence field for layer 2) is logged. The topic goes back to `"skipped"` so
 a human can look at *why* — usually a prompt problem — before trying again.
 
+**A mocked layer-2 test proves plumbing, not judgment.** `gate.test.mjs`
+confirms the wiring is correct — layer 2 can trip independently of layer 1,
+the trip propagates to a non-zero exit, findings get logged with quoted
+evidence — using a sentence ("a seasoned veteran of the local market who has
+guided countless families through their first purchase") verified clean
+against the *real* layer-1 scanner specifically so the test isolates layer
+2. But the checklist response in that test is still a canned mock; it
+proves the code correctly acts on whatever layer 2 says, not that layer 2's
+actual judgment on a live call is any good at catching subtle claims. That's
+only proven by the first three real runs against a live model — see
+"Acceptance discipline for the rollout itself" below, which is the actual
+check on layer 2's real value, not the unit test.
+
 ## Publishing (merge ≠ publish)
 
 Generated articles default to `published: false`. Merging the PR to `main`

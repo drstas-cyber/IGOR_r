@@ -110,10 +110,43 @@ describe('runGates — EACH layer discards independently', () => {
     content_html: '<p>George is the only trilingual agent in the valley.</p>',
   };
   const CLEAN_ARTICLE = {
-    slug: 'trips-layer-2-only',
+    slug: 'trips-layer-2-only-generic',
     title: 'Understanding HOA Fees',
     content_html: '<p>HOA fees fund shared community amenities and maintenance.</p>',
   };
+
+  // THE test that matters for "each layer proven independently" — see
+  // 2026-07-25 Phase 2 review. A draft with "only trilingual" or "over a
+  // decade" trips layer 1 first, so layer 2 never gets meaningfully
+  // exercised; that's not proof layer 2 works, it's layer 1 doing all the
+  // work. This sentence has NO digit, NO "decade", NO "only"/"best"/"top" —
+  // nothing patterns.js covers — and IS verified clean against the REAL
+  // scanner (not mocked) below, so this test actually isolates layer 2.
+  const SUBTLE_TENURE_ARTICLE = {
+    slug: 'trips-layer-2-only-subtle-tenure',
+    title: 'What to Expect During Escrow',
+    content_html: '<p>George is a seasoned veteran of the local market who has guided countless families through their first purchase, and he brings that same steady hand to every escrow timeline.</p>',
+  };
+
+  test('the subtle-tenure sentence is CONFIRMED clean against the real (unmocked) layer-1 scanner', () => {
+    const result = scanArticle(SUBTLE_TENURE_ARTICLE);
+    assert.equal(result.tripped, false, 'if this assertion ever fails, the sentence needs to be made subtler — it must stay a true layer-1 blind spot for this test to prove anything about layer 2');
+    assert.deepEqual(result.findings, []);
+  });
+
+  test('layer 2 alone catches the subtle claim layer 1 cannot see, non-zero-worthy trip, findings logged', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', {
+      ...CLEAN_CHECKLIST,
+      tenure_claim: true,
+      tenure_evidence: 'a seasoned veteran of the local market who has guided countless families through their first purchase',
+    }));
+    const result = await runGates({ apiKey: 'test-key', article: SUBTLE_TENURE_ARTICLE });
+    assert.equal(result.layer1.tripped, false, 'layer 1 must genuinely pass this — it is the whole point of the test');
+    assert.equal(result.layer2.tripped, true);
+    assert.equal(result.layer2.checklist.tenure_claim, true);
+    assert.ok(result.layer2.checklist.tenure_evidence.length > 0, 'a trip must carry quoted evidence, not just a boolean');
+    assert.equal(result.tripped, true, 'overall gate must trip on layer 2 alone, with layer 1 genuinely clean');
+  });
 
   test('layer 1 alone tripping is enough to mark the whole gate tripped, even if layer 2 would pass', async () => {
     mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST)); // layer 2 clean
@@ -123,7 +156,7 @@ describe('runGates — EACH layer discards independently', () => {
     assert.equal(result.tripped, true, 'overall gate must trip if EITHER layer trips');
   });
 
-  test('layer 2 alone tripping is enough to mark the whole gate tripped, even though layer 1 is clean', async () => {
+  test('layer 2 alone tripping (generic case) is enough to mark the whole gate tripped, even though layer 1 is clean', async () => {
     mockFetchOnce(200, toolUseResponse('report_compliance_check', {
       ...CLEAN_CHECKLIST,
       uncited_statistic: true,
