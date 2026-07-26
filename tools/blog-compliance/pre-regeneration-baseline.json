@@ -7,6 +7,12 @@
   "totalArticles": 25,
   "trippedCount": 25,
   "tripRate": 1,
+  "reverification": {
+    "note": "This 25/25 result was produced under patternCommitHash 30d8154. scan.js changed at commit f564064 (2026-07-26) — patterns.js itself is byte-identical between 30d8154 and f564064 (git diff empty); f564064 added a narrowly-scoped exclusion in scan.js's findDisparagement() for the reference identity's own contact-block email domain, fixing a real false positive found via a live generated article. Re-run against this same frozen fixture under f564064: 25/25 tripped, unchanged. Verified per-article, not just by matching aggregate count — tripped status, exact finding count, AND full category set (including the 3 'Alternatives' articles' genuine disparagement:comparison-framing findings on real competitor domains, confirmed unaffected) all matched exactly, article by article, against the results below.",
+    "reverifiedAgainstCommit": "f564064",
+    "reverifiedAt": "2026-07-26T12:10:44.000Z",
+    "result": "25/25 identical (tripped status + finding count + category set, per article)"
+  },
   "results": [
     {
       "slug": "why-home-values-fluctuate",
