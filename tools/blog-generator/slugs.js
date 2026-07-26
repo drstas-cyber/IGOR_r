@@ -31,6 +31,17 @@ export const KNOWN_UNPUBLISHED_BABYLOVE_SLUGS = [
   'what-is-a-real-estate-market-snapshot',
 ];
 
+// 3 hardcoded (above) + pre-regeneration-baseline.json's own "results" array
+// (25, captured 2026-07-26) = the full known BabyLoveGrowth corpus at
+// baseline time. Both sources are frozen/static, so this total must never
+// silently drift — getKnownSlugs() asserts it below and throws rather than
+// return a partial set. A real corpus change (the frozen baseline itself
+// being deliberately updated) requires deliberately updating this number
+// too, not sliding through unnoticed. This constant is what makes the
+// fail-closed check in getKnownSlugs() below possible; it is not
+// decorative.
+export const EXPECTED_FROZEN_SLUG_COUNT = 28;
+
 function readJsonSafe(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -39,30 +50,77 @@ function readJsonSafe(filePath) {
   }
 }
 
-export function getKnownSlugs() {
-  const slugs = new Set(KNOWN_UNPUBLISHED_BABYLOVE_SLUGS);
-
-  const baseline = readJsonSafe(BASELINE_PATH);
-  const baselineArticles = baseline?.articles || (Array.isArray(baseline) ? baseline : []);
-  for (const a of baselineArticles || []) {
-    if (a?.slug) slugs.add(a.slug);
+// Fail-closed as of 2026-07-26: a generator uniqueness guarantee that
+// silently degrades to a partial slug set is worse than no guarantee at
+// all — a caller receiving 3 slugs when it should receive 28 has no way to
+// know it's been handed a broken check. The real bug this fixes: this
+// function read baseline.articles, but pre-regeneration-baseline.json's
+// actual key is "results" — it silently fell through to an empty array and
+// returned only the 3 hardcoded slugs, for every run, since the day this
+// file was written. It was masked in local testing because the gitignored
+// local fixture's fallback path (further down) happened to cover for it on
+// any machine that had run write-fixture.mjs; a clean checkout (including
+// every real GitHub Actions run of generate.mjs) never had that cover.
+//
+// Accepts path overrides so tests can point this at isolated temp fixtures
+// instead of real (and in the local-fixture case, gitignored) repo state —
+// see slugs.test.mjs's "fail-closed against a degraded slug set" suite,
+// specifically written so it cannot repeat the exact mistake that let this
+// bug hide for as long as it did.
+export function getKnownSlugs({
+  baselinePath = BASELINE_PATH,
+  generatedDir = GENERATED_DIR,
+  blogArticlesPath = BLOG_ARTICLES_PATH,
+  localFixturePath = LOCAL_FIXTURE_PATH,
+} = {}) {
+  const baseline = readJsonSafe(baselinePath);
+  if (!baseline) {
+    throw new Error(
+      `[slugs] getKnownSlugs(): could not read or parse the baseline at ${baselinePath}. ` +
+      `Refusing to return a partial/degraded known-slug set.`
+    );
+  }
+  if (!Array.isArray(baseline.results)) {
+    throw new Error(
+      `[slugs] getKnownSlugs(): ${baselinePath} has no "results" array — schema mismatch. ` +
+      `Refusing to return a partial/degraded known-slug set.`
+    );
   }
 
-  if (fs.existsSync(GENERATED_DIR)) {
-    for (const file of fs.readdirSync(GENERATED_DIR)) {
+  const frozenSlugs = new Set(KNOWN_UNPUBLISHED_BABYLOVE_SLUGS);
+  for (const r of baseline.results) {
+    if (r?.slug) frozenSlugs.add(r.slug);
+  }
+  if (frozenSlugs.size !== EXPECTED_FROZEN_SLUG_COUNT) {
+    throw new Error(
+      `[slugs] getKnownSlugs(): expected exactly ${EXPECTED_FROZEN_SLUG_COUNT} known BabyLoveGrowth ` +
+      `slugs (3 hardcoded unpublished + the frozen baseline's published entries), got ` +
+      `${frozenSlugs.size}. This is a fail-closed check — a generator collision guarantee ` +
+      `built on a silently shrunk slug set is worse than no guarantee at all. If the frozen ` +
+      `corpus genuinely changed, update EXPECTED_FROZEN_SLUG_COUNT deliberately, don't let ` +
+      `this slide through.`
+    );
+  }
+
+  const slugs = new Set(frozenSlugs);
+
+  // Everything below is legitimately variable — no fixed expected count,
+  // 0 is a valid result (a fresh checkout has no generated articles yet).
+  if (fs.existsSync(generatedDir)) {
+    for (const file of fs.readdirSync(generatedDir)) {
       if (!file.endsWith('.json')) continue;
-      const a = readJsonSafe(path.join(GENERATED_DIR, file));
+      const a = readJsonSafe(path.join(generatedDir, file));
       if (a?.slug) slugs.add(a.slug);
     }
   }
 
-  const blogArticles = readJsonSafe(BLOG_ARTICLES_PATH);
+  const blogArticles = readJsonSafe(blogArticlesPath);
   for (const a of blogArticles || []) {
     if (a?.slug) slugs.add(a.slug);
   }
 
-  if (fs.existsSync(LOCAL_FIXTURE_PATH)) {
-    const fixture = readJsonSafe(LOCAL_FIXTURE_PATH);
+  if (fs.existsSync(localFixturePath)) {
+    const fixture = readJsonSafe(localFixturePath);
     for (const a of fixture?.articles || []) {
       if (a?.slug) slugs.add(a.slug);
     }
