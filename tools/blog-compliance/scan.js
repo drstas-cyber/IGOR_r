@@ -26,6 +26,8 @@ import {
   BROKERAGE_MENTION_PATTERN,
   PHONE_PATTERN,
   EMAIL_PATTERN,
+  UNCITED_CLAIM_CANDIDATE_PATTERNS,
+  UNCITED_CLAIM_MARKER_WINDOW_CHARS,
 } from './patterns.js';
 
 // Strips tags to plain text so a phrase split across tags (e.g.
@@ -308,6 +310,55 @@ export function scanArticle(article) {
 
 export function scanAllArticles(articles) {
   return articles.map(scanArticle);
+}
+
+// LOG-ONLY (2026-07-26) -- deliberately NOT wired into scanArticle()'s
+// tripped decision, and never will be until a measured false-positive rate
+// against real generated articles justifies it (same bar the frozen 30d8154
+// set had to clear before it was trusted). Only runs when
+// article.citations !== undefined -- inert for the entire BabyLoveGrowth
+// corpus, which has no citations concept at all.
+//
+// Operates on RAW content_html, not htmlToText()'s stripped output --
+// htmlToText() would strip the <sup data-cite="..."> marker tags entirely,
+// which is exactly the thing this function needs to see. A different
+// traversal from every other function in this file, on purpose.
+// "sentence" here is a self-contained windowed snippet (stripped of tags
+// AFTER windowing, not before) -- deliberately NOT sentenceContaining()'s
+// approach of mapping a raw-HTML match index into htmlToText()'s
+// separately-stripped output. Two different strings with two different
+// lengths (HTML stripping isn't length-preserving); computing one string's
+// offset from the other's prefix length is exactly the kind of subtle
+// position-math bug this session has caught more than once tonight. A
+// self-contained window sidesteps the whole problem: strip only the
+// snippet itself, never cross between the two strings.
+function windowedSnippet(html, matchIndex, matchLength, windowChars = 60) {
+  const start = Math.max(0, matchIndex - windowChars);
+  const end = Math.min(html.length, matchIndex + matchLength + windowChars);
+  return htmlToText(html.slice(start, end));
+}
+
+export function findUncitedClaims(article) {
+  if (article.citations === undefined) return [];
+  const html = article.content_html || '';
+  const findings = [];
+  for (const { id, re } of UNCITED_CLAIM_CANDIDATE_PATTERNS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const after = html.slice(m.index + m[0].length, m.index + m[0].length + UNCITED_CLAIM_MARKER_WINDOW_CHARS);
+      if (!after.includes('data-cite="')) {
+        findings.push({
+          category: 'uncited-claim',
+          subcategory: id,
+          matchedText: m[0],
+          sentence: windowedSnippet(html, m.index, m[0].length),
+        });
+      }
+      if (m[0].length === 0) re.lastIndex++;
+    }
+  }
+  return findings;
 }
 
 // Pure, no I/O — the batch-level fail/pass decision, factored out

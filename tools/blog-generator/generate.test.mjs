@@ -124,7 +124,7 @@ function toolUseBody(toolName, input) {
 // citationFetchStatuses maps a citation URL -> HTTP status for the Layer 3
 // resolver's own GET request, which shares the same globalThis.fetch mock
 // (routed here by NOT being an api.anthropic.com URL).
-function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {} }) {
+function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {}, extraContentHtml = '' }) {
   globalThis.fetch = async (url, init = {}) => {
     const urlStr = String(url);
     if (urlStr.includes('/v1/models')) {
@@ -144,7 +144,7 @@ function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses 
     // validation on an orphaned citation, not on whatever the test is
     // actually trying to exercise.
     const markers = citations.map((c) => `<sup class="citation" data-cite="${c.id}">[${c.id}]</sup>`).join('');
-    const contentHtml = `<p>HOA fees fund shared community amenities and routine maintenance for planned developments.${markers}</p>`;
+    const contentHtml = `<p>HOA fees fund shared community amenities and routine maintenance for planned developments.${markers}${extraContentHtml}</p>`;
     if (toolName === 'submit_article_draft') {
       return jsonResponse(200, toolUseBody('submit_article_draft', {
         title: 'Understanding HOA Fees',
@@ -349,5 +349,24 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
 
     const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
     assert.equal(hostLog.length, 2, 'both runs\' inconclusive citations must be present, not just the latest');
+  });
+});
+
+describe('main() — findUncitedClaims wiring, LOG-ONLY end to end (2026-07-26)', () => {
+  test('an uncited number appears in the report but does NOT trip the gate or block generation', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], extraContentHtml: ' Rates rose 12% last year.' });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined, 'an uncited-claim candidate must never trip the gate -- log-only');
+    const topLevelFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    assert.equal(topLevelFiles.length, 1, 'the article is still written despite the uncited-claim candidate');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.equal(report.layer1.tripped, false);
+    assert.ok(report.layer1.uncitedClaimCandidates.some((f) => f.subcategory === 'percentage' && f.matchedText === '12%'), JSON.stringify(report.layer1.uncitedClaimCandidates));
   });
 });

@@ -40,6 +40,13 @@ if (report.layer1.findings?.length) {
 } else {
   lines.push('_No findings._');
 }
+if (report.layer1.uncitedClaimCandidates?.length) {
+  lines.push('');
+  lines.push(`**LOG-ONLY, does not affect this gate's outcome** — ${report.layer1.uncitedClaimCandidates.length} uncited-claim candidate(s) (measurement only, not yet trip-worthy — see \`findUncitedClaims()\` in \`tools/blog-compliance/scan.js\`):`);
+  for (const f of report.layer1.uncitedClaimCandidates) {
+    lines.push(`- \`[${f.subcategory}]\` "${f.matchedText}" — ${f.sentence}`);
+  }
+}
 lines.push('');
 lines.push('### Layer 2 — independent LLM claim review (claude-haiku-4-5-20251001)');
 lines.push(`Tripped: **${report.layer2.tripped}**`);

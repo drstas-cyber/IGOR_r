@@ -159,3 +159,30 @@ export const DRE_PATTERN = /\bDRE\s*#?\s*(\d{6,8})\b/gi;
 export const BROKERAGE_MENTION_PATTERN = /\b(brokerage|broker(?:ed)?\s+(?:with|by|through)|licensed\s+(?:with|under)|affiliated\s+with)\s+([A-Z][\w&,.'’ -]{3,50})/g;
 export const PHONE_PATTERN = /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 export const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[\w.-]+/gi;
+
+// --- (g) Uncited-claim candidates (2026-07-26) -----------------------------
+// NOT part of the frozen 30d8154 pattern set -- a genuinely different kind
+// of pattern list from everything above. Everything above is tuned narrow
+// and specific (a fabrication phrasing BabyLoveGrowth's writer actually
+// used); this is deliberately broad and general-purpose, because its job is
+// "does ANY specific number/date shape appear," not "does this specific
+// fabrication phrasing appear." That breadth means real false positives are
+// expected (page/step numbers, non-statistical years, ordinary prose that
+// happens to contain a number) -- see findUncitedClaims() in scan.js, which
+// only ever LOGS what this matches, never trips the gate, until measured
+// against a real corpus of generated articles proves an acceptable
+// false-positive rate. Same bar the frozen set itself had to clear before
+// it was trusted to exclude anything.
+export const UNCITED_CLAIM_CANDIDATE_PATTERNS = [
+  { id: 'percentage', re: /\b\d{1,3}(\.\d+)?%/g },
+  { id: 'dollar-amount', re: /\$\d[\d,]*(\.\d{2})?/g },
+  { id: 'year', re: /\b(19|20)\d{2}\b/g },
+  { id: 'day-count', re: /\b\d{1,4}(\s*(-|to)\s*\d{1,4})?\s+days?\b/gi },
+  { id: 'year-count', re: /\b\d{1,3}(\s*(-|to)\s*\d{1,3})?\s+years?\b/gi },
+  { id: 'age-or-over', re: /\bover\s+\d{1,3}\b|\bage\s+\d{1,3}\b/gi },
+];
+// A citation marker is expected to sit within this many characters AFTER
+// the claim in raw content_html ("immediately after the claim" per
+// prompt.md rule 5) -- generous enough to cross a closing tag or two
+// (</strong>, </em>) between the number and its <sup data-cite="..."> marker.
+export const UNCITED_CLAIM_MARKER_WINDOW_CHARS = 100;

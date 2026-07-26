@@ -3,7 +3,7 @@
 //   node --test tools/blog-compliance/scan.test.mjs
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain } from './scan.js';
+import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain, findUncitedClaims } from './scan.js';
 
 function article({ slug = 'test-article', title = 'Test Article', html = '' } = {}) {
   return { slug, title, content_html: html };
@@ -591,5 +591,68 @@ describe('fail-closed integration — the build actually goes red', () => {
     const batch = evaluateBatch([nonCompliant]);
     const wouldFailTheBuild = enforce && batch.shouldFailBuild;
     assert.equal(wouldFailTheBuild, false, 'an explicit opt-out must still work — fail-closed is a default, not a lockout');
+  });
+});
+
+describe('findUncitedClaims — LOG-ONLY, not wired into tripped (2026-07-26)', () => {
+  test('article.citations undefined -> returns [] (inert for the BabyLoveGrowth corpus)', () => {
+    const findings = findUncitedClaims({ content_html: '<p>Rates increased by 12% this year.</p>' });
+    assert.deepEqual(findings, []);
+  });
+
+  test('article.citations present (even empty array) activates the detector', () => {
+    const findings = findUncitedClaims({ content_html: '<p>Rates increased by 12% this year.</p>', citations: [] });
+    assert.ok(findings.length >= 1);
+  });
+
+  test('a percentage with a nearby data-cite marker is NOT flagged', () => {
+    const findings = findUncitedClaims({
+      content_html: '<p>The rate is capped at 1%<sup class="citation" data-cite="1">[1]</sup> by statute.</p>',
+      citations: [{ id: '1' }],
+    });
+    assert.equal(findings.some((f) => f.subcategory === 'percentage'), false);
+  });
+
+  test('a percentage with NO nearby marker is flagged', () => {
+    const findings = findUncitedClaims({ content_html: '<p>Homes sell 12% faster in this market.</p>', citations: [] });
+    assert.ok(findings.some((f) => f.subcategory === 'percentage' && f.matchedText === '12%'));
+  });
+
+  test('a dollar amount with no marker is flagged', () => {
+    const findings = findUncitedClaims({ content_html: '<p>The average fee is $1,200 per year.</p>', citations: [] });
+    assert.ok(findings.some((f) => f.subcategory === 'dollar-amount'));
+  });
+
+  test('a bare year with no marker is flagged', () => {
+    const findings = findUncitedClaims({ content_html: '<p>The law passed in 1978.</p>', citations: [] });
+    assert.ok(findings.some((f) => f.subcategory === 'year' && f.matchedText === '1978'));
+  });
+
+  test('a day-count with no marker is flagged', () => {
+    const findings = findUncitedClaims({ content_html: '<p>Escrow typically closes in 30 days.</p>', citations: [] });
+    assert.ok(findings.some((f) => f.subcategory === 'day-count'));
+  });
+
+  test('a year-count range with no marker is flagged', () => {
+    const findings = findUncitedClaims({ content_html: '<p>Bonds are repaid over 20-40 years.</p>', citations: [] });
+    assert.ok(findings.some((f) => f.subcategory === 'year-count'));
+  });
+
+  test('does not throw on missing content_html', () => {
+    assert.doesNotThrow(() => findUncitedClaims({ citations: [] }));
+  });
+
+  // THE load-bearing test for "log-only" -- scanArticle()'s own tripped
+  // decision must be completely unaffected by uncited claims, even when
+  // citations is present, even with multiple uncited numbers. If this
+  // ever starts failing, findUncitedClaims has been wired into the trip
+  // decision somewhere and needs its own measured rollout first.
+  test('scanArticle() tripped is unaffected by uncited claims, even with citations present', () => {
+    const r = scanArticle({
+      slug: 'x', title: 'Clean Title',
+      content_html: '<p>Rates rose 12% in 2020 over 30 days.</p>',
+      citations: [],
+    });
+    assert.equal(r.tripped, false, 'findUncitedClaims must never affect scanArticle()\'s own trip decision -- it is a separate, unwired function');
   });
 });

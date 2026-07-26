@@ -25,7 +25,7 @@ import { verifyModel } from './modelVerify.mjs';
 import { runLlmClaimGate } from './llmClaimGate.mjs';
 import { validateArticleSchema } from './schema.js';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
-import { scanArticle } from '../blog-compliance/scan.js';
+import { scanArticle, findUncitedClaims } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
 import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
@@ -207,7 +207,11 @@ export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
 // outcome, not an error); only throws on an actual API/infra failure.
 export async function runGates({ apiKey, article }) {
   const layer1Result = scanArticle(article);
-  const layer1 = { tripped: layer1Result.tripped, findings: layer1Result.findings };
+  // uncitedClaimCandidates (2026-07-26): LOG-ONLY, deliberately NOT added to
+  // layer1Result.tripped or folded into `tripped` below -- see
+  // findUncitedClaims()'s own header comment in scan.js. Visible in the
+  // report for measurement, has zero effect on gate/discard behavior.
+  const layer1 = { tripped: layer1Result.tripped, findings: layer1Result.findings, uncitedClaimCandidates: findUncitedClaims(article) };
 
   // Layer 2 always runs even if layer 1 already tripped, so a single report
   // shows the full picture from both gates rather than stopping early.
@@ -351,6 +355,15 @@ export async function main({
     console.log('[generate] layer 3: UNREACHABLE_LIKELY_BOT citations (inconclusive, NOT a trip on their own, human decides):');
     gateResult.layer3.inconclusive.forEach((r) => {
       console.log(`    [${r.host}] status=${r.status} id=${r.id} "${r.sourceName}" — ${r.url}`);
+    });
+  }
+  // LOG-ONLY, unconditional -- see findUncitedClaims()'s header comment.
+  // Never affects trip/discard behavior; visible here purely so a false-
+  // positive rate can eventually be measured across real runs.
+  if (gateResult.layer1.uncitedClaimCandidates.length > 0) {
+    console.log(`[generate] layer 1 (log-only): ${gateResult.layer1.uncitedClaimCandidates.length} uncited-claim candidate(s), not gate-trip-worthy yet:`);
+    gateResult.layer1.uncitedClaimCandidates.forEach((f) => {
+      console.log(`    [${f.subcategory}] "${f.matchedText}" — ${f.sentence}`);
     });
   }
 
