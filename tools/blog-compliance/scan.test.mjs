@@ -3,7 +3,7 @@
 //   node --test tools/blog-compliance/scan.test.mjs
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode } from './scan.js';
+import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain } from './scan.js';
 
 function article({ slug = 'test-article', title = 'Test Article', html = '' } = {}) {
   return { slug, title, content_html: html };
@@ -265,6 +265,49 @@ describe('(e) named-competitor disparagement', () => {
     assert.equal(r.tripped, true);
     const finding = r.findings.find((f) => f.category === 'disparagement');
     assert.equal(finding.subcategory, 'comparison-framing');
+  });
+
+  // POSITIVE CONTROL, integration-level: confirms the real competitor domain
+  // trips through the full scanArticle() pipeline. This passes independent
+  // of the allowlist below -- it's here as the "before" baseline the
+  // allowlist tests reference, and to catch any future change that
+  // accidentally widens the allowlist into catching this.
+  test('POSITIVE CONTROL: the REAL competitor domain (temeculavalleyhomes.com) trips', () => {
+    const r = scanArticle(article({ html: '<p>Unlike temeculavalleyhomes.com, our service compares favorably.</p>' }));
+    assert.equal(r.tripped, true);
+    assert.ok(categories(r).includes('disparagement'));
+  });
+
+  // isReferenceDomain() is tested directly below, NOT through scanArticle()
+  // -- .us is not in COMPETITOR_DOMAIN_PATTERN's TLD list (see patterns.js),
+  // so findDisparagement()'s loop filters out any ".us" match via the regex
+  // itself before isReferenceDomain() would ever run. Confirmed empirically:
+  // an integration-level test asserting "temeculavalleyhomes.us doesn't
+  // trip" passes identically whether or not isReferenceDomain() exists at
+  // all, which means it cannot prove the carve-out does anything -- it's
+  // unreachable code today, kept as documented forward-looking insurance
+  // (see patterns.js's COMPETITOR_DOMAIN_PATTERN comment). Unit-testing the
+  // function directly is the only way to actually exercise its logic.
+  describe('isReferenceDomain — forward-looking insurance, unreachable via COMPETITOR_DOMAIN_PATTERN today', () => {
+    test('exact match: George\'s own domain', () => {
+      assert.equal(isReferenceDomain('temeculavalleyhomes.us'), true);
+    });
+
+    test('case-insensitive match', () => {
+      assert.equal(isReferenceDomain('TEMECULAVALLEYHOMES.US'), true);
+    });
+
+    test('the real competitor (.com, different TLD entirely) does not match', () => {
+      assert.equal(isReferenceDomain('temeculavalleyhomes.com'), false);
+    });
+
+    test('a lookalike prefix does not match -- exact string only, no substring/suffix logic', () => {
+      assert.equal(isReferenceDomain('nottemeculavalleyhomes.us'), false);
+    });
+
+    test('a lookalike suffix does not match', () => {
+      assert.equal(isReferenceDomain('temeculavalleyhomes.us.evil.com'), false);
+    });
   });
 });
 

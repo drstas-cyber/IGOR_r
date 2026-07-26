@@ -11,6 +11,7 @@ export const REFERENCE = {
   brokerage: 'Allison James',
   phoneDigits: '6192772766', // 619-277-2766, digits only, for normalized comparison
   email: 'askgeorgek@gmail.com',
+  domain: 'temeculavalleyhomes.us', // George's own site -- see scan.js's isReferenceDomain()
 };
 
 // Named threshold, not just "100% tripped = fatal". A build that silently
@@ -131,6 +132,15 @@ export const URGENCY_STAT_PATTERNS = [
 // framing — exactly the class of content the original audit flagged as
 // worth a human read regardless of whether the tone is negative. Sentiment
 // alone was too narrow a definition of "worth reviewing" for this category.
+// BACKLOG (recorded, not fixed 2026-07-26): this TLD list is not exhaustive.
+// A competitor on .us, .co, .realtor, or .homes is invisible to this pattern
+// today -- a real gap, not hypothetical (confirmed temeculavalleyhomes.com,
+// a real competitor, sits on .com so it's caught; a hypothetical competitor
+// on .us would not be, and George's own site is ALSO .us, which is exactly
+// why REFERENCE.domain / isReferenceDomain() below exists ahead of any TLD
+// widening rather than after one). Widening this list is a deliberate future
+// decision, not an accident to be discovered later -- when it happens, the
+// allowlist carve-out is already in place.
 export const COMPETITOR_DOMAIN_PATTERN = /\b[\w-]+\.(com|net|org|io)\b/gi;
 export const DISPARAGEMENT_WORDS = [
   'worse', 'inferior', 'outdated', 'overpriced', 'avoid', 'beware',

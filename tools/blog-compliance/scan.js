@@ -133,12 +133,26 @@ function isReferenceContactBlockDomain(text, matchIndex, matchedDomain) {
   return candidate.toLowerCase() === REFERENCE.email.toLowerCase();
 }
 
+// George's own domain is NOT currently reachable by COMPETITOR_DOMAIN_PATTERN
+// (com|net|org|io -- .us isn't in that TLD list, see patterns.js) so this is
+// not fixing a live bug today; findDisparagement()'s regex already filters
+// out any ".us" match before this would run. It's forward-looking insurance:
+// if the TLD list is ever broadened, George's own domain must not start
+// tripping. Exact match only, same scoped-exclusion class as
+// isReferenceContactBlockDomain() above -- "temeculavalleyhomes.us.evil.com"
+// or "nottemeculavalleyhomes.us" still trip. Exported for direct unit
+// testing since it's unreachable via scanArticle() today (see scan.test.mjs).
+export function isReferenceDomain(matchedDomain) {
+  return matchedDomain.toLowerCase() === REFERENCE.domain.toLowerCase();
+}
+
 function findDisparagement(text) {
   const findings = [];
   COMPETITOR_DOMAIN_PATTERN.lastIndex = 0;
   let m;
   while ((m = COMPETITOR_DOMAIN_PATTERN.exec(text)) !== null) {
     if (isReferenceContactBlockDomain(text, m.index, m[0])) continue;
+    if (isReferenceDomain(m[0])) continue;
     const window = wordWindow(text, m.index, DISPARAGEMENT_WINDOW_WORDS).toLowerCase();
     const sentimentHit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
     const comparisonHit = COMPARISON_FRAMING_WORDS.find((w) => window.includes(w));
