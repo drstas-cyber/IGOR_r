@@ -1,0 +1,81 @@
+name: generate-article
+
+# Manual trigger ONLY, indefinitely — this is a low-volume, human-edited
+# pipeline, not a content farm. See tools/blog-generator/README.md for why.
+# To ever move to a schedule, uncomment the `schedule:` block below AND read
+# the README section on what has to be true first.
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   - cron: '0 15 * * 1'  # commented indefinitely — do not enable without reading the README
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    name: Generate one article and open a review PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run generator (writer + self-review + both compliance gates)
+        id: generate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node tools/blog-generator/generate.mjs
+
+      - name: Render gate report as Markdown (always, even on failure/skip)
+        if: always()
+        id: report
+        run: |
+          if [ -f tools/blog-generator/.last-run-report.json ]; then
+            {
+              echo 'body<<GENERATE_REPORT_EOF'
+              node tools/blog-generator/render-report-md.mjs
+              echo 'GENERATE_REPORT_EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo 'body=No report was written — the run failed before producing one. Check the job log above.' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check whether an article was actually generated
+        id: check
+        if: always()
+        run: |
+          if git status --porcelain src/data/generated-articles/ | grep -q '^??'; then
+            echo 'has_new_article=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has_new_article=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only reached (and only opens a PR) when generate.mjs actually wrote a
+      # new file — a tripped/skipped/failed run has nothing new under
+      # src/data/generated-articles/, so this step is a no-op and the job's
+      # overall status stays failed from the generate step above (visibly
+      # red, per the build spec — never silent).
+      - name: Open PR with the generated article
+        if: steps.check.outputs.has_new_article == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "blog: add generated article draft"
+          branch: "blog-generator/auto-${{ github.run_id }}"
+          title: "[Blog draft] New generated article — review and edit before merging"
+          body: ${{ steps.report.outputs.body }}
+          add-paths: |
+            src/data/generated-articles/
+            tools/blog-generator/topics.json
+          labels: |
+            blog-draft
+            needs-human-review
