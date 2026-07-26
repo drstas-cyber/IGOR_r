@@ -103,8 +103,15 @@ jobs:
       # src/data/generated-articles/, so this step is a no-op and the job's
       # overall status stays failed from the generate step above (visibly
       # red, per the build spec — never silent).
+      #
+      # success() is explicit here even though it's currently redundant
+      # (has_new_article can only be true when the generate step itself
+      # succeeded) — written out so it's a stated decision, not something a
+      # future reader has to know GitHub Actions' implicit-if-gating rule to
+      # infer. See the sibling rejected-attempt step below for why this
+      # actually matters, not just for symmetry.
       - name: Open PR with the generated article
-        if: steps.check.outputs.has_new_article == 'true'
+        if: success() && steps.check.outputs.has_new_article == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -114,7 +121,16 @@ jobs:
           body: ${{ steps.report.outputs.body }}
           add-paths: |
             src/data/generated-articles/
-            tools/blog-generator/topics.json
+          # topics.json is deliberately NOT listed here (removed 2026-07-26)
+          # -- generate.mjs no longer writes to it at all now that topic
+          # availability is derived from ground truth (see
+          # topicAvailability.mjs), so it never has anything to stage. This
+          # entry used to matter when topics.json's status field got
+          # flipped per run; leaving a stale add-paths entry after that
+          # write path was removed is exactly the class of dead-reference
+          # drift that's worth deleting on sight rather than leaving as
+          # unexplained noise.
+          #
           # labels: intentionally omitted for the first run — an unknown label
           # (blog-draft / needs-human-review, neither created in the repo yet)
           # can fail PR creation on some action versions. Create the labels
@@ -129,8 +145,27 @@ jobs:
       # render-report-md.mjs withholds the "Article:" line for any outcome
       # other than 'generated' — this PR must never carry the discarded
       # draft's title, slug, or content, only the gate findings.
+      #
+      # always() is LOAD-BEARING, not decorative — this is the exact bug
+      # this step would have shipped with without it. has_rejected_marker
+      # only ever becomes 'true' when the "Run generator" step FAILED (a
+      # gate trip always exits non-zero). GitHub Actions applies an implicit
+      # success() to any custom `if:` that doesn't itself reference
+      # always()/failure()/cancelled() (confirmed against GitHub's own docs
+      # and cross-checked 2026-07-26, not assumed) -- so without always()
+      # here, this step would be silently skipped on every single gate trip,
+      # meaning the rejected-attempt PR this whole mechanism exists to open
+      # would never actually fire in real CI. Caught by re-deriving this
+      # from first principles rather than trusting the step "looked right."
+      #
+      # This does NOT weaken "the job must still exit non-zero on a trip":
+      # that guarantee comes from the generate step's own exit code, not
+      # from this step succeeding or being reached at all. If THIS step
+      # itself fails (API error, rate limit, branch-name collision), the
+      # job is already red from the generate step -- a failure here adds a
+      # second red mark, never turns a trip green.
       - name: Open PR for rejected attempt (marker only — no article content)
-        if: steps.check_rejected.outputs.has_rejected_marker == 'true'
+        if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

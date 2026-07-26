@@ -127,9 +127,21 @@ behavior:
   `src/data/generated-articles/.rejected/` on `main` too, same as it reads
   real article files there. If a rejected-attempt PR is ever accidentally
   merged, the topic is blocked going forward, not silently released. This
-  is a stated decision: a merged rejection is treated as a permanent
-  record that the topic was tried and discarded, exactly like a merged
+  is a **stated decision**: a merged rejection is treated as a permanent
+  record that the topic was tried and discarded — a merged rejection is
+  still a rejection, and ground truth should say so, exactly like a merged
   real article is a permanent record it was written.
+
+**Unblocking a topic after an accidentally-merged rejection is a normal,
+reviewed PR — never automatic.** A permanent block with no documented way
+out is a trap, so: delete the specific marker file (`git rm
+src/data/generated-articles/.rejected/<slugified-topic>.json`), open a
+normal PR, get it reviewed and merged like any other change. Once that
+marker is gone from `main`, `getLocallyAttemptedTopics()` no longer sees
+it and the topic is available to the next run again. There is
+deliberately no automated or one-command "unblock" path — the same human
+review that would have caught the accidental merge in the first place is
+the right gate on reversing it too.
 
 To pull a generated article into the normal build output for local preview:
 
