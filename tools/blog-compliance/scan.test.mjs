@@ -236,6 +236,36 @@ describe('(e) named-competitor disparagement', () => {
     const r = scanArticle(article({ title: 'Top 5 yukomiyata.com Alternatives for Real Estate Experts' }));
     assert.ok(categories(r).includes('disparagement'));
   });
+
+  // Regression test — real false positive found 2026-07-26 via a live
+  // generated article: the standard fixed-identity contact block (which
+  // includes askgeorgek@gmail.com per prompt.md's own rules) sat within
+  // DISPARAGEMENT_WINDOW_WORDS of an unrelated "renting vs buying" style
+  // comparison, false-tripping comparison-framing on "gmail.com ... vs".
+  // Fixed by excluding the EXACT reference email as it appears verbatim,
+  // not bare "gmail.com" generally — see the other tests in this block
+  // proving a real competitor's gmail.com address would still trip.
+  test('NEGATIVE (must NOT trip): standard contact block near unrelated "vs" phrasing', () => {
+    const r = scanArticle(article({
+      html: '<p>Renting vs buying a home is a common question for first-time buyers weighing their options.</p>'
+        + '<p>Contact: George Khazanovskiy DRE: 02034120 Allison James Estates & Homes Phone: 619-277-2766 Email: askgeorgek@gmail.com</p>',
+    }));
+    assert.equal(categories(r).includes('disparagement'), false, `expected no disparagement finding, got: ${JSON.stringify(r.findings)}`);
+  });
+
+  test('POSITIVE (must still trip): a real competitor domain near "vs" — the fix must not blind the category generally', () => {
+    const r = scanArticle(article({ html: '<p>Some buyers compare competitor.com vs us before choosing an agent.</p>' }));
+    assert.equal(r.tripped, true);
+    const finding = r.findings.find((f) => f.category === 'disparagement');
+    assert.equal(finding.subcategory, 'comparison-framing');
+  });
+
+  test('POSITIVE (must still trip): "domain.com alternatives" — the fix must not blind the category generally', () => {
+    const r = scanArticle(article({ html: '<p>Looking for domain.com alternatives in the Temecula area?</p>' }));
+    assert.equal(r.tripped, true);
+    const finding = r.findings.find((f) => f.category === 'disparagement');
+    assert.equal(finding.subcategory, 'comparison-framing');
+  });
 });
 
 describe('(f) wrong DRE / brokerage / phone / email', () => {

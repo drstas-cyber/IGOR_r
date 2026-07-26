@@ -114,11 +114,31 @@ function findRegexCategory(text, patternList, category) {
   return findings;
 }
 
+// The reference identity's own contact-block email domain ("gmail.com" in
+// askgeorgek@gmail.com) is not a competitor domain — it's George's own real
+// contact info, present in nearly every article's contact block per
+// prompt.md's fixed-identity rule. Scoped narrowly to the EXACT reference
+// email as it appears verbatim, not every bare "gmail.com" mention: a
+// competitor could plausibly use a gmail.com address too, and disparaging
+// language near THEIR mention should still trip. Found 2026-07-26 when a
+// real generated article's standard contact block sat within
+// DISPARAGEMENT_WINDOW_WORDS of an unrelated "renting vs buying" phrase and
+// false-tripped comparison-framing on "gmail.com ... vs".
+const REFERENCE_EMAIL_DOMAIN = REFERENCE.email.slice(REFERENCE.email.lastIndexOf('@') + 1);
+const REFERENCE_EMAIL_PREFIX_LEN = REFERENCE.email.length - REFERENCE_EMAIL_DOMAIN.length;
+
+function isReferenceContactBlockDomain(text, matchIndex, matchedDomain) {
+  if (matchedDomain.toLowerCase() !== REFERENCE_EMAIL_DOMAIN.toLowerCase()) return false;
+  const candidate = text.slice(matchIndex - REFERENCE_EMAIL_PREFIX_LEN, matchIndex + matchedDomain.length);
+  return candidate.toLowerCase() === REFERENCE.email.toLowerCase();
+}
+
 function findDisparagement(text) {
   const findings = [];
   COMPETITOR_DOMAIN_PATTERN.lastIndex = 0;
   let m;
   while ((m = COMPETITOR_DOMAIN_PATTERN.exec(text)) !== null) {
+    if (isReferenceContactBlockDomain(text, m.index, m[0])) continue;
     const window = wordWindow(text, m.index, DISPARAGEMENT_WINDOW_WORDS).toLowerCase();
     const sentimentHit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
     const comparisonHit = COMPARISON_FRAMING_WORDS.find((w) => window.includes(w));
