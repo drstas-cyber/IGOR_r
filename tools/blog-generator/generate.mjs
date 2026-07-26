@@ -87,8 +87,8 @@ const REVIEW_TOOL = {
   },
 };
 
-function loadTopics() {
-  return JSON.parse(fs.readFileSync(TOPICS_PATH, 'utf8'));
+function loadTopics(topicsPath = TOPICS_PATH) {
+  return JSON.parse(fs.readFileSync(topicsPath, 'utf8'));
 }
 
 function loadSystemPrompt() {
@@ -204,14 +204,49 @@ export async function runGates({ apiKey, article }) {
   return { tripped: layer1.tripped || layer2.tripped, layer1, layer2 };
 }
 
-function writeReport(report) {
-  fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
-  fs.writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log(`[generate] report written to ${path.relative(PROJECT_ROOT, REPORT_PATH)}`);
+function writeReport(report, reportPath = REPORT_PATH) {
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  console.log(`[generate] report written to ${path.relative(PROJECT_ROOT, reportPath)}`);
 }
 
-export async function main() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+// Called when a gate trip discards a draft. Writes a rejected-attempt
+// MARKER only — never the discarded article's title, slug, or
+// content_html — to <generatedDir>/.rejected/<slugified-topic>.json.
+// Exactly four fields: sourceTopic, rejectedAt, layer1, layer2 (findings
+// snippets only — the same class of quoting already used in the PR report
+// all session, never the draft itself).
+//
+// This file (and the PR opened from it — see generate-article.yml) is what
+// makes getOpenPrAttemptedTopics() see the topic as "spoken for" while that
+// PR stays open, and what makes getLocallyAttemptedTopics() permanently
+// block the topic if that PR is ever merged to main. Both are deliberate
+// decisions (README.md), not emergent behavior: an open generator PR means
+// the topic is spoken for; closing it unmerged releases it; merging it
+// (rejection or real article) leaves a permanent record ground-truth
+// checking will always see.
+export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {}) {
+  const marker = {
+    sourceTopic: report.topic.topic,
+    rejectedAt: new Date().toISOString(),
+    layer1: report.layer1,
+    layer2: report.layer2,
+  };
+  const rejectedDir = path.join(generatedDir, '.rejected');
+  fs.mkdirSync(rejectedDir, { recursive: true });
+  const markerPath = path.join(rejectedDir, `${slugify(marker.sourceTopic)}.json`);
+  fs.writeFileSync(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'utf8');
+  return { markerPath, marker };
+}
+
+export async function main({
+  apiKey = process.env.ANTHROPIC_API_KEY,
+  repo = process.env.GITHUB_REPOSITORY,
+  generatedDir = GENERATED_DIR,
+  topicsPath = TOPICS_PATH,
+  reportPath = REPORT_PATH,
+  exec, // passed through to getOpenPrAttemptedTopics; undefined = its own real execSync default
+} = {}) {
   if (!apiKey) {
     console.error('[generate] ANTHROPIC_API_KEY not set. Refusing to run.');
     process.exitCode = 1;
@@ -223,17 +258,16 @@ export async function main() {
   await verifyModel(apiKey, REVIEWER_MODEL);
   console.log('[generate] both models verified.');
 
-  const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) {
     console.error('[generate] GITHUB_REPOSITORY not set. Topic selection requires it to check open PR branches — refusing to guess. Run this inside GitHub Actions, or set GITHUB_REPOSITORY=owner/repo explicitly.');
     process.exitCode = 1;
     return;
   }
 
-  const topics = loadTopics();
+  const topics = loadTopics(topicsPath);
   console.log('[generate] checking ground truth for already-attempted topics (local generated-articles/ + open generator PR branches)...');
-  const locallyAttempted = getLocallyAttemptedTopics(GENERATED_DIR);
-  const prAttempted = getOpenPrAttemptedTopics({ repo }); // throws (fail-closed) on any failure — never falls back to topics.json state
+  const locallyAttempted = getLocallyAttemptedTopics(generatedDir);
+  const prAttempted = getOpenPrAttemptedTopics({ repo, exec }); // throws (fail-closed) on any failure — never falls back to topics.json state
   const attempted = new Set([...locallyAttempted, ...prAttempted]);
   console.log(`[generate] ${attempted.size} topic(s) already attempted (local: ${locallyAttempted.size}, open PRs: ${prAttempted.size}).`);
 
@@ -258,16 +292,20 @@ export async function main() {
     console.log('[generate] self-review: draft was already clean per the model.');
   }
 
-  const knownSlugs = getKnownSlugs();
+  const knownSlugs = getKnownSlugs({ generatedDir });
   const article = assembleArticle(reviewed, knownSlugs, topic.topic);
 
   console.log('[generate] running compliance gates (layer 1: regex scanner, layer 2: independent LLM review)...');
   const gateResult = await runGates({ apiKey, article });
 
+  // report.article (title/slug of the discarded draft) is deliberately NOT
+  // included here — only added in the success path below. A tripped run's
+  // report becomes the rejected-attempt PR's body (render-report-md.mjs);
+  // it must never carry the discarded article's identity, only the gate
+  // findings that justified discarding it.
   const report = {
     generatedAt: new Date().toISOString(),
     topic,
-    article: { title: article.title, slug: article.slug },
     layer1: gateResult.layer1,
     layer2: gateResult.layer2,
     outcome: null,
@@ -292,29 +330,33 @@ export async function main() {
       }
       console.error(`    full checklist: ${JSON.stringify(c)}`);
     }
-    writeReport(report);
+    const { markerPath } = handleTrippedGate(report, { generatedDir });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    writeReport(report, reportPath);
     process.exitCode = 1;
     return;
   }
 
   const schemaCheck = validateArticleSchema(article);
   if (!schemaCheck.valid) {
+    report.article = { title: article.title, slug: article.slug };
     report.outcome = 'schema_invalid';
     report.schemaErrors = schemaCheck.errors;
     console.error('[generate] article passed both compliance gates but FAILED schema validation:');
     schemaCheck.errors.forEach((e) => console.error(`    - ${e}`));
-    writeReport(report);
+    writeReport(report, reportPath);
     process.exitCode = 1;
     return;
   }
 
-  fs.mkdirSync(GENERATED_DIR, { recursive: true });
-  const outPath = path.join(GENERATED_DIR, `${article.slug}.json`);
+  fs.mkdirSync(generatedDir, { recursive: true });
+  const outPath = path.join(generatedDir, `${article.slug}.json`);
   fs.writeFileSync(outPath, `${JSON.stringify(article, null, 2)}\n`, 'utf8');
 
+  report.article = { title: article.title, slug: article.slug };
   report.outcome = 'generated';
   report.outputPath = path.relative(PROJECT_ROOT, outPath);
-  writeReport(report);
+  writeReport(report, reportPath);
 
   console.log(`[generate] SUCCESS — wrote ${path.relative(PROJECT_ROOT, outPath)}`);
   console.log(`[generate] title: ${article.title}`);

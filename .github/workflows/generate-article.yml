@@ -50,14 +50,36 @@ jobs:
             echo 'body=No report was written — the run failed before producing one. Check the job log above.' >> "$GITHUB_OUTPUT"
           fi
 
+      # Excludes .rejected/ explicitly — a gate trip writes a marker there,
+      # not a real article, and must never trigger this step (see
+      # has_rejected_marker below, which is the mutually-exclusive sibling
+      # check). Belt-and-suspenders: the two write paths never overlap by
+      # construction either (handleTrippedGate in generate.mjs only ever
+      # writes under .rejected/, the real-article write only ever writes
+      # directly under generated-articles/), but this check stays explicit
+      # rather than relying on that alone.
       - name: Check whether an article was actually generated
         id: check
         if: always()
         run: |
-          if git status --porcelain src/data/generated-articles/ | grep -q '^??'; then
+          if git status --porcelain -- src/data/generated-articles/ | grep -v '/\.rejected/' | grep -q '^??'; then
             echo 'has_new_article=true' >> "$GITHUB_OUTPUT"
           else
             echo 'has_new_article=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      # Mutually exclusive with has_new_article above by construction — see
+      # handleTrippedGate in generate.mjs (tools/blog-generator/README.md
+      # has the full design rationale for why a gate trip gets its own PR
+      # instead of vanishing silently).
+      - name: Check whether a rejected-attempt marker was written
+        id: check_rejected
+        if: always()
+        run: |
+          if git status --porcelain -- src/data/generated-articles/.rejected/ | grep -q '^??'; then
+            echo 'has_rejected_marker=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has_rejected_marker=false' >> "$GITHUB_OUTPUT"
           fi
 
       # Only reached (and only opens a PR) when generate.mjs actually wrote a
@@ -81,3 +103,24 @@ jobs:
           # (blog-draft / needs-human-review, neither created in the repo yet)
           # can fail PR creation on some action versions. Create the labels
           # first if you want them, then re-add this block; don't guess.
+
+      # Records a gate trip as ground truth instead of leaving no trace
+      # anywhere — a discarded run used to just vanish, which meant a
+      # repeatedly-failing topic silently blocked the whole queue forever
+      # (nothing anywhere would show why). This PR's branch name is
+      # run-ID-scoped so a human closing this PR and rerunning opens a fresh
+      # one with no name collision. Body is the same report as above, but
+      # render-report-md.mjs withholds the "Article:" line for any outcome
+      # other than 'generated' — this PR must never carry the discarded
+      # draft's title, slug, or content, only the gate findings.
+      - name: Open PR for rejected attempt (marker only — no article content)
+        if: steps.check_rejected.outputs.has_rejected_marker == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "blog: record rejected generation attempt (gate trip, no article content)"
+          branch: "blog-generator/rejected-${{ github.run_id }}"
+          title: "[Blog draft] Rejected generation attempt — gate trip, topic released if closed unmerged"
+          body: ${{ steps.report.outputs.body }}
+          add-paths: |
+            src/data/generated-articles/.rejected/

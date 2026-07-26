@@ -21,8 +21,14 @@ lines.push(`**Topic:** ${report.topic.topic}`);
 lines.push(`**Target keyword:** ${report.topic.target_keyword}`);
 lines.push(`**Outcome:** \`${report.outcome}\``);
 lines.push('');
-lines.push(`**Article:** ${report.article.title} (\`${report.article.slug}\`)`);
-lines.push('');
+// The discarded draft's title/slug is deliberately withheld on a tripped
+// run (report.outcome !== 'generated') — this report becomes the PR body,
+// and a rejected-attempt PR must carry only gate findings, never the
+// article's identity (see generate.mjs's handleTrippedGate).
+if (report.outcome === 'generated') {
+  lines.push(`**Article:** ${report.article.title} (\`${report.article.slug}\`)`);
+  lines.push('');
+}
 lines.push('---');
 lines.push('');
 lines.push('### Layer 1 — regex scanner (frozen pattern set 30d8154)');
