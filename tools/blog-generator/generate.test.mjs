@@ -121,22 +121,38 @@ function toolUseBody(toolName, input) {
 
 // Routes by request shape rather than call order — robust to the exact
 // sequence of verifyModel/generateDraft/selfReview/runLlmClaimGate calls.
-function mockAnthropicRouter({ checklist }) {
+// citationFetchStatuses maps a citation URL -> HTTP status for the Layer 3
+// resolver's own GET request, which shares the same globalThis.fetch mock
+// (routed here by NOT being an api.anthropic.com URL).
+function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {} }) {
   globalThis.fetch = async (url, init = {}) => {
     const urlStr = String(url);
     if (urlStr.includes('/v1/models')) {
       return jsonResponse(200, { data: [{ id: WRITER_MODEL }, { id: REVIEWER_MODEL }] });
     }
+    if (!urlStr.includes('api.anthropic.com')) {
+      // Layer 3's citation-resolution GET, not an Anthropic API call.
+      const status = citationFetchStatuses[urlStr];
+      if (status === undefined) throw new Error(`test router: no citationFetchStatuses entry for "${urlStr}"`);
+      return { status };
+    }
     const body = JSON.parse(init.body);
     const toolName = body.tool_choice?.name;
+    // A data-cite marker per citation, matching its id -- required by
+    // schema.js's marker<->array cross-check (added the commit before this
+    // one). Without it, any test passing citations would fail schema
+    // validation on an orphaned citation, not on whatever the test is
+    // actually trying to exercise.
+    const markers = citations.map((c) => `<sup class="citation" data-cite="${c.id}">[${c.id}]</sup>`).join('');
+    const contentHtml = `<p>HOA fees fund shared community amenities and routine maintenance for planned developments.${markers}</p>`;
     if (toolName === 'submit_article_draft') {
       return jsonResponse(200, toolUseBody('submit_article_draft', {
         title: 'Understanding HOA Fees',
         slug_suggestion: 'understanding-hoa-fees',
         meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
-        content_html: '<p>HOA fees fund shared community amenities and routine maintenance for planned developments.</p>',
+        content_html: contentHtml,
         keywords: ['hoa fees'],
-        citations: [],
+        citations,
         faq_items: [],
       }));
     }
@@ -146,9 +162,9 @@ function mockAnthropicRouter({ checklist }) {
         title: 'Understanding HOA Fees',
         slug_suggestion: 'understanding-hoa-fees',
         meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
-        content_html: '<p>HOA fees fund shared community amenities and routine maintenance for planned developments.</p>',
+        content_html: contentHtml,
         keywords: ['hoa fees'],
-        citations: [],
+        citations,
         faq_items: [],
       }));
     }
@@ -166,6 +182,7 @@ const CLEAN_CHECKLIST = {
   uncited_statistic: false, statistic_evidence: null,
   competitor_mention: false, competitor_evidence: null,
   contact_mismatch: false, contact_evidence: null,
+  legal_duty_overstated: false, legal_duty_evidence: null,
 };
 
 const TRIPPING_CHECKLIST = {
@@ -184,8 +201,9 @@ function writeIsolatedRepoFixture() {
   const generatedDir = path.join(root, 'generated-articles');
   const topicsPath = path.join(root, 'topics.json');
   const reportPath = path.join(root, '.last-run-report.json');
+  const citationHostLogPath = path.join(root, 'citation-host-log.json');
   fs.writeFileSync(topicsPath, JSON.stringify([{ topic: 'Understanding HOA Fees', target_keyword: 'hoa fees' }]), 'utf8');
-  return { root, generatedDir, topicsPath, reportPath };
+  return { root, generatedDir, topicsPath, reportPath, citationHostLogPath };
 }
 
 describe('main() — gate trip, full path (2026-07-26)', () => {
@@ -246,5 +264,90 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.equal(report.outcome, 'generated');
+  });
+});
+
+describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', () => {
+  const CITATION_URL_OK = 'https://example.gov/statute-a';
+  const CITATION = { id: '1', sourceName: 'Example Statute', url: CITATION_URL_OK, sourceType: 'statute' };
+
+  test('a citation that resolves 200 does not trip anything; article is generated', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 200 } });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.equal(report.layer3.tripped, false);
+    assert.equal(report.layer3.results[0].outcome, 'RESOLVED');
+    assert.equal(fs.existsSync(citationHostLogPath), false, 'a RESOLVED citation writes no host-log entry');
+  });
+
+  test('a citation that 404s trips the gate — exits non-zero, no article file, rejected marker carries layer3', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 404 } });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1, 'a dead citation link must trip the gate exactly like any other trip');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir) ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected') : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file on a layer 3 trip');
+
+    const rejectedDir = path.join(generatedDir, '.rejected');
+    const markerFiles = fs.readdirSync(rejectedDir);
+    const marker = JSON.parse(fs.readFileSync(path.join(rejectedDir, markerFiles[0]), 'utf8'));
+    assert.equal(marker.layer3.tripped, true);
+    assert.equal(marker.layer3.failed[0].status, 404);
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'skipped');
+    assert.equal(report.layer1.tripped, false, 'layer 1 genuinely clean -- layer 3 alone is what tripped this run');
+    assert.equal(report.layer2.tripped, false, 'layer 2 genuinely clean -- layer 3 alone is what tripped this run');
+  });
+
+  test('a citation that 403s does NOT trip -- article still generates, host log gets an entry', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 403 } });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined, 'UNREACHABLE_LIKELY_BOT must never trip the gate on its own');
+    const topLevelFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    assert.equal(topLevelFiles.length, 1, 'the article is still written -- a bot-block is inconclusive, not a failure');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.equal(report.layer3.tripped, false);
+    assert.equal(report.layer3.inconclusive.length, 1);
+
+    assert.ok(fs.existsSync(citationHostLogPath), 'the durable host log must be written for an inconclusive citation');
+    const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
+    assert.equal(hostLog.length, 1);
+    assert.equal(hostLog[0].host, 'example.gov');
+    assert.equal(hostLog[0].status, 403);
+    assert.equal(hostLog[0].sourceTopic, 'Understanding HOA Fees');
+  });
+
+  test('host log entries accumulate across multiple runs rather than overwriting', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 429 } });
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    // second run needs a fresh topic since the first is now attempted -- reuse the same log path with a second topic
+    fs.writeFileSync(topicsPath, JSON.stringify([
+      { topic: 'Understanding HOA Fees', target_keyword: 'hoa fees' },
+      { topic: 'A Second Topic', target_keyword: 'second' },
+    ]), 'utf8');
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
+    assert.equal(hostLog.length, 2, 'both runs\' inconclusive citations must be present, not just the latest');
   });
 });

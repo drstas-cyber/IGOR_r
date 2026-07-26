@@ -27,6 +27,8 @@ import { validateArticleSchema } from './schema.js';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
+import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
+import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -34,6 +36,7 @@ const TOPICS_PATH = path.join(__dirname, 'topics.json');
 const PROMPT_PATH = path.join(__dirname, 'prompt.md');
 const GENERATED_DIR = path.join(PROJECT_ROOT, 'src', 'data', 'generated-articles');
 const REPORT_PATH = path.join(__dirname, '.last-run-report.json');
+const CITATION_HOST_LOG_PATH = path.join(__dirname, 'citation-host-log.json');
 const SITE = 'https://temeculavalleyhomes.us';
 
 // Verified live against GET /v1/models — see modelVerify.mjs, which re-runs
@@ -199,9 +202,9 @@ export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
   };
 }
 
-// Runs both compliance gates. Returns { tripped, layer1, layer2 } — never
-// throws on a trip (a trip is an expected, handled outcome, not an error);
-// only throws on an actual API/infra failure.
+// Runs all three compliance gates. Returns { tripped, layer1, layer2,
+// layer3 } — never throws on a trip (a trip is an expected, handled
+// outcome, not an error); only throws on an actual API/infra failure.
 export async function runGates({ apiKey, article }) {
   const layer1Result = scanArticle(article);
   const layer1 = { tripped: layer1Result.tripped, findings: layer1Result.findings };
@@ -217,7 +220,21 @@ export async function runGates({ apiKey, article }) {
   });
   const layer2 = { tripped: layer2Result.tripped, checklist: layer2Result.checklist };
 
-  return { tripped: layer1.tripped || layer2.tripped, layer1, layer2 };
+  // Layer 3 (2026-07-26): real URL resolution for every citation, before
+  // the PR opens -- see citationResolver.mjs's header for what this proves
+  // and does not prove. Runs independently of layer1/layer2's outcomes,
+  // same "always runs, full picture in one report" reasoning.
+  const citationResults = await resolveAllCitations(article.citations);
+  const citationEval = evaluateCitationResolution(citationResults);
+  const layer3 = {
+    tripped: citationEval.tripped,
+    results: citationResults,
+    resolved: citationEval.resolved,
+    failed: citationEval.failed,
+    inconclusive: citationEval.inconclusive,
+  };
+
+  return { tripped: layer1.tripped || layer2.tripped || layer3.tripped, layer1, layer2, layer3 };
 }
 
 function writeReport(report, reportPath = REPORT_PATH) {
@@ -229,9 +246,9 @@ function writeReport(report, reportPath = REPORT_PATH) {
 // Called when a gate trip discards a draft. Writes a rejected-attempt
 // MARKER only — never the discarded article's title, slug, or
 // content_html — to <generatedDir>/.rejected/<slugified-topic>.json.
-// Exactly four fields: sourceTopic, rejectedAt, layer1, layer2 (findings
-// snippets only — the same class of quoting already used in the PR report
-// all session, never the draft itself).
+// Exactly five fields: sourceTopic, rejectedAt, layer1, layer2, layer3
+// (findings snippets only — the same class of quoting already used in the
+// PR report all session, never the draft itself).
 //
 // This file (and the PR opened from it — see generate-article.yml) is what
 // makes getOpenPrAttemptedTopics() see the topic as "spoken for" while that
@@ -247,6 +264,7 @@ export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {})
     rejectedAt: new Date().toISOString(),
     layer1: report.layer1,
     layer2: report.layer2,
+    layer3: report.layer3,
   };
   const rejectedDir = path.join(generatedDir, '.rejected');
   fs.mkdirSync(rejectedDir, { recursive: true });
@@ -261,6 +279,7 @@ export async function main({
   generatedDir = GENERATED_DIR,
   topicsPath = TOPICS_PATH,
   reportPath = REPORT_PATH,
+  citationHostLogPath = CITATION_HOST_LOG_PATH,
   exec, // passed through to getOpenPrAttemptedTopics; undefined = its own real execSync default
 } = {}) {
   if (!apiKey) {
@@ -311,8 +330,29 @@ export async function main({
   const knownSlugs = getKnownSlugs({ generatedDir });
   const article = assembleArticle(reviewed, knownSlugs, topic.topic);
 
-  console.log('[generate] running compliance gates (layer 1: regex scanner, layer 2: independent LLM review)...');
+  console.log('[generate] running compliance gates (layer 1: regex scanner, layer 2: independent LLM review, layer 3: citation URL resolution)...');
   const gateResult = await runGates({ apiKey, article });
+
+  // Durable per-host UNREACHABLE_LIKELY_BOT log, written regardless of
+  // trip/success outcome -- a bot-blocked host is worth recording even on
+  // an otherwise-clean run, and this is the only way the log accumulates a
+  // real per-host hit rate across articles instead of reacting to one
+  // impression (see citationHostLog.mjs). Committed, not gitignored, so it
+  // survives CI's fresh checkout every run.
+  const hostLogEntries = buildHostLogEntries({ runId: process.env.GITHUB_RUN_ID || 'local', sourceTopic: topic.topic, citationResults: gateResult.layer3.results });
+  if (hostLogEntries.length > 0) {
+    appendHostLogEntries(citationHostLogPath, hostLogEntries);
+    console.log(`[generate] logged ${hostLogEntries.length} UNREACHABLE_LIKELY_BOT citation host(s) to ${path.relative(PROJECT_ROOT, citationHostLogPath)} (not a gate trip -- inconclusive, human decides)`);
+  }
+  // Surfaced unconditionally (trip or not) -- a bot-blocked citation on an
+  // otherwise-clean, successfully-generated article is still worth a
+  // human's attention in the PR, not just on a discarded run.
+  if (gateResult.layer3.inconclusive.length > 0) {
+    console.log('[generate] layer 3: UNREACHABLE_LIKELY_BOT citations (inconclusive, NOT a trip on their own, human decides):');
+    gateResult.layer3.inconclusive.forEach((r) => {
+      console.log(`    [${r.host}] status=${r.status} id=${r.id} "${r.sourceName}" — ${r.url}`);
+    });
+  }
 
   // report.article (title/slug of the discarded draft) is deliberately NOT
   // included here — only added in the success path below. A tripped run's
@@ -324,12 +364,13 @@ export async function main({
     topic,
     layer1: gateResult.layer1,
     layer2: gateResult.layer2,
+    layer3: gateResult.layer3,
     outcome: null,
   };
 
   if (gateResult.tripped) {
     report.outcome = 'skipped';
-    console.error(`[generate] TRIPPED — discarding. layer1=${gateResult.layer1.tripped} layer2=${gateResult.layer2.tripped}`);
+    console.error(`[generate] TRIPPED — discarding. layer1=${gateResult.layer1.tripped} layer2=${gateResult.layer2.tripped} layer3=${gateResult.layer3.tripped}`);
     if (gateResult.layer1.tripped) {
       console.error('[generate] layer 1 (regex scanner) findings:');
       gateResult.layer1.findings.forEach((f) => {
@@ -340,11 +381,17 @@ export async function main({
       console.error('[generate] layer 2 (LLM claim review) findings:');
       const c = gateResult.layer2.checklist;
       for (const [key, value] of Object.entries(c)) {
-        if (key.endsWith('_claim') || key.endsWith('_mismatch') || key === 'uncited_statistic') {
-          if (value === true) console.error(`    [${key}] true — evidence: ${c[`${key.replace(/_claim$|_mismatch$/, '')}_evidence`] || c[key.replace('uncited_statistic', 'statistic_evidence')] || '(see checklist)'}`);
+        if (key.endsWith('_claim') || key.endsWith('_mismatch') || key === 'uncited_statistic' || key === 'legal_duty_overstated') {
+          if (value === true) console.error(`    [${key}] true — evidence: ${c[`${key.replace(/_claim$|_mismatch$|_overstated$/, '')}_evidence`] || c[key.replace('uncited_statistic', 'statistic_evidence')] || '(see checklist)'}`);
         }
       }
       console.error(`    full checklist: ${JSON.stringify(c)}`);
+    }
+    if (gateResult.layer3.tripped) {
+      console.error('[generate] layer 3 (citation URL resolution) FAILED citations (dead link, not a bot-block):');
+      gateResult.layer3.failed.forEach((r) => {
+        console.error(`    [${r.host || '(unparseable)'}] status=${r.status ?? '(no response)'} id=${r.id} "${r.sourceName}" — ${r.url}${r.error ? ` — ${r.error}` : ''}`);
+      });
     }
     const { markerPath } = handleTrippedGate(report, { generatedDir });
     console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);

@@ -121,6 +121,14 @@ jobs:
           body: ${{ steps.report.outputs.body }}
           add-paths: |
             src/data/generated-articles/
+            tools/blog-generator/citation-host-log.json
+          # citation-host-log.json (added 2026-07-26): a bot-blocked
+          # citation host is worth recording even on a run that otherwise
+          # succeeds -- see citationHostLog.mjs. This is a durable,
+          # committed file (not gitignored) specifically so it accumulates
+          # across articles instead of resetting on every fresh CI
+          # checkout; it needs to ride along in whichever PR the run opens.
+          #
           # topics.json is deliberately NOT listed here (removed 2026-07-26)
           # -- generate.mjs no longer writes to it at all now that topic
           # availability is derived from ground truth (see
@@ -175,3 +183,4 @@ jobs:
           body: ${{ steps.report.outputs.body }}
           add-paths: |
             src/data/generated-articles/.rejected/
+            tools/blog-generator/citation-host-log.json
