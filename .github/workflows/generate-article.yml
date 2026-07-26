@@ -76,6 +76,7 @@ jobs:
           add-paths: |
             src/data/generated-articles/
             tools/blog-generator/topics.json
-          labels: |
-            blog-draft
-            needs-human-review
+          # labels: intentionally omitted for the first run — an unknown label
+          # (blog-draft / needs-human-review, neither created in the repo yet)
+          # can fail PR creation on some action versions. Create the labels
+          # first if you want them, then re-add this block; don't guess.
