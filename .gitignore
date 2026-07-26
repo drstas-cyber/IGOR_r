@@ -19,6 +19,10 @@ public/llms.txt
 # filter on every build that has BABYLOVE_API_KEY set
 tools/blog-compliance/last-report.json
 
+# Ephemeral run report from tools/blog-generator/generate.mjs — read by the
+# GitHub Actions workflow to build the PR body, not meant to persist in git.
+tools/blog-generator/.last-run-report.json
+
 # Raw content snapshot from a real BABYLOVE_API_KEY fetch — contains full
 # article bodies (including the exclusivity/DRE claims found during the
 # 2026-07-26 audit) and must never reach git history. Enables offline mode
