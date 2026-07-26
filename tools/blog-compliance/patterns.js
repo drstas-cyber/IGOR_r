@@ -13,18 +13,46 @@ export const REFERENCE = {
   email: 'askgeorgek@gmail.com',
 };
 
-// --- (a) Exclusivity claims ("the only agent...") ------------------------
+// Named threshold, not just "100% tripped = fatal". A build that silently
+// ships 1 of 24 articles because 23 tripped is barely different from
+// shipping 0 — both mean the blog is effectively empty and something is
+// badly wrong (the filter is broken, or the upstream content generation
+// is), but only an exact 100%-tripped case was failing loudly before this
+// was added. 0.5 is a conservative starting point: losing more than half a
+// batch is treated as abnormal, not ordinary editorial variance. Revisit
+// after the real report-only run shows an actual baseline trip rate —
+// this number was chosen before any real data existed to calibrate it.
+export const MAX_TRIP_RATE = 0.5; // fraction tripped, ABOVE which enforce mode fails the build loudly
+
+// --- (a) Exclusivity / unsubstantiated-superlative claims -----------------
 // Window-based, not a single regex: "only" is common in harmless usage
 // ("not only", "the only way to know is an appraisal"). We only care about
-// "only" co-occurring near an agent/professional descriptor within a short
-// word window, and explicitly exclude the two idioms named during design.
+// a trigger word co-occurring near an agent/professional/comparison
+// descriptor within a short word window, and explicitly exclude the two
+// "only" idioms named during design.
+//
+// Trigger words widened 2026-07-26 after the real titles
+// "Best Meekerrealtygroup.com Alternatives...", "Top 4 debonisteam.com
+// Alternatives...", "Top 5 yukomiyata.com Alternatives..." proved "only"
+// alone missed exactly the unsubstantiated-superlative class the original
+// audit named. "best"/"top N" are NOT scoped to "not only"-style exclusions
+// (no equivalent idiom exists) but ARE scoped to the same context-word
+// window, specifically so this doesn't trip on every "best time to sell" /
+// "top 5 neighborhoods" sentence in ordinary real-estate content — those
+// have no agent/comparison context word nearby and won't match. Expect some
+// noise here regardless; report-only mode exists to measure it before
+// enforcement, same as every other category.
+export const SUPERLATIVE_TRIGGER_PATTERN = /\bonly\b|\bbest\b|\btop\s*\d+\b/gi;
 export const EXCLUSIVITY_CONTEXT_WORDS = [
   'agent', 'agents', 'realtor', 'realtors', 'broker', 'brokers',
   'professional', 'professionals', 'expert', 'experts', 'provider', 'providers',
   'choice', 'option', 'person', 'one who', 'specialist', 'specialists',
+  'alternative', 'alternatives', // added with the "best/top N ... alternatives" widening
 ];
-export const EXCLUSIVITY_WINDOW_WORDS = 8; // words either side of "only" to search for a context word
+export const EXCLUSIVITY_WINDOW_WORDS = 8; // words either side of the trigger to search for a context word
 export const EXCLUSIVITY_EXCLUDE_PATTERNS = [
+  // Only apply to the word "only" specifically — "best"/"top N" have no
+  // equivalent false-positive idiom to exclude.
   /\bnot\s+only\b/i,          // "not only... but also" — the classic false positive
   /\bonly\s+way\s+to\b/i,     // "the only way to know is an appraisal"
   /\bif\s+not\s+the\s+only\b/i,
@@ -42,6 +70,17 @@ export const TENURE_PATTERNS = [
   { id: 'veteran-agent', re: /\bveteran\s+(agent|realtor)\b/gi },
   { id: 'seasoned-agent', re: /\bseasoned\s+(agent|realtor|professional)\b/gi },
   { id: 'since-year', re: /\bsince\s+(19|20)\d{2}\b/gi }, // high false-positive risk, see README
+  // Widened 2026-07-26: a real ground-truth claim from the open-house
+  // article — "has spent over a decade guiding first-time buyers" — matched
+  // NONE of the patterns above (no digit, no "of experience" suffix). It
+  // only tripped tenure by coincidence, via an unrelated sentence elsewhere
+  // in the same article ("Realtors with more than a decade of experience").
+  // These cover word-form durations with no digit and no "of experience".
+  { id: 'word-decade', re: /\b(over|more than|nearly|almost)?\s*(a|an)\s+decade\b/gi },              // "a decade", "over a decade"
+  { id: 'word-decades', re: /\b(over|more than|nearly|almost)?\s*(two|three|four|five|six|seven|eight|nine|ten)\s+decades?\b/gi }, // "two decades", "nearly three decades"
+  { id: 'word-years', re: /\b(over|more than|nearly|almost)\s+(ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty)\s+years?\b/gi }, // "over ten years", "nearly twenty years"
+  { id: 'spent-years', re: /\bspent\s+years\b/gi },                                                   // "spent years" (no number at all)
+  { id: 'years-serving-verb', re: /\byears\s+(guiding|serving|helping|working\s+with)\b/gi },          // "years guiding/serving/helping/working with"
 ];
 
 // --- (c) Review counts / ratings / star claims ----------------------------
@@ -49,10 +88,22 @@ export const REVIEW_PATTERNS = [
   { id: 'star-rating', re: /\b\d(\.\d)?[\s-]*stars?\b/gi },
   { id: 'five-star', re: /\bfive[\s-]star\b/gi },
   { id: 'n-reviews', re: /\b\d{1,4}\+?\s+reviews?\b/gi },
-  { id: 'rated-n', re: /\brated\s+\d(\.\d)?\b/gi },
   { id: 'x-of-5', re: /\b\d(\.\d)?\s*\/\s*5\b/gi },
   { id: 'satisfaction-pct', re: /\b\d{1,3}%\s+(satisfaction|positive|happy)\b/gi },
 ];
+
+// "rated N" moved out of REVIEW_PATTERNS 2026-07-26: a bare regex fired on
+// "neighborhood rated 7 for walkability" (a scoring scale, nothing to do
+// with George's reviews) just as readily as "rated 5 stars by 40 clients".
+// Window-based like exclusivity/disparagement — only counts if a review/
+// client/testimonial word is nearby, same false-positive-avoidance pattern
+// already used elsewhere in this file.
+export const RATED_N_PATTERN = /\brated\s+\d(\.\d)?\b/gi;
+export const RATED_N_CONTEXT_WORDS = [
+  'review', 'reviews', 'star', 'stars', 'client', 'clients',
+  'testimonial', 'testimonials', 'rating', 'ratings', 'customer', 'customers',
+];
+export const RATED_N_WINDOW_WORDS = 8;
 
 // --- (d) Unverifiable urgency stats ---------------------------------------
 export const URGENCY_STAT_PATTERNS = [
@@ -63,19 +114,33 @@ export const URGENCY_STAT_PATTERNS = [
   { id: 'homes-selling-above-asking', re: /\b\d{1,3}%\s+of\s+homes?\s+sell(ing)?\s+(above|over)\s+asking/gi },
 ];
 
-// --- (e) Named-competitor disparagement -----------------------------------
+// --- (e) Named-competitor disparagement / comparison content --------------
 // Least precise category by nature — disparagement is a sentiment judgment,
-// not a lexical one. This catches a domain-like token near negative-sentiment
-// words within a window; it will NOT catch subtle disparagement and MAY flag
-// neutral competitor mentions that happen to share a sentence with an
-// unrelated negative word. Treat this category's results as "needs a human
-// read," not as a reliable automatic verdict, more than the others.
+// not a lexical one. This catches a domain-like token near either (a)
+// negative-sentiment words, or (b) comparison-framing words ("alternatives",
+// "vs", "compared to") within a window. It will NOT catch subtle
+// disparagement and MAY flag neutral competitor mentions that happen to
+// share a sentence with an unrelated negative word. Treat this category's
+// results as "needs a human read," not as a reliable automatic verdict,
+// more than the others.
+//
+// Comparison-framing trigger added 2026-07-26: "Best Meekerrealtygroup.com
+// Alternatives...", "Top 4 debonisteam.com Alternatives...", "Top 5
+// yukomiyata.com Alternatives..." are all neutral in tone (no disparagement
+// word present) but name a specific competitor domain in direct comparison
+// framing — exactly the class of content the original audit flagged as
+// worth a human read regardless of whether the tone is negative. Sentiment
+// alone was too narrow a definition of "worth reviewing" for this category.
 export const COMPETITOR_DOMAIN_PATTERN = /\b[\w-]+\.(com|net|org|io)\b/gi;
 export const DISPARAGEMENT_WORDS = [
   'worse', 'inferior', 'outdated', 'overpriced', 'avoid', 'beware',
   "don't trust", 'do not trust', 'poor service', 'poor reviews', 'bad reviews',
   'scam', 'unreliable', 'subpar', 'mediocre', 'lacking', 'falls short',
   'inexperienced', 'unprofessional',
+];
+export const COMPARISON_FRAMING_WORDS = [
+  'alternative', 'alternatives', 'vs', 'versus', 'compare', 'compared',
+  'comparison', 'competitor', 'competitors',
 ];
 export const DISPARAGEMENT_WINDOW_WORDS = 12;
 

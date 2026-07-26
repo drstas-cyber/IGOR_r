@@ -7,14 +7,20 @@
 
 import {
   REFERENCE,
+  MAX_TRIP_RATE,
+  SUPERLATIVE_TRIGGER_PATTERN,
   EXCLUSIVITY_CONTEXT_WORDS,
   EXCLUSIVITY_WINDOW_WORDS,
   EXCLUSIVITY_EXCLUDE_PATTERNS,
   TENURE_PATTERNS,
   REVIEW_PATTERNS,
+  RATED_N_PATTERN,
+  RATED_N_CONTEXT_WORDS,
+  RATED_N_WINDOW_WORDS,
   URGENCY_STAT_PATTERNS,
   COMPETITOR_DOMAIN_PATTERN,
   DISPARAGEMENT_WORDS,
+  COMPARISON_FRAMING_WORDS,
   DISPARAGEMENT_WINDOW_WORDS,
   DRE_PATTERN,
   BROKERAGE_MENTION_PATTERN,
@@ -61,24 +67,31 @@ function wordWindow(text, index, windowWords) {
 
 function findExclusivityClaims(text) {
   const findings = [];
-  const onlyRe = /\bonly\b/gi;
+  SUPERLATIVE_TRIGGER_PATTERN.lastIndex = 0;
   let m;
-  while ((m = onlyRe.exec(text)) !== null) {
-    const excluded = EXCLUSIVITY_EXCLUDE_PATTERNS.some((p) => {
-      p.lastIndex = 0;
-      const localWindow = text.slice(Math.max(0, m.index - 20), m.index + 20);
-      return p.test(localWindow);
-    });
-    if (excluded) continue;
+  while ((m = SUPERLATIVE_TRIGGER_PATTERN.exec(text)) !== null) {
+    const isOnly = /^only$/i.test(m[0]);
+    // The "not only" / "only way to" idiom exclusions are specific to the
+    // word "only" — "best"/"top N" have no equivalent false-positive idiom.
+    if (isOnly) {
+      const excluded = EXCLUSIVITY_EXCLUDE_PATTERNS.some((p) => {
+        p.lastIndex = 0;
+        const localWindow = text.slice(Math.max(0, m.index - 20), m.index + 20);
+        return p.test(localWindow);
+      });
+      if (excluded) continue;
+    }
     const window = wordWindow(text, m.index, EXCLUSIVITY_WINDOW_WORDS).toLowerCase();
     const hasContext = EXCLUSIVITY_CONTEXT_WORDS.some((w) => window.includes(w));
     if (hasContext) {
       findings.push({
         category: 'exclusivity',
-        matchedText: 'only',
-        sentence: sentenceContaining(text, m.index, 4),
+        subcategory: isOnly ? 'only' : 'superlative',
+        matchedText: m[0],
+        sentence: sentenceContaining(text, m.index, m[0].length),
       });
     }
+    if (m[0].length === 0) SUPERLATIVE_TRIGGER_PATTERN.lastIndex++;
   }
   return findings;
 }
@@ -107,11 +120,46 @@ function findDisparagement(text) {
   let m;
   while ((m = COMPETITOR_DOMAIN_PATTERN.exec(text)) !== null) {
     const window = wordWindow(text, m.index, DISPARAGEMENT_WINDOW_WORDS).toLowerCase();
-    const hit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
-    if (hit) {
+    const sentimentHit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
+    const comparisonHit = COMPARISON_FRAMING_WORDS.find((w) => window.includes(w));
+    // Report both independently if both are present rather than picking one —
+    // a domain matched on both is a stronger signal, and collapsing to a
+    // single finding would hide that from the report.
+    if (sentimentHit) {
       findings.push({
         category: 'disparagement',
-        matchedText: `${m[0]} ... "${hit}"`,
+        subcategory: 'sentiment',
+        matchedText: `${m[0]} ... "${sentimentHit}"`,
+        sentence: sentenceContaining(text, m.index, m[0].length),
+      });
+    }
+    if (comparisonHit) {
+      findings.push({
+        category: 'disparagement',
+        subcategory: 'comparison-framing',
+        matchedText: `${m[0]} ... "${comparisonHit}"`,
+        sentence: sentenceContaining(text, m.index, m[0].length),
+      });
+    }
+  }
+  return findings;
+}
+
+// "rated N" only counts as a review/rating claim if a review/star/client/
+// testimonial word is nearby — otherwise it's just as likely to be an
+// unrelated numeric scoring scale ("neighborhood rated 7 for walkability").
+function findRatedN(text) {
+  const findings = [];
+  RATED_N_PATTERN.lastIndex = 0;
+  let m;
+  while ((m = RATED_N_PATTERN.exec(text)) !== null) {
+    const window = wordWindow(text, m.index, RATED_N_WINDOW_WORDS).toLowerCase();
+    const hasContext = RATED_N_CONTEXT_WORDS.some((w) => window.includes(w));
+    if (hasContext) {
+      findings.push({
+        category: 'reviews-ratings',
+        subcategory: 'rated-n',
+        matchedText: m[0],
         sentence: sentenceContaining(text, m.index, m[0].length),
       });
     }
@@ -189,6 +237,7 @@ export function scanArticle(article) {
     ...findExclusivityClaims(combined),
     ...findRegexCategory(combined, TENURE_PATTERNS, 'tenure'),
     ...findRegexCategory(combined, REVIEW_PATTERNS, 'reviews-ratings'),
+    ...findRatedN(combined),
     ...findRegexCategory(combined, URGENCY_STAT_PATTERNS, 'urgency-stat'),
     ...findDisparagement(combined),
     ...findWrongIdentity(combined),
@@ -204,4 +253,18 @@ export function scanArticle(article) {
 
 export function scanAllArticles(articles) {
   return articles.map(scanArticle);
+}
+
+// Pure, no I/O — the batch-level fail/pass decision, factored out
+// specifically so it's unit-testable without dragging in fetch-blog-data.js
+// (which fetches over the network and self-executes on import). Called from
+// runComplianceFilter() in that file; do not duplicate this logic there.
+export function evaluateBatch(results, maxTripRate = MAX_TRIP_RATE) {
+  const total = results.length;
+  const trippedCount = results.filter((r) => r.tripped).length;
+  const tripRate = total === 0 ? 0 : trippedCount / total;
+  // Strictly "above" the threshold, matching the constant's own definition —
+  // exactly maxTripRate does not fail.
+  const shouldFailBuild = total > 0 && tripRate > maxTripRate;
+  return { total, trippedCount, tripRate, shouldFailBuild };
 }
