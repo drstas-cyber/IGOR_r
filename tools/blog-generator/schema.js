@@ -53,6 +53,9 @@ export function validateArticleSchema(article) {
   if (typeof article.published !== 'boolean') {
     errors.push('published must be a boolean');
   }
+  if (typeof article.sourceTopic !== 'string' || article.sourceTopic.trim().length === 0) {
+    errors.push('sourceTopic must be a non-empty string — the exact topics.json "topic" text this article was generated from, used by topicAvailability.mjs to avoid regenerating the same topic. Added 2026-07-26.');
+  }
 
   return { valid: errors.length === 0, errors };
 }

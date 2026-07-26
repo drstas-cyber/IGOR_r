@@ -15,6 +15,7 @@ function validArticle(overrides = {}) {
     created_at: '2026-07-25T00:00:00.000Z',
     keywords: ['escrow', 'homebuying'],
     published: false,
+    sourceTopic: 'What to Expect During Escrow When Buying a Home',
     ...overrides,
   };
 }
@@ -110,6 +111,17 @@ describe('validateArticleSchema — required fields', () => {
     const result = validateArticleSchema(validArticle({ published: 'false' }));
     assert.equal(result.valid, false);
     assert.match(result.errors.join(), /published must be a boolean/);
+  });
+
+  test('rejects a missing sourceTopic — needed by topicAvailability.mjs to avoid regenerating the same topic (2026-07-26)', () => {
+    const result = validateArticleSchema(validArticle({ sourceTopic: undefined }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /sourceTopic must be a non-empty string/);
+  });
+
+  test('rejects an empty-string sourceTopic', () => {
+    const result = validateArticleSchema(validArticle({ sourceTopic: '' }));
+    assert.equal(result.valid, false);
   });
 
   test('accumulates multiple errors at once, not just the first', () => {

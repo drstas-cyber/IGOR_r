@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-// Self-hosted blog article generator — PHASE 1. Picks the next pending topic
-// from topics.json, generates a draft, self-reviews it, runs it through TWO
-// independent compliance gates, and on a clean pass writes it to
-// src/data/generated-articles/<slug>.json. On ANY trip from either gate: no
-// file is written, the topic is marked 'skipped', and the process exits
-// non-zero — a tripped article is a prompt problem to fix, not noise. See
-// README.md for the full design rationale (why two gates, why low-volume,
-// why manual cadence).
+// Self-hosted blog article generator — PHASE 1. Picks the next available
+// topic from topics.json (topics.json carries no status field — "already
+// attempted" is derived fresh every run from ground truth: real articles
+// and open rejected-attempt PRs, see topicAvailability.mjs), generates a
+// draft, self-reviews it, runs it through TWO independent compliance gates,
+// and on a clean pass writes it to src/data/generated-articles/<slug>.json.
+// On ANY trip from either gate: no article file is written and the process
+// exits non-zero — a tripped article is a prompt problem to fix, not noise.
+// See README.md for the full design rationale (why two gates, why
+// low-volume, why manual cadence, why topic status is derived not stored).
 //
 // Requires ANTHROPIC_API_KEY. Never commits/pushes anything itself — the
 // GitHub Actions workflow (.github/workflows/generate-article.yml) wraps
@@ -22,8 +24,9 @@ import { createMessage, extractToolInput } from './anthropicClient.mjs';
 import { verifyModel } from './modelVerify.mjs';
 import { runLlmClaimGate } from './llmClaimGate.mjs';
 import { validateArticleSchema } from './schema.js';
-import { getKnownSlugs, uniqueSlug } from './slugs.js';
+import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle } from '../blog-compliance/scan.js';
+import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -86,14 +89,6 @@ const REVIEW_TOOL = {
 
 function loadTopics() {
   return JSON.parse(fs.readFileSync(TOPICS_PATH, 'utf8'));
-}
-
-function saveTopics(topics) {
-  fs.writeFileSync(TOPICS_PATH, `${JSON.stringify(topics, null, 2)}\n`, 'utf8');
-}
-
-export function pickNextPendingTopic(topics) {
-  return topics.find((t) => t.status === 'pending') || null;
 }
 
 function loadSystemPrompt() {
@@ -163,7 +158,13 @@ function buildFaqJsonLd(faqItems) {
 // no I/O, exported for tests. Slug resolution is done HERE by code, not
 // trusted from the model, because uniqueness is something the pipeline can
 // just check deterministically rather than ask the model to guess.
-export function assembleArticle(reviewed, knownSlugs) {
+//
+// sourceTopic (added 2026-07-26): the exact topics.json "topic" string this
+// article was generated from. This is the join key topicAvailability.mjs
+// uses to derive "already attempted" from ground truth — see that file's
+// header comment. Exact-string, deliberately: editing a topic's wording in
+// topics.json makes it newly-eligible for regeneration (README.md).
+export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
   const slug = uniqueSlug(reviewed.slug_suggestion, knownSlugs);
   const createdAt = new Date().toISOString();
   const canonicalUrl = `${SITE}/blog/${slug}/`;
@@ -179,6 +180,7 @@ export function assembleArticle(reviewed, knownSlugs) {
     created_at: createdAt,
     keywords: reviewed.keywords,
     published: false,
+    sourceTopic,
   };
 }
 
@@ -221,10 +223,23 @@ export async function main() {
   await verifyModel(apiKey, REVIEWER_MODEL);
   console.log('[generate] both models verified.');
 
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!repo) {
+    console.error('[generate] GITHUB_REPOSITORY not set. Topic selection requires it to check open PR branches — refusing to guess. Run this inside GitHub Actions, or set GITHUB_REPOSITORY=owner/repo explicitly.');
+    process.exitCode = 1;
+    return;
+  }
+
   const topics = loadTopics();
-  const topic = pickNextPendingTopic(topics);
+  console.log('[generate] checking ground truth for already-attempted topics (local generated-articles/ + open generator PR branches)...');
+  const locallyAttempted = getLocallyAttemptedTopics(GENERATED_DIR);
+  const prAttempted = getOpenPrAttemptedTopics({ repo }); // throws (fail-closed) on any failure — never falls back to topics.json state
+  const attempted = new Set([...locallyAttempted, ...prAttempted]);
+  console.log(`[generate] ${attempted.size} topic(s) already attempted (local: ${locallyAttempted.size}, open PRs: ${prAttempted.size}).`);
+
+  const topic = pickNextAvailableTopic(topics, attempted);
   if (!topic) {
-    console.log('[generate] no pending topics — nothing to do.');
+    console.log('[generate] no available topics — every topic in topics.json has already been attempted (real article or open rejected-attempt PR). Nothing to do.');
     return;
   }
   console.log(`[generate] topic: "${topic.topic}" (keyword: "${topic.target_keyword}")`);
@@ -244,7 +259,7 @@ export async function main() {
   }
 
   const knownSlugs = getKnownSlugs();
-  const article = assembleArticle(reviewed, knownSlugs);
+  const article = assembleArticle(reviewed, knownSlugs, topic.topic);
 
   console.log('[generate] running compliance gates (layer 1: regex scanner, layer 2: independent LLM review)...');
   const gateResult = await runGates({ apiKey, article });
@@ -277,8 +292,6 @@ export async function main() {
       }
       console.error(`    full checklist: ${JSON.stringify(c)}`);
     }
-    topic.status = 'skipped';
-    saveTopics(topics);
     writeReport(report);
     process.exitCode = 1;
     return;
@@ -290,8 +303,6 @@ export async function main() {
     report.schemaErrors = schemaCheck.errors;
     console.error('[generate] article passed both compliance gates but FAILED schema validation:');
     schemaCheck.errors.forEach((e) => console.error(`    - ${e}`));
-    topic.status = 'skipped';
-    saveTopics(topics);
     writeReport(report);
     process.exitCode = 1;
     return;
@@ -300,9 +311,6 @@ export async function main() {
   fs.mkdirSync(GENERATED_DIR, { recursive: true });
   const outPath = path.join(GENERATED_DIR, `${article.slug}.json`);
   fs.writeFileSync(outPath, `${JSON.stringify(article, null, 2)}\n`, 'utf8');
-
-  topic.status = 'generated';
-  saveTopics(topics);
 
   report.outcome = 'generated';
   report.outputPath = path.relative(PROJECT_ROOT, outPath);
