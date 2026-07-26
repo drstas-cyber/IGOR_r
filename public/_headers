@@ -40,3 +40,117 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Dead BabyLoveGrowth blog articles -- pulled 2026-07-24 (fabricated/unsubstantiated
+# claims). X-Robots-Tag: noindex, not a redirect -- Google Search Console guidance is
+# explicit that mass-redirecting unrelated removed pages to one hub page (here, /blog/)
+# reads as a soft 404 anyway ("avoid redirecting all soft 404s to the homepage"); the
+# _redirects approach was proposed and dropped for exactly this reason. EXACT paths only,
+# never /blog/* -- that wildcard already exists above for Cache-Control and would noindex
+# the live blog index and every future real article if reused here. Verified live, three
+# dead slugs plus a genuinely-nonexistent control path, 2026-07-26: header rules match the
+# REQUESTED path, not the /index.html rewrite target -- all four returned Cache-Control:
+# no-store from the /blog/* rule, which would be impossible if headers resolved against the
+# rewritten file instead. Both URL forms (slash and bare) verified separately as load-bearing
+# -- the bare form serves 200 directly, Cloudflare does not 301 it to the slash form. Rule
+# count: 50 new (25 slugs x 2 forms) + 11 existing = 61 of the documented 100-rule limit.
+/blog/debonisteam-com-alternatives-4-providers/
+  X-Robots-Tag: noindex
+/blog/debonisteam-com-alternatives-4-providers
+  X-Robots-Tag: noindex
+/blog/factors-affecting-home-market-value/
+  X-Robots-Tag: noindex
+/blog/factors-affecting-home-market-value
+  X-Robots-Tag: noindex
+/blog/get-free-home-valuation-locally-in-temecula-valley/
+  X-Robots-Tag: noindex
+/blog/get-free-home-valuation-locally-in-temecula-valley
+  X-Robots-Tag: noindex
+/blog/home-valuation-methods-compared-2026-buyers-guide/
+  X-Robots-Tag: noindex
+/blog/home-valuation-methods-compared-2026-buyers-guide
+  X-Robots-Tag: noindex
+/blog/housing-market-absorption-rate-a-buyers-guide/
+  X-Robots-Tag: noindex
+/blog/housing-market-absorption-rate-a-buyers-guide
+  X-Robots-Tag: noindex
+/blog/how-comparable-homes-shape-property-pricing/
+  X-Robots-Tag: noindex
+/blog/how-comparable-homes-shape-property-pricing
+  X-Robots-Tag: noindex
+/blog/how-home-condition-shapes-your-propertys-value/
+  X-Robots-Tag: noindex
+/blog/how-home-condition-shapes-your-propertys-value
+  X-Robots-Tag: noindex
+/blog/how-to-interpret-home-valuation-reports-in-2026/
+  X-Robots-Tag: noindex
+/blog/how-to-interpret-home-valuation-reports-in-2026
+  X-Robots-Tag: noindex
+/blog/how-to-negotiate-commercial-property-price-effectively/
+  X-Robots-Tag: noindex
+/blog/how-to-negotiate-commercial-property-price-effectively
+  X-Robots-Tag: noindex
+/blog/how-to-track-neighborhood-home-price-trends/
+  X-Robots-Tag: noindex
+/blog/how-to-track-neighborhood-home-price-trends
+  X-Robots-Tag: noindex
+/blog/market-conditions-affecting-local-home-prices-in-2026/
+  X-Robots-Tag: noindex
+/blog/market-conditions-affecting-local-home-prices-in-2026
+  X-Robots-Tag: noindex
+/blog/meekerrealtygroupcom-alternatives/
+  X-Robots-Tag: noindex
+/blog/meekerrealtygroupcom-alternatives
+  X-Robots-Tag: noindex
+/blog/property-management-investor-guide-maximize-returns-in-2026/
+  X-Robots-Tag: noindex
+/blog/property-management-investor-guide-maximize-returns-in-2026
+  X-Robots-Tag: noindex
+/blog/real-estate-market-cycle-explained-for-buyers-and-investors/
+  X-Robots-Tag: noindex
+/blog/real-estate-market-cycle-explained-for-buyers-and-investors
+  X-Robots-Tag: noindex
+/blog/real-estate-price-trends-explained-for-homebuyers/
+  X-Robots-Tag: noindex
+/blog/real-estate-price-trends-explained-for-homebuyers
+  X-Robots-Tag: noindex
+/blog/role-of-open-house-visits/
+  X-Robots-Tag: noindex
+/blog/role-of-open-house-visits
+  X-Robots-Tag: noindex
+/blog/temecula-real-estate-investment-benefits-2026-guide/
+  X-Robots-Tag: noindex
+/blog/temecula-real-estate-investment-benefits-2026-guide
+  X-Robots-Tag: noindex
+/blog/the-role-of-professional-realtors-in-home-valuation/
+  X-Robots-Tag: noindex
+/blog/the-role-of-professional-realtors-in-home-valuation
+  X-Robots-Tag: noindex
+/blog/types-of-wine-country-investment-properties-2026-guide/
+  X-Robots-Tag: noindex
+/blog/types-of-wine-country-investment-properties-2026-guide
+  X-Robots-Tag: noindex
+/blog/what-is-a-low-inventory-real-estate-market/
+  X-Robots-Tag: noindex
+/blog/what-is-a-low-inventory-real-estate-market
+  X-Robots-Tag: noindex
+/blog/what-is-a-real-estate-bidding-war/
+  X-Robots-Tag: noindex
+/blog/what-is-a-real-estate-bidding-war
+  X-Robots-Tag: noindex
+/blog/what-is-a-real-estate-watchlist-a-buyers-guide/
+  X-Robots-Tag: noindex
+/blog/what-is-a-real-estate-watchlist-a-buyers-guide
+  X-Robots-Tag: noindex
+/blog/why-home-values-fluctuate/
+  X-Robots-Tag: noindex
+/blog/why-home-values-fluctuate
+  X-Robots-Tag: noindex
+/blog/why-new-construction-listings-differ-a-buyers-guide/
+  X-Robots-Tag: noindex
+/blog/why-new-construction-listings-differ-a-buyers-guide
+  X-Robots-Tag: noindex
+/blog/yukomiyata-com-alternatives-5-real-estate-experts/
+  X-Robots-Tag: noindex
+/blog/yukomiyata-com-alternatives-5-real-estate-experts
+  X-Robots-Tag: noindex
