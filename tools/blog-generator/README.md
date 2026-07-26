@@ -198,6 +198,26 @@ only proven by the first three real runs against a live model — see
 "Acceptance discipline for the rollout itself" below, which is the actual
 check on layer 2's real value, not the unit test.
 
+## Citation host policy
+
+`prompt.md` rule 6 restricts citations to a closed, exact host list —
+`schema.js`'s `CITATION_HOST_POLICY` enforces the same list at generation
+time, paired with `sourceType` (a `county-assessor` citation must point at
+`rivcoacr.org`/`rivco.gov`, not at a tier-2 host that doesn't publish
+assessor records — the gate rejects that mismatch even though the host
+itself is allowlisted).
+
+- **Tier 1** (source of record, preferred): `leginfo.legislature.ca.gov`,
+  `courts.ca.gov`, `rivcoacr.org`, `countytreasurer.org`, `rivco.gov`.
+- **Tier 2** (permitted faithful republishers, used only when tier 1
+  doesn't have the specific page): `law.justia.com`, `law.cornell.edu`.
+
+**Prefer tier 1.** Tier-2 hosts are the ones observed 403-blocking
+automated GET requests (see "Layer 3" and `citation-host-log.json`) —
+citing tier 1 when it has the page reduces both the false-inconclusive
+rate on Layer 3 and the amount of manual verification a reviewer has to
+do clicking through a mirror instead of the source of record.
+
 ## Publishing (merge ≠ publish)
 
 Generated articles default to `published: false`. Merging the PR to `main`

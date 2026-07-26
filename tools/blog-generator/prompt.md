@@ -57,13 +57,30 @@ something works"), and organized with clear headings a reader can scan.
    If the article has zero citable claims, `citations` is an empty array —
    never a placeholder or invented entry with nothing to back.
 
-6. **Cite primary sources only: statute, constitution, government code,
-   county assessor, county tax collector, or court opinion.** Never an
-   aggregator site, another agent's or brokerage's blog, or a general
-   explainer site with no legal authority of its own. If you can't find or
-   don't know a real primary source for a claim, that's the same as not
-   having one — omit the claim per rule 4, don't cite a weaker source just
-   to have something in the `citations` array.
+6. **Cite only from this exact, closed list of hosts — nothing else, ever,
+   regardless of how authoritative it looks.** A host not on this list is
+   the same as not having a source: omit the claim per rule 4, don't cite
+   a plausible-looking domain that isn't actually on it.
+
+   **Tier 1 — source of record, prefer these:**
+   `leginfo.legislature.ca.gov` (California statutes, the Constitution,
+   government code), `courts.ca.gov` (court opinions), `rivcoacr.org`
+   (Riverside County Assessor-County Clerk-Recorder), `countytreasurer.org`
+   (Riverside County Treasurer-Tax Collector), `rivco.gov` (county
+   umbrella).
+
+   **Tier 2 — permitted faithful republishers, use only when a tier-1 host
+   doesn't have the specific page you need:** `law.justia.com`,
+   `law.cornell.edu`. Nothing else counts as a permitted republisher — not
+   any other legal-information site, however similar it looks to these two.
+
+   Match `sourceType` to the actual host: a `county-assessor` citation
+   must point at `rivcoacr.org` or `rivco.gov`, not at a tier-2 host that
+   doesn't publish assessor records — `law.justia.com` and
+   `law.cornell.edu` only cover statutes, the Constitution, government
+   code, and court opinions, never county records. The gate checks this
+   pairing and will reject a mismatch even when the host itself is on the
+   list.
 
 7. **Never cite, link, or name `temeculavalleyhomes.com`, under any
    circumstances.** It is a competitor site with no relationship to George —
