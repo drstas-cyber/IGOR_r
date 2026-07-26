@@ -15,32 +15,27 @@
 // or not 'true') — it logs what it would exclude and why, but excludes
 // nothing. Do not set BLOG_COMPLIANCE_ENFORCE=true until the report-only
 // false-positive rate has been reviewed. See tools/blog-compliance/README.md.
+//
+// OFFLINE FIXTURE MODE (BLOG_COMPLIANCE_FIXTURE=true): reads
+// tools/blog-compliance/.articles-cache.json instead of hitting the live API
+// — no BABYLOVE_API_KEY needed. Use this for repeated scans/reports against
+// a pinned content snapshot within one "key window" (see
+// tools/blog-compliance/write-fixture.mjs to create the snapshot). Every
+// downstream step (published filtering, compliance scan, writeArticles) is
+// identical between the two modes — only the article *source* differs.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanArticle } from './blog-compliance/scan.js';
+import { scanArticle, evaluateBatch } from './blog-compliance/scan.js';
+import { MAX_TRIP_RATE } from './blog-compliance/patterns.js';
+import { fetchAllSummaries, fetchFullDetailForAll } from './blog-compliance/babyLoveApi.js';
+import { readFixture } from './blog-compliance/fixture.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const OUT_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
-const API_BASE = 'https://api.babylovegrowth.ai/api/integrations';
-const REQUEST_TIMEOUT_MS = 15000;
-// Confirmed live: the API rejects limit > 50 ("limit must be an integer
-// between 1 and 50") despite the integration brief's limit=100 example and
-// its "max 500 per call" claim — both wrong. Pagination loop below still
-// works unchanged for any limit value.
-const PAGE_LIMIT = 50;
-// Confirmed live: article-detail fetches are rate-limited to "max 2 requests
-// per second per API key". 600ms between request starts (plus each request's
-// own round-trip time) stays safely under that.
-const DETAIL_FETCH_SPACING_MS = 600;
-const RATE_LIMIT_RETRY_DELAY_MS = 2000;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function writeArticles(articles) {
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
@@ -61,7 +56,6 @@ function runComplianceFilter(articles) {
   // unique/present and a lookup-based rebuild would be fragile.
   const results = articles.map((a) => scanArticle(a));
   const tripped = results.filter((r) => r.tripped);
-  const clean = results.filter((r) => !r.tripped);
 
   console.log(
     `[blog-compliance] ${enforce ? 'ENFORCE' : 'REPORT-ONLY'} mode: ` +
@@ -88,16 +82,21 @@ function runComplianceFilter(articles) {
     return articles; // report-only: exclude nothing
   }
 
-  if (articles.length > 0 && clean.length === 0) {
+  const batch = evaluateBatch(results);
+  if (batch.shouldFailBuild) {
     // Deliberate exception to this file's "never fail the build" policy —
-    // see the header comment. A filter that trips 100% of articles is
-    // broken (or the upstream content generation is), and shipping an
-    // empty blog silently would hide that instead of surfacing it.
+    // see the header comment. Threshold is MAX_TRIP_RATE (tools/blog-
+    // compliance/patterns.js), not "100% tripped" — a build that silently
+    // ships 1 of 24 articles because the other 23 tripped is barely
+    // different from shipping 0, and both mean something is badly wrong
+    // (the filter is broken, or the upstream content generation is).
     const fatal = new Error(
-      `[blog-compliance] FATAL: all ${articles.length} article(s) tripped the compliance filter in enforce mode. ` +
-      `Refusing to silently ship an empty blog — see ${path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH)} for details. ` +
-      `This means either every article genuinely has a real compliance problem (check the upstream BabyLoveGrowth ` +
-      `Special Instructions), or the filter itself is misconfigured — it does not mean "build without a blog."`
+      `[blog-compliance] FATAL: ${batch.trippedCount}/${batch.total} article(s) ` +
+      `(${Math.round(batch.tripRate * 100)}%) tripped the compliance filter in enforce mode, ` +
+      `above the ${Math.round(MAX_TRIP_RATE * 100)}% threshold. ` +
+      `Refusing to ship a batch this decimated silently — see ${path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH)} for details. ` +
+      `This means either most articles genuinely have a real compliance problem (check the upstream BabyLoveGrowth ` +
+      `Special Instructions), or the filter itself is misconfigured — it does not mean "ship the survivors and move on."`
     );
     fatal.blogComplianceFatal = true; // must actually fail the build — see main().catch() below
     throw fatal;
@@ -106,58 +105,38 @@ function runComplianceFilter(articles) {
   return articles.filter((_, i) => !results[i].tripped);
 }
 
-async function apiGet(pathAndQuery, apiKey) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API_BASE}${pathAndQuery}`, {
-      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      let bodyText = '';
-      try {
-        bodyText = (await res.text()).slice(0, 500);
-      } catch {
-        // response body unreadable — fall through with just the status
-      }
-      const err = new Error(`HTTP ${res.status} ${res.statusText}${bodyText ? ` — ${bodyText}` : ''}`);
-      err.status = res.status;
-      throw err;
-    }
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
+// Fixture mode: articles already have full content_html (write-fixture.mjs
+// fetches full detail for everything, published or not), so there's no
+// per-article detail-fetch loop here — just filter and hand off to the same
+// compliance+write path the real-API mode uses below.
+async function runFromFixture() {
+  const fixture = readFixture();
+  const allArticles = fixture.articles;
+  console.log(`[fetch-blog-data] OFFLINE FIXTURE mode: ${allArticles.length} article(s) loaded from tools/blog-compliance/.articles-cache.json (fetchedAt: ${fixture.fetchedAt})`);
+
+  const includeUnpublished = process.env.BLOG_INCLUDE_UNPUBLISHED === 'true';
+  const publishedArticles = includeUnpublished
+    ? allArticles
+    : allArticles.filter((a) => a.published !== false);
+  const skippedCount = allArticles.length - publishedArticles.length;
+
+  console.log(
+    `[fetch-blog-data] fixture: ${allArticles.length} total, ${publishedArticles.length} published, ${skippedCount} skipped` +
+    (includeUnpublished ? ' (BLOG_INCLUDE_UNPUBLISHED=true — filter bypassed)' : '')
+  );
+
+  if (publishedArticles.length === 0) {
+    console.warn('[fetch-blog-data] 0 published articles in fixture after filtering — building with an empty blog.');
+    writeArticles([]);
+    return;
   }
+
+  const surviving = runComplianceFilter(publishedArticles);
+  writeArticles(surviving);
+  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${publishedArticles.length} published articles (${allArticles.length} total in fixture) to src/data/blog-articles.json`);
 }
 
-// Confirmed live: the list endpoint returns a bare array. Also handles a
-// {articles:[...]}/{data:[...]} wrapper defensively in case that ever changes.
-function unwrapList(page) {
-  if (Array.isArray(page)) return page;
-  if (Array.isArray(page?.articles)) return page.articles;
-  if (Array.isArray(page?.data)) return page.data;
-  return [];
-}
-
-async function fetchAllSummaries(apiKey) {
-  const all = [];
-  let offset = 0;
-  for (;;) {
-    const page = await apiGet(`/v1/articles?limit=${PAGE_LIMIT}&offset=${offset}`, apiKey);
-    const items = unwrapList(page);
-    all.push(...items);
-    if (items.length < PAGE_LIMIT) break;
-    offset += PAGE_LIMIT;
-  }
-  return all;
-}
-
-async function fetchFullArticle(id, apiKey) {
-  return apiGet(`/v1/articles/${id}`, apiKey);
-}
-
-async function main() {
+async function runFromApi() {
   const apiKey = process.env.BABYLOVE_API_KEY;
 
   if (!apiKey) {
@@ -200,32 +179,22 @@ async function main() {
     return;
   }
 
-  const articles = [];
-  for (const summary of publishedSummaries) {
-    await sleep(DETAIL_FETCH_SPACING_MS);
-    try {
-      const full = await fetchFullArticle(summary.id, apiKey);
-      articles.push({ ...summary, ...full });
-      continue;
-    } catch (err) {
-      if (err.status !== 429) {
-        console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'}): ${err.message} — skipping.`);
-        continue;
-      }
-    }
-    // Rate-limited despite the spacing above — one retry after a longer backoff.
-    await sleep(RATE_LIMIT_RETRY_DELAY_MS);
-    try {
-      const full = await fetchFullArticle(summary.id, apiKey);
-      articles.push({ ...summary, ...full });
-    } catch (err) {
-      console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'}) after retry: ${err.message} — skipping.`);
-    }
-  }
+  const articles = await fetchFullDetailForAll(publishedSummaries, apiKey, {
+    onSkipped: (summary, err, afterRetry) => {
+      console.warn(`[fetch-blog-data] failed to fetch article ${summary.id} (${summary.slug || 'no-slug'})${afterRetry ? ' after retry' : ''}: ${err.message} — skipping.`);
+    },
+  });
 
   const surviving = runComplianceFilter(articles);
   writeArticles(surviving);
   console.log(`[fetch-blog-data] wrote ${surviving.length} of ${publishedSummaries.length} published articles (${summaries.length} total fetched) to src/data/blog-articles.json`);
+}
+
+async function main() {
+  if (process.env.BLOG_COMPLIANCE_FIXTURE === 'true') {
+    return runFromFixture();
+  }
+  return runFromApi();
 }
 
 main().catch((err) => {
