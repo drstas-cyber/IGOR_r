@@ -164,9 +164,26 @@ describe('validateArticleSchema — citations (added 2026-07-26)', () => {
     assert.match(result.errors.join(), /not a primary-source category/);
   });
 
-  test('every real CITATION_SOURCE_TYPES value is accepted', () => {
+  // Each sourceType paired with a REAL approved host that actually permits
+  // it (see CITATION_HOST_POLICY, tested independently below) -- a bare
+  // placeholder host like example.gov would now fail the host-policy
+  // check regardless of sourceType, which would make this test meaningless
+  // for what it's actually checking (that every enum VALUE is accepted,
+  // not that every host is).
+  const SOURCE_TYPE_TO_VALID_HOST = {
+    statute: 'https://leginfo.legislature.ca.gov/x',
+    constitution: 'https://leginfo.legislature.ca.gov/x',
+    'government-code': 'https://leginfo.legislature.ca.gov/x',
+    'county-assessor': 'https://rivcoacr.org/x',
+    'county-tax-collector': 'https://countytreasurer.org/x',
+    'court-opinion': 'https://courts.ca.gov/x',
+    'other-primary': 'https://rivco.gov/x',
+  };
+
+  test('every real CITATION_SOURCE_TYPES value is accepted, paired with a host that actually permits it', () => {
+    assert.deepEqual(Object.keys(SOURCE_TYPE_TO_VALID_HOST).sort(), [...CITATION_SOURCE_TYPES].sort(), 'this test\'s own mapping must cover every real sourceType, or it silently stops testing new ones added later');
     for (const sourceType of CITATION_SOURCE_TYPES) {
-      const result = validateArticleSchema(validArticle({ citations: [{ id: '1', sourceName: 'x', url: 'https://example.gov', sourceType }] }));
+      const result = validateArticleSchema(validArticle({ citations: [{ id: '1', sourceName: 'x', url: SOURCE_TYPE_TO_VALID_HOST[sourceType], sourceType }] }));
       assert.equal(result.valid, true, `${sourceType} should be valid: ${JSON.stringify(result.errors)}`);
     }
   });
@@ -183,8 +200,8 @@ describe('validateArticleSchema — citations (added 2026-07-26)', () => {
     const result = validateArticleSchema(validArticle({
       content_html: '<p>Claim A.<sup class="citation" data-cite="1">[1]</sup> Claim B.<sup class="citation" data-cite="1">[1]</sup></p>',
       citations: [
-        { id: '1', sourceName: 'Source A', url: 'https://example.gov/a', sourceType: 'statute' },
-        { id: '1', sourceName: 'Source B', url: 'https://example.gov/b', sourceType: 'statute' },
+        { id: '1', sourceName: 'Source A', url: 'https://leginfo.legislature.ca.gov/a', sourceType: 'statute' },
+        { id: '1', sourceName: 'Source B', url: 'https://leginfo.legislature.ca.gov/b', sourceType: 'statute' },
       ],
     }));
     assert.equal(result.valid, false);
@@ -213,10 +230,84 @@ describe('validateArticleSchema — citations (added 2026-07-26)', () => {
     const result = validateArticleSchema(validArticle({
       content_html: '<p>Claim A.<sup class="citation" data-cite="1">[1]</sup> Claim B.<sup class="citation" data-cite="2">[2]</sup></p>',
       citations: [
-        { id: '1', sourceName: 'Source A', url: 'https://example.gov/a', sourceType: 'statute' },
-        { id: '2', sourceName: 'Source B', url: 'https://example.gov/b', sourceType: 'county-assessor' },
+        { id: '1', sourceName: 'Source A', url: 'https://leginfo.legislature.ca.gov/a', sourceType: 'statute' },
+        { id: '2', sourceName: 'Source B', url: 'https://rivcoacr.org/b', sourceType: 'county-assessor' },
       ],
     }));
     assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+});
+
+describe('validateArticleSchema — citation host policy, paired with sourceType (2026-07-26)', () => {
+  test('POSITIVE CONTROL: a tier-1 host with its correctly paired sourceType passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>The rate is capped at 1%.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Cal. Const. Art. XIII A', url: 'https://leginfo.legislature.ca.gov/x', sourceType: 'constitution' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('POSITIVE CONTROL: a tier-2 republisher with a permitted sourceType passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>The rate is capped at 1%.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Civil Code 1102.6b', url: 'https://law.justia.com/x', sourceType: 'statute' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('a plausible-but-disallowed host (a real estate blog) fails, even with an otherwise-valid sourceType', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Fees vary.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'A Realtor Blog', url: 'https://somerealtorblog.com/property-taxes', sourceType: 'statute' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
+  });
+
+  test('a plausible-but-disallowed host (a general explainer site) fails', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Fees vary.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Investopedia', url: 'https://www.investopedia.com/mello-roos', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
+  });
+
+  // THE demonstrated gap this whole check exists to close -- this exact
+  // pairing (law.justia.com labeled "statute") is what this file's own
+  // Layer 3 sample fixture produced unprompted, with nothing catching it.
+  test('MISLABELED PAIRING: a county-assessor sourceType on a justia.com URL fails, even though justia.com itself is allowlisted', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Assessed value varies.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County records (mirrored)', url: 'https://law.justia.com/some-page', sourceType: 'county-assessor' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /sourceType "county-assessor" is not valid for host "law\.justia\.com"/);
+  });
+
+  test('a real .org with no county name in it (countytreasurer.org) is correctly approved for county-tax-collector', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Bills are due Nov 1.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County Treasurer-Tax Collector', url: 'https://countytreasurer.org/x', sourceType: 'county-tax-collector' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('the excluded payment portal (ca-riverside-ttc.publicaccessnow.com) is NOT approved, deliberately', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Pay online.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Pay Property Taxes', url: 'https://ca-riverside-ttc.publicaccessnow.com/pay', sourceType: 'county-tax-collector' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
+  });
+
+  test('an unparseable citation URL fails as "not an approved citation host", not a crash', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'x', url: 'not-a-url', sourceType: 'statute' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
   });
 });

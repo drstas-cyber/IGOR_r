@@ -18,6 +18,74 @@ export const CITATION_SOURCE_TYPES = ['statute', 'constitution', 'government-cod
 const CITATION_URL_FORBIDDEN_SUBSTRING = 'temeculavalleyhomes.com';
 const CITATION_MARKER_PATTERN = /data-cite="([^"]+)"/g;
 
+// Closed host allowlist for citations (added 2026-07-26). Found via a real
+// example: this file's own sample fixture cited law.justia.com -- a
+// REPUBLISHER, an aggregator by prompt.md rule 6's own definition -- with
+// sourceType "statute". Nothing checked that pairing; the enum was
+// self-reported and unverified, so any URL could be labeled any
+// sourceType and pass. That's exactly how a mislabeled mirror ships
+// unnoticed: green gate, nobody the wiser.
+//
+// TIER 1 -- source of record, preferred. TIER 2 -- permitted faithful
+// republishers (Justia and Cornell LII reproduce statutory text
+// accurately), but labeled as such in the rendered report so a supervised
+// read knows it's looking at a mirror, not the source of record.
+// EVERYTHING ELSE fails validation -- not a warning, no exceptions.
+//
+// allowedSourceTypes makes this a genuinely PAIRED check, not two
+// independent ones: a host being on the list is not enough on its own --
+// the citation's declared sourceType must also be one this specific host
+// is actually a plausible source for. A county-assessor sourceType on a
+// justia.com URL fails even though justia.com itself is allowlisted,
+// because justia.com doesn't publish county assessor records.
+//
+// Deliberately excluded, not merely omitted: ca-riverside-ttc.publicaccessnow.com
+// is Riverside County's TAX PAYMENT portal, not an informational citation
+// source -- citations point at informational pages, never a payment
+// system, so this stays off the list even though it's a real, legitimate
+// county-run domain.
+export const CITATION_HOST_POLICY = {
+  // --- Tier 1: source of record ---
+  'leginfo.legislature.ca.gov': { tier: 1, allowedSourceTypes: ['statute', 'constitution', 'government-code'] },
+  'courts.ca.gov': { tier: 1, allowedSourceTypes: ['court-opinion'] },
+  'rivcoacr.org': { tier: 1, allowedSourceTypes: ['county-assessor'] }, // Riverside County Assessor-County Clerk-Recorder
+  'countytreasurer.org': { tier: 1, allowedSourceTypes: ['county-tax-collector'] }, // Riverside County Treasurer-Tax Collector -- a bare .org with no county name in it; the entire argument for pinning hosts rather than trusting a model to guess correctly
+  'rivco.gov': { tier: 1, allowedSourceTypes: ['county-assessor', 'county-tax-collector', 'other-primary'] }, // county umbrella
+  // --- Tier 2: permitted faithful republishers ---
+  'law.justia.com': { tier: 2, allowedSourceTypes: ['statute', 'constitution', 'government-code', 'court-opinion'] },
+  'law.cornell.edu': { tier: 2, allowedSourceTypes: ['statute', 'constitution', 'government-code', 'court-opinion'] },
+};
+
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+// Paired host<->sourceType check, self-contained like
+// getCitationConsistencyErrors() above so it can be called independently
+// (schema.js at generation time; anywhere else that needs to re-verify
+// what's already on main). Returns an array of error strings, empty if
+// every citation passes.
+export function getCitationHostPolicyErrors(article) {
+  const errors = [];
+  for (const c of article.citations || []) {
+    if (typeof c?.url !== 'string' || c.url.trim().length === 0) continue; // reported separately by the per-entry shape check
+    const host = hostnameOf(c.url);
+    const policy = host ? CITATION_HOST_POLICY[host] : undefined;
+    if (!policy) {
+      errors.push(`citations[]: host "${host || c.url}" is not an approved citation host (id ${JSON.stringify(c?.id)}) — must be one of ${JSON.stringify(Object.keys(CITATION_HOST_POLICY))}`);
+      continue;
+    }
+    if (!policy.allowedSourceTypes.includes(c.sourceType)) {
+      errors.push(`citations[]: sourceType ${JSON.stringify(c.sourceType)} is not valid for host "${host}" (id ${JSON.stringify(c?.id)}) — "${host}" only permits ${JSON.stringify(policy.allowedSourceTypes)}`);
+    }
+  }
+  return errors;
+}
+
 // Extracted so BOTH checkpoints -- generation-time (validateArticleSchema
 // below) and build-time (renderCitations.mjs, re-validating whatever's
 // actually on main before rendering footnotes) -- share the exact same
@@ -126,6 +194,13 @@ export function validateArticleSchema(article) {
     // no entry renders a dead footnote link; an entry with no marker is an
     // orphaned citation nothing in the article actually points to.
     errors.push(...getCitationConsistencyErrors(article));
+
+    // Closed host allowlist, paired with sourceType -- see
+    // CITATION_HOST_POLICY above for why this exists. Independent of the
+    // CITATION_SOURCE_TYPES check earlier in this loop: that check only
+    // confirms sourceType is SOME valid category; this confirms it's the
+    // RIGHT category for the actual host the citation points at.
+    errors.push(...getCitationHostPolicyErrors(article));
   }
 
   return { valid: errors.length === 0, errors };

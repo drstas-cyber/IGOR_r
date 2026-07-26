@@ -268,7 +268,11 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
 });
 
 describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', () => {
-  const CITATION_URL_OK = 'https://example.gov/statute-a';
+  // A real approved host (tier 1, statute-permitted) -- schema.js's host
+  // policy (added 2026-07-26) now rejects any host not on its allowlist,
+  // so a placeholder like example.gov would fail schema validation on the
+  // success-path tests below regardless of what Layer 3 itself decides.
+  const CITATION_URL_OK = 'https://leginfo.legislature.ca.gov/statute-a';
   const CITATION = { id: '1', sourceName: 'Example Statute', url: CITATION_URL_OK, sourceType: 'statute' };
 
   test('a citation that resolves 200 does not trip anything; article is generated', async () => {
@@ -330,7 +334,7 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
     assert.ok(fs.existsSync(citationHostLogPath), 'the durable host log must be written for an inconclusive citation');
     const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
     assert.equal(hostLog.length, 1);
-    assert.equal(hostLog[0].host, 'example.gov');
+    assert.equal(hostLog[0].host, 'leginfo.legislature.ca.gov');
     assert.equal(hostLog[0].status, 403);
     assert.equal(hostLog[0].sourceTopic, 'Understanding HOA Fees');
   });
