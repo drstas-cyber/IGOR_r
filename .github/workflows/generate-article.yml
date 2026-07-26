@@ -13,6 +13,22 @@ permissions:
   contents: write
   pull-requests: write
 
+# Manual-dispatch-only makes a true simultaneous double-trigger unlikely, but
+# not impossible (two people, or one person double-clicking) -- and the
+# ground-truth topic check (topicAvailability.mjs) reads "already attempted"
+# once at the start of a run; two runs starting close together could both
+# read the same not-yet-attempted topic before either's PR exists to make it
+# unavailable to the other, producing the exact same-topic collision this
+# whole redesign exists to prevent (see the "topic selection" commit).
+# cancel-in-progress: false queues a second trigger behind the first rather
+# than killing an in-flight run -- cancelling mid-run would abandon a
+# half-done generation and, worse, could race the PR-open step against a
+# cancellation signal. A queued run costs a few minutes' wait, not a
+# correctness bug.
+concurrency:
+  group: generate-article
+  cancel-in-progress: false
+
 jobs:
   generate:
     name: Generate one article and open a review PR
