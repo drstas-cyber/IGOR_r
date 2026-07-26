@@ -265,7 +265,28 @@ function findWrongIdentity(text) {
 export function scanArticle(article) {
   const titleText = htmlToText(article.title || '');
   const bodyText = htmlToText(article.content_html || '');
-  const combined = `${titleText}\n${bodyText}`;
+  // Widens WHAT gets scanned, not the frozen patterns themselves (2026-07-26)
+  // -- a citations[].url is text the existing patterns never used to see at
+  // all, so a competitor domain sitting in a citation could enter through a
+  // source lookup and never trip the scanner. Load-bearing now that
+  // citations exist: a competitor URL can ONLY ever enter an article
+  // through a citation (prompt.md forbids naming one directly, same as
+  // before). Backward-compatible: BabyLoveGrowth articles never have
+  // `.citations`, so this is a no-op string for the entire existing corpus
+  // -- their scan behavior is byte-identical to before this change.
+  //
+  // sourceName + url, space-joined -- NOT JSON.stringify(). Compact JSON has
+  // zero whitespace ({"id":"1","sourceName":"x"...}), which collapses the
+  // entire array into one unsplittable token as far as wordWindow()'s
+  // /\s+/-based windowing is concerned, silently defeating the
+  // DISPARAGEMENT_WINDOW_WORDS/EXCLUSIVITY_WINDOW_WORDS proximity checks
+  // entirely (found before this ever shipped, not after). Only sourceName
+  // and url are searched -- id/sourceType are controlled values that can
+  // never carry a domain or disparagement word.
+  const citationsText = (article.citations || [])
+    .map((c) => `${c?.sourceName || ''} ${c?.url || ''}`)
+    .join('. ');
+  const combined = `${titleText}\n${bodyText}\n${citationsText}`;
 
   const findings = [
     ...findExclusivityClaims(combined),

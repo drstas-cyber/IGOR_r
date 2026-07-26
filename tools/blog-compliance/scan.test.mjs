@@ -311,6 +311,53 @@ describe('(e) named-competitor disparagement', () => {
   });
 });
 
+describe('citations array is scanned too (2026-07-26, load-bearing)', () => {
+  // A competitor URL can only ever enter an article through a citation
+  // (prompt.md forbids naming a competitor directly, same as before) --
+  // this is what makes scanning citations.url/sourceName necessary at all.
+  test('POSITIVE: a citation whose sourceName carries comparison-framing language near the competitor domain trips disparagement', () => {
+    const r = scanArticle({
+      slug: 'x', title: 'Understanding Property Taxes',
+      content_html: '<p>Property taxes fund local infrastructure.</p>',
+      citations: [{ id: '1', sourceName: 'Alternative Comparison Source', url: 'https://temeculavalleyhomes.com/blog/property-taxes', sourceType: 'other-primary' }],
+    });
+    assert.equal(r.tripped, true);
+    assert.ok(categories(r).includes('disparagement'));
+  });
+
+  // Honest limitation, documented rather than silently assumed away: a
+  // NEUTRAL citation to the competitor (no disparagement/comparison word
+  // anywhere near it) does NOT trip Layer 1 -- findDisparagement() has
+  // always required contextual words nearby (see the "neutral competitor
+  // mention" test above, pre-dating citations entirely), and widening what
+  // text gets scanned doesn't change that requirement. The unconditional
+  // block on citing the competitor is schema.js's CITATION_URL_FORBIDDEN
+  // check (see schema.test.mjs) -- Layer 1 here is additive coverage for
+  // disparaging/comparative framing specifically, not the only guard.
+  test('a NEUTRAL citation to the competitor domain does not trip Layer 1 (schema.js is the unconditional guard, tested separately)', () => {
+    const r = scanArticle({
+      slug: 'x', title: 'Understanding Property Taxes',
+      content_html: '<p>Property taxes fund local infrastructure.</p>',
+      citations: [{ id: '1', sourceName: 'Local Real Estate Info', url: 'https://temeculavalleyhomes.com/blog/property-taxes', sourceType: 'other-primary' }],
+    });
+    assert.equal(categories(r).includes('disparagement'), false);
+  });
+
+  test('backward-compatible: an article with no citations field scans identically to before (BabyLoveGrowth corpus)', () => {
+    const withoutField = scanArticle({ slug: 'x', title: 't', content_html: '<p>Clean content.</p>' });
+    const withEmptyArray = scanArticle({ slug: 'x', title: 't', content_html: '<p>Clean content.</p>', citations: [] });
+    assert.deepEqual(withoutField, withEmptyArray);
+    assert.equal(withoutField.tripped, false);
+  });
+
+  test('does not throw on a malformed citations entry (missing sourceName/url)', () => {
+    assert.doesNotThrow(() => scanArticle({
+      slug: 'x', title: 't', content_html: '<p>x</p>',
+      citations: [{ id: '1' }],
+    }));
+  });
+});
+
 describe('(f) wrong DRE / brokerage / phone / email', () => {
   test('POSITIVE: wrong DRE number', () => {
     const r = scanArticle(article({ html: '<p>George is licensed under DRE #01234567.</p>' }));
