@@ -31,6 +31,7 @@ import { scanArticle, evaluateBatch } from './blog-compliance/scan.js';
 import { MAX_TRIP_RATE } from './blog-compliance/patterns.js';
 import { fetchAllSummaries, fetchFullDetailForAll } from './blog-compliance/babyLoveApi.js';
 import { readFixture } from './blog-compliance/fixture.js';
+import { loadGeneratedArticles, mergeArticleSources } from './blog-generator/loadGenerated.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,21 @@ function writeArticles(articles) {
 }
 
 const COMPLIANCE_REPORT_PATH = path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json');
+
+// Shared tail end of both runFromFixture/runFromApi (and their early-exit
+// branches): merges in locally-generated articles, runs the compliance
+// filter over the COMBINED set, and writes the result. Used even when
+// babyLoveArticles is [] (missing key, network failure, zero published) so
+// generated articles aren't silently dropped just because BabyLoveGrowth had
+// nothing to contribute this build.
+function buildAndWrite(babyLoveArticles) {
+  const generated = loadGeneratedArticles();
+  if (generated.length > 0) console.log(`[fetch-blog-data] ${generated.length} locally-generated article(s) eligible (published:true) from src/data/generated-articles/`);
+  const combined = mergeArticleSources(babyLoveArticles, generated);
+  const surviving = runComplianceFilter(combined);
+  writeArticles(surviving);
+  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to src/data/blog-articles.json`);
+}
 
 // Scans every article, logs every finding loudly (matched sentence, not just
 // a category name), and writes a machine-readable report file for review.
@@ -126,22 +142,18 @@ async function runFromFixture() {
   );
 
   if (publishedArticles.length === 0) {
-    console.warn('[fetch-blog-data] 0 published articles in fixture after filtering — building with an empty blog.');
-    writeArticles([]);
-    return;
+    console.warn('[fetch-blog-data] 0 published articles in fixture after filtering.');
   }
 
-  const surviving = runComplianceFilter(publishedArticles);
-  writeArticles(surviving);
-  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${publishedArticles.length} published articles (${allArticles.length} total in fixture) to src/data/blog-articles.json`);
+  buildAndWrite(publishedArticles);
 }
 
 async function runFromApi() {
   const apiKey = process.env.BABYLOVE_API_KEY;
 
   if (!apiKey) {
-    console.warn('[fetch-blog-data] BABYLOVE_API_KEY not set — building with an empty blog.');
-    writeArticles([]);
+    console.warn('[fetch-blog-data] BABYLOVE_API_KEY not set — BabyLoveGrowth contributes 0 articles this build.');
+    buildAndWrite([]);
     return;
   }
 
@@ -149,14 +161,14 @@ async function runFromApi() {
   try {
     summaries = await fetchAllSummaries(apiKey);
   } catch (err) {
-    console.warn(`[fetch-blog-data] failed to reach BabyLoveGrowth API: ${err.message} — building with an empty blog.`);
-    writeArticles([]);
+    console.warn(`[fetch-blog-data] failed to reach BabyLoveGrowth API: ${err.message} — BabyLoveGrowth contributes 0 articles this build.`);
+    buildAndWrite([]);
     return;
   }
 
   if (summaries.length === 0) {
-    console.warn('[fetch-blog-data] API returned 0 articles — building with an empty blog.');
-    writeArticles([]);
+    console.warn('[fetch-blog-data] API returned 0 articles.');
+    buildAndWrite([]);
     return;
   }
 
@@ -174,8 +186,8 @@ async function runFromApi() {
   );
 
   if (publishedSummaries.length === 0) {
-    console.warn('[fetch-blog-data] 0 published articles after filtering — building with an empty blog.');
-    writeArticles([]);
+    console.warn('[fetch-blog-data] 0 published articles after filtering.');
+    buildAndWrite([]);
     return;
   }
 
@@ -185,9 +197,7 @@ async function runFromApi() {
     },
   });
 
-  const surviving = runComplianceFilter(articles);
-  writeArticles(surviving);
-  console.log(`[fetch-blog-data] wrote ${surviving.length} of ${publishedSummaries.length} published articles (${summaries.length} total fetched) to src/data/blog-articles.json`);
+  buildAndWrite(articles);
 }
 
 async function main() {
