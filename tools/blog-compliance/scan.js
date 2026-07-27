@@ -11,7 +11,8 @@ import {
   SUPERLATIVE_TRIGGER_PATTERN,
   EXCLUSIVITY_CONTEXT_WORDS,
   EXCLUSIVITY_WINDOW_WORDS,
-  EXCLUSIVITY_EXCLUDE_PATTERNS,
+  ONLY_EXCLUDE_PATTERNS,
+  BEST_EXCLUDE_PATTERNS,
   TENURE_PATTERNS,
   REVIEW_PATTERNS,
   RATED_N_PATTERN,
@@ -107,10 +108,14 @@ function findExclusivityClaims(segments) {
     let m;
     while ((m = SUPERLATIVE_TRIGGER_PATTERN.exec(text)) !== null) {
       const isOnly = /^only$/i.test(m[0]);
-      // The "not only" / "only way to" idiom exclusions are specific to the
-      // word "only" — "best"/"top N" have no equivalent false-positive idiom.
-      if (isOnly) {
-        const excluded = EXCLUSIVITY_EXCLUDE_PATTERNS.some((p) => {
+      const isBest = /^best$/i.test(m[0]);
+      // Idiom exclusions are per-trigger-word: "not only"/"only way to" only
+      // make sense to check when the trigger IS "only"; "best interest(s)"
+      // only makes sense to check when the trigger IS "best". "top N" has no
+      // known false-positive idiom (yet) so it gets no exclusion list.
+      const excludePatterns = isOnly ? ONLY_EXCLUDE_PATTERNS : isBest ? BEST_EXCLUDE_PATTERNS : [];
+      if (excludePatterns.length > 0) {
+        const excluded = excludePatterns.some((p) => {
           p.lastIndex = 0;
           const localWindow = text.slice(Math.max(0, m.index - 20), m.index + 20);
           return p.test(localWindow);

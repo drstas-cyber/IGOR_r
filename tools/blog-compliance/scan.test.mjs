@@ -89,6 +89,26 @@ describe('(a) exclusivity claims', () => {
     assert.ok(categories(r).includes('exclusivity'), `expected exclusivity to fire, got: ${JSON.stringify(r.findings)}`);
   });
 
+  // Regression test — real false positive found 2026-07-27, article-3
+  // bait-run draw 3 (PR #16): "acting in the client's best interest" is a
+  // standard fiduciary-duty phrase from California real estate law, not a
+  // superlative claim about George, but "best" + a nearby agent-context
+  // word in the same paragraph tripped exclusivity:superlative anyway.
+  // Fixed with a narrowly-scoped "best interest(s)" idiom exclusion,
+  // mirroring the existing "not only" / "only way to" exclusions for the
+  // word "only".
+  test('NEGATIVE (must NOT trip): "best interest" fiduciary-duty idiom near agent-context words', () => {
+    const r = scanArticle(article({
+      html: '<p>California law establishes fiduciary duties that real estate licensees and their agents owe to their clients, including obligations related to honesty, disclosure, and acting in the client\'s best interest.</p>',
+    }));
+    assert.equal(categories(r).includes('exclusivity'), false, `expected no exclusivity finding, got: ${JSON.stringify(r.findings)}`);
+  });
+
+  test('POSITIVE (must still trip): "best" not immediately followed by "interest(s)" — the exclusion is scoped to the exact idiom, not the word "best" generally', () => {
+    const r = scanArticle(article({ html: '<p>George is widely considered the best agent for buyers who are interested in Old Town Temecula.</p>' }));
+    assert.ok(categories(r).includes('exclusivity'), `expected exclusivity to fire, got: ${JSON.stringify(r.findings)}`);
+  });
+
   // Widened 2026-07-26 after the real gap: "only" alone missed
   // superlative-framed competitor-comparison titles entirely.
   test('POSITIVE (real title, verbatim): "Best...Alternatives" trips', () => {

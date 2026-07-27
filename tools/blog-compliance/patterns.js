@@ -36,12 +36,11 @@ export const MAX_TRIP_RATE = 0.5; // fraction tripped, ABOVE which enforce mode 
 // "Best Meekerrealtygroup.com Alternatives...", "Top 4 debonisteam.com
 // Alternatives...", "Top 5 yukomiyata.com Alternatives..." proved "only"
 // alone missed exactly the unsubstantiated-superlative class the original
-// audit named. "best"/"top N" are NOT scoped to "not only"-style exclusions
-// (no equivalent idiom exists) but ARE scoped to the same context-word
-// window, specifically so this doesn't trip on every "best time to sell" /
-// "top 5 neighborhoods" sentence in ordinary real-estate content — those
-// have no agent/comparison context word nearby and won't match. Expect some
-// noise here regardless; report-only mode exists to measure it before
+// audit named. "best"/"top N" ARE scoped to the same context-word window,
+// specifically so this doesn't trip on every "best time to sell" / "top 5
+// neighborhoods" sentence in ordinary real-estate content — those have no
+// agent/comparison context word nearby and won't match. Expect some noise
+// here regardless; report-only mode exists to measure it before
 // enforcement, same as every other category.
 export const SUPERLATIVE_TRIGGER_PATTERN = /\bonly\b|\bbest\b|\btop\s*\d+\b/gi;
 export const EXCLUSIVITY_CONTEXT_WORDS = [
@@ -51,12 +50,24 @@ export const EXCLUSIVITY_CONTEXT_WORDS = [
   'alternative', 'alternatives', // added with the "best/top N ... alternatives" widening
 ];
 export const EXCLUSIVITY_WINDOW_WORDS = 8; // words either side of the trigger to search for a context word
-export const EXCLUSIVITY_EXCLUDE_PATTERNS = [
-  // Only apply to the word "only" specifically — "best"/"top N" have no
-  // equivalent false-positive idiom to exclude.
+// Idiom exclusions for the word "only" specifically.
+export const ONLY_EXCLUDE_PATTERNS = [
   /\bnot\s+only\b/i,          // "not only... but also" — the classic false positive
   /\bonly\s+way\s+to\b/i,     // "the only way to know is an appraisal"
   /\bif\s+not\s+the\s+only\b/i,
+];
+// Idiom exclusions for the word "best" specifically -- found 2026-07-27,
+// article-3 bait-run draw 3: "acting in the client's best interest" is a
+// standard fiduciary-duty phrase (California real estate law's own
+// language), not a superlative claim about George, but "best" + a nearby
+// "agent"/"licensee"-adjacent context word in the same paragraph tripped
+// exclusivity:superlative anyway. Narrowly scoped to the exact idiom
+// observed, same discipline as ONLY_EXCLUDE_PATTERNS above -- NOT a general
+// "best" allowlist (a real "the best agent in Temecula" claim right next to
+// "interest" would still need to trip; the pattern below requires
+// "interest(s)" to immediately follow "best", so it doesn't).
+export const BEST_EXCLUDE_PATTERNS = [
+  /\bbest\s+interests?\b/i,   // "the client's best interest(s)" — fiduciary-duty idiom
 ];
 
 // --- (b) Years-of-experience / tenure claims ------------------------------
