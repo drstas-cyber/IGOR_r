@@ -82,6 +82,15 @@ something works"), and organized with clear headings a reader can scan.
    pairing and will reject a mismatch even when the host itself is on the
    list.
 
+   **Cite the specific page that carries the fact, never a site
+   homepage.** A citation to a bare domain root (`https://rivco.gov/`
+   with nothing after it) resolves successfully but proves nothing — it
+   is the same as not having a source. Link to the actual section, page,
+   or document containing what you're citing. A short, real page is fine
+   ("`/property-tax-information/`" is a legitimate citation) — it does
+   not need to be a deep link — but it must be the page that actually
+   discusses the claim, not the site's front door.
+
 7. **Never cite, link, or name `temeculavalleyhomes.com`, under any
    circumstances.** It is a competitor site with no relationship to George —
    a near-identical domain to George's own (`temeculavalleyhomes.us`) is
