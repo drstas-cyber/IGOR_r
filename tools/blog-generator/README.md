@@ -533,3 +533,39 @@ cost for the `claude-haiku-4-5-20251001` layer-2 review call — a fraction of
 the writer cost given the model tier and that it's a single structured-
 checklist call over already-generated text, not another full generation
 pass.
+
+## BLG retired as fetch-blog-data.js's active source -- 2026-07-27
+
+**Incident:** deployment `eac8380` kept shipping a stale 2-article
+`blog-articles.json` build after build. Root cause turned out to be two
+separate things stacked on top of each other, not the "no API key"
+hypothesis first suspected:
+
+1. package.json's `build` script was `A && B || true && C && D && E`,
+   which -- `&&`/`||` share left-to-right precedence -- parses as
+   `((A && B) || true) && C && D && E`. Any failure of `A`
+   (`tools/fetch-blog-data.js`) was silently swallowed by the `|| true`,
+   so `vite build` ran anyway, on whatever `blog-articles.json` was
+   already committed. Fixed by scoping `|| true` to only
+   `generate-llms.js`, via explicit subshell grouping. See
+   `tools/build-chain.test.mjs`.
+2. That failure was, on this particular build, the compliance gate
+   *correctly* refusing to ship a batch where 27 of 31 combined
+   articles (87%) tripped the filter -- almost entirely the
+   BabyLoveGrowth-sourced portion; 0 of the 4 generated articles
+   tripped. That refusal was the gate doing its job; the bug was that
+   its FATAL exit never surfaced (see #1).
+
+**Decision (owner-approved):** rather than keep tuning BabyLoveGrowth's
+upstream prompt against `tools/blog-compliance/`'s filter indefinitely,
+BLG is retired as an active content source. `fetch-blog-data.js`'s
+`main()` now takes the generated-articles-only path
+(`buildAndWrite([])`) by default, regardless of whether
+`BABYLOVE_API_KEY` is set or a `tools/blog-compliance/.articles-cache.json`
+fixture exists on disk. The BLG fetch/fixture paths run ONLY when
+`BLOG_INCLUDE_BLG` is the literal string `true`, set deliberately for a
+specific build. This is a deliberate design choice, not an oversight:
+retirement must not be one leftover env var away from re-entering
+production -- this incident's own log was the proof it otherwise would
+be. See `tools/fetch-blog-data.test.mjs` for the regression coverage.
+
