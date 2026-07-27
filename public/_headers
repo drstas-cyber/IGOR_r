@@ -60,6 +60,10 @@
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 /blog/home-inspection-guide-first-time-buyers-temecula
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/competitive-offer-temecula-valley-buyers-guide/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/competitive-offer-temecula-valley-buyers-guide
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
