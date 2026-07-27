@@ -124,7 +124,7 @@ function toolUseBody(toolName, input) {
 // citationFetchStatuses maps a citation URL -> HTTP status for the Layer 3
 // resolver's own GET request, which shares the same globalThis.fetch mock
 // (routed here by NOT being an api.anthropic.com URL).
-function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {}, extraContentHtml = '' }) {
+function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {}, citationFetchBodies = {}, extraContentHtml = '' }) {
   globalThis.fetch = async (url, init = {}) => {
     const urlStr = String(url);
     if (urlStr.includes('/v1/models')) {
@@ -134,7 +134,7 @@ function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses 
       // Layer 3's citation-resolution GET, not an Anthropic API call.
       const status = citationFetchStatuses[urlStr];
       if (status === undefined) throw new Error(`test router: no citationFetchStatuses entry for "${urlStr}"`);
-      return { status };
+      return { status, text: async () => citationFetchBodies[urlStr] ?? '' };
     }
     const body = JSON.parse(init.body);
     const toolName = body.tool_choice?.name;
@@ -353,6 +353,39 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
 
     const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
     assert.equal(hostLog.length, 2, 'both runs\' inconclusive citations must be present, not just the latest');
+  });
+
+  // 2026-07-27: a citation that resolves 200 but whose body doesn't
+  // support the sourceName it claims -- article 1's real failure mode
+  // (leginfo's soft-404 shell). Must trip exactly like a dead link, with
+  // layer1/layer2 genuinely clean, isolating that RESOLVED_UNSUPPORTED
+  // alone caused it.
+  test('a citation that resolves 200 but fails body verification trips the gate as RESOLVED_UNSUPPORTED', async () => {
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const unsupportedCitation = { id: '1', sourceName: 'Example Statute (§ 100 et seq.)', url: CITATION_URL_OK, sourceType: 'statute' };
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      citations: [unsupportedCitation],
+      citationFetchStatuses: { [CITATION_URL_OK]: 200 },
+      citationFetchBodies: { [CITATION_URL_OK]: '<html><body>no section numbers here at all</body></html>' },
+    });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1, 'a resolved-but-unsupported citation must trip the gate, same as a dead link');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir) ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected') : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file on a body-verification trip');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'skipped');
+    assert.equal(report.layer1.tripped, false);
+    assert.equal(report.layer2.tripped, false);
+    assert.equal(report.layer3.tripped, true);
+    assert.equal(report.layer3.unsupported.length, 1);
+    assert.equal(report.layer3.unsupported[0].token, '100');
   });
 });
 

@@ -235,6 +235,7 @@ export async function runGates({ apiKey, article }) {
     results: citationResults,
     resolved: citationEval.resolved,
     failed: citationEval.failed,
+    unsupported: citationEval.unsupported,
     inconclusive: citationEval.inconclusive,
   };
 
@@ -401,10 +402,18 @@ export async function main({
       console.error(`    full checklist: ${JSON.stringify(c)}`);
     }
     if (gateResult.layer3.tripped) {
-      console.error('[generate] layer 3 (citation URL resolution) FAILED citations (dead link, not a bot-block):');
-      gateResult.layer3.failed.forEach((r) => {
-        console.error(`    [${r.host || '(unparseable)'}] status=${r.status ?? '(no response)'} id=${r.id} "${r.sourceName}" — ${r.url}${r.error ? ` — ${r.error}` : ''}`);
-      });
+      if (gateResult.layer3.failed.length > 0) {
+        console.error('[generate] layer 3 (citation URL resolution) FAILED citations (dead link, not a bot-block):');
+        gateResult.layer3.failed.forEach((r) => {
+          console.error(`    [${r.host || '(unparseable)'}] status=${r.status ?? '(no response)'} id=${r.id} "${r.sourceName}" — ${r.url}${r.error ? ` — ${r.error}` : ''}`);
+        });
+      }
+      if (gateResult.layer3.unsupported.length > 0) {
+        console.error('[generate] layer 3 (citation URL resolution) RESOLVED_UNSUPPORTED citations (URL resolves, but the cited content is not actually there):');
+        gateResult.layer3.unsupported.forEach((r) => {
+          console.error(`    [${r.host}] status=${r.status} id=${r.id} "${r.sourceName}" — expected token "${r.token}" not found — ${r.url}`);
+        });
+      }
     }
     const { markerPath } = handleTrippedGate(report, { generatedDir });
     console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);

@@ -80,6 +80,10 @@ if (report.layer3?.results?.length) {
   for (const r of report.layer3.results) {
     lines.push(`| ${r.outcome} | ${r.id} | ${(r.sourceName || '').replace(/\|/g, '\\|')} | ${r.host || '(unparseable)'} | ${r.status ?? '—'} | ${r.url} |`);
   }
+  if (report.layer3.unsupported?.length) {
+    lines.push('');
+    lines.push(`_${report.layer3.unsupported.length} citation(s) RESOLVED_UNSUPPORTED — the URL resolves, but the expected content was not found in the response body. This DOES trip the gate (fail-closed), same as FAILED, reported separately for diagnosis: a resolving URL that doesn't back its claim is a real problem, not a lesser one._`);
+  }
   if (report.layer3.inconclusive?.length) {
     lines.push('');
     lines.push(`_${report.layer3.inconclusive.length} citation(s) UNREACHABLE_LIKELY_BOT — inconclusive, not a trip on their own. Click through above; these are commonly bot-blocked government/legal hosts, not necessarily bad citations. Logged to \`tools/blog-generator/citation-host-log.json\` for accumulating per-host rates across articles._`);
