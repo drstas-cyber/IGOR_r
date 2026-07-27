@@ -1,0 +1,127 @@
+{
+  "sourceTopic": "Choosing a Russian-Speaking Realtor in Temecula: What to Look For",
+  "rejectedAt": "2026-07-27T05:21:23.857Z",
+  "layer1": {
+    "tripped": true,
+    "findings": [
+      {
+        "category": "exclusivity",
+        "subcategory": "only",
+        "matchedText": "only",
+        "sentence": "Real estate has its own vocabulary in any language, and an agent who can navigate that vocabulary comfortably in Russian will be far more useful to you than one who can only handle small talk."
+      }
+    ],
+    "uncitedClaimCandidates": []
+  },
+  "layer2": {
+    "tripped": false,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": false,
+      "statistic_evidence": null,
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": true,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Business and Professions Code, Real Estate Law (Division 4)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=BPC&division=4.&title=&part=1.&chapter=&article=",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=CONS&division=&title=&part=&chapter=&article=XIII+A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Property Tax Information",
+        "url": "https://rivcoacr.org/property-tax-information",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      },
+      {
+        "id": "4",
+        "sourceName": "Riverside County Treasurer-Tax Collector, Property Tax Payment Information",
+        "url": "https://www.countytreasurer.org/tax-collection/property-tax",
+        "host": "www.countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
+      {
+        "id": "5",
+        "sourceName": "California Civil Code, Transfer Disclosure Statement provisions",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CIV&division=2&title=4&part=4&chapter=2&article=1.5",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Business and Professions Code, Real Estate Law (Division 4)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=BPC&division=4.&title=&part=1.&chapter=&article=",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=CONS&division=&title=&part=&chapter=&article=XIII+A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "5",
+        "sourceName": "California Civil Code, Transfer Disclosure Statement provisions",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CIV&division=2&title=4&part=4&chapter=2&article=1.5",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Property Tax Information",
+        "url": "https://rivcoacr.org/property-tax-information",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "unsupported": [],
+    "inconclusive": [
+      {
+        "id": "4",
+        "sourceName": "Riverside County Treasurer-Tax Collector, Property Tax Payment Information",
+        "url": "https://www.countytreasurer.org/tax-collection/property-tax",
+        "host": "www.countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      }
+    ]
+  }
+}
