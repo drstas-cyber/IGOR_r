@@ -93,6 +93,8 @@ means a trivial whitespace/punctuation edit silently un-blocks a topic —
 if that's not what you meant, don't touch the wording of a topic you want
 to stay attempted.
 
+**2026-07-27:** PR #10 ("How Property Taxes Work for Temecula Valley Homebuyers," the pipeline's earliest draft) closed unmerged and retired rather than retrofitted — it predates citations, the citation-padding rule, and every scanner/host-policy fix from the article-3 bait run, and regenerating from scratch under the current prompt is cheaper than editing it up to current standards; topic confirmed available again via dry run.
+
 ## A gate trip is not silent — the rejected-attempt PR
 
 A discarded run used to leave **no trace anywhere ground-truth-visible**.
