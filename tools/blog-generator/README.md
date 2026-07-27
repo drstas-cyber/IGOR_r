@@ -186,6 +186,17 @@ are still known, not left to live only in a chat transcript.
    reliably catch its own blind spots; that's what "independent" in Layer
    2 is for.
 
+   **This is a pattern, not a one-off** — worth stating explicitly, because
+   the pattern is the actual finding here, not the single instance. Article
+   2's independently-verified vague language ("most homeowners in Riverside
+   County pay somewhat more than a flat 1%") is the *same shape* as run
+   `30200350767`'s "often around 17 days, though the exact number can be
+   negotiated": a specific number gestured at, then hedged into vagueness
+   instead of either cited or omitted. That shape was already visible in
+   the run record before either article surfaced it independently. Rule 4
+   is aimed at something real and recurring in how this model hedges when
+   it has no source, not at a single incident that happened to get noticed.
+
 3. **Layer 1 — regex scanner** (`tools/blog-compliance/`, frozen pattern
    set at commit `30d8154`, citations JSON widened in as of 2026-07-26).
    Justified twice over: originally, the 2026-07-26 BabyLoveGrowth audit
