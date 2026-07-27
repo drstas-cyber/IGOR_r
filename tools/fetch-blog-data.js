@@ -220,7 +220,24 @@ async function runFromApi() {
   buildAndWrite(articles);
 }
 
+// BLG (BabyLoveGrowth) is retired as fetch-blog-data.js's active content
+// source -- see the 2026-07-27 decision log entry in
+// tools/blog-generator/README.md for the incident that prompted this
+// (deployment eac8380: the build silently kept shipping a stale 2-article
+// blog-articles.json because "|| true" in package.json's build script was
+// swallowing a real, correct FATAL refusal from the compliance gate below).
+//
+// Retired means retired: the BLG fetch/fixture paths must not re-enter
+// production just because BABYLOVE_API_KEY happens to still be set, or a
+// stale fixture file happens to exist on disk. They run ONLY when
+// BLOG_INCLUDE_BLG is the literal string 'true' -- set deliberately, for a
+// specific build, to re-enable BLG. Any other value (unset, 'false', a
+// typo, etc.) takes the retired, generated-articles-only path below.
 async function main() {
+  if (process.env.BLOG_INCLUDE_BLG !== 'true') {
+    console.log('[fetch-blog-data] BLOG_INCLUDE_BLG is not "true" -- BLG retired, using generated-articles only.');
+    return buildAndWrite([]);
+  }
   if (process.env.BLOG_COMPLIANCE_FIXTURE === 'true') {
     return runFromFixture();
   }
@@ -249,3 +266,4 @@ main().catch((err) => {
     // (committed [] placeholder or last successful fetch) rather than crash.
   }
 });
+
