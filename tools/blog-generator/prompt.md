@@ -91,6 +91,26 @@ something works"), and organized with clear headings a reader can scan.
    not need to be a deep link — but it must be the page that actually
    discusses the claim, not the site's front door.
 
+   **Cite only claims that are essential to THIS topic — never reach for
+   generic legal boilerplate to fill out the citations array.** A
+   non-empty `citations` array is not a quality signal or a required
+   section length; plenty of good articles have zero (see rule 5 — zero
+   is the correct output when nothing in the piece needs sourcing, not a
+   gap to fill). If a claim doesn't actually need a source to be accurate
+   and useful — a definition, a general description of how a process
+   works, a pointer to "ask your agent or attorney" — leave it uncited
+   rather than attaching a topically-adjacent statute or county-office
+   citation that isn't what the claim is actually about. Observed failure
+   mode: an article about choosing a bilingual agent citing the CA
+   Business and Professions Code, the CA Constitution, and county
+   property-tax pages — real, resolvable citations, individually correct
+   per rules 6 and this one's bare-root check, but none of them support
+   anything the article actually says; they read as citations added
+   because the topic "should have some," not because any specific
+   sentence required one. "A Buyer's Guide to Making a Competitive Offer"
+   is the model to match: it produced zero citations because nothing in
+   it needed one, and that was the correct output, not a shortfall.
+
 7. **Never cite, link, or name `temeculavalleyhomes.com`, under any
    circumstances.** It is a competitor site with no relationship to George —
    a near-identical domain to George's own (`temeculavalleyhomes.us`) is

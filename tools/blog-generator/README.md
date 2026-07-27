@@ -425,6 +425,23 @@ discipline as a brand new rollout, before any further unattended runs. A
 prompt change is exactly the kind of thing that can silently reintroduce a
 violation class the gates don't happen to catch.
 
+**Triggered 2026-07-27, deliberately batched with the same-day scanner fix:**
+`prompt.md` rule 6 gained a citation-padding rule (cite only claims essential
+to the topic; zero citations is the correct output when nothing needs
+sourcing, not a gap) after the article-3 bait-run draws showed the writer
+reaching for thematically-off legal/property-tax boilerplate to fill out the
+citations array regardless of what the topic actually needed. That same
+session also fixed two Layer 1 false positives in `tools/blog-compliance/`
+(commit `13d0187`) that the same two draws surfaced. Both changes land in one
+restart rather than two separate ones — the prompt change alone would have
+required a fresh one-supervised-article cycle on its own; batching it with
+the already-necessary re-verification of the scanner fix (see
+`pre-regeneration-baseline.json`'s second `reverifications` entry) means the
+next article produced under the new prompt is also the article that resumes
+the acceptance-discipline count. This is a **stated decision**, not scope
+creep: doing it separately later would have cost a second full restart for
+no additional safety.
+
 ## Acceptance discipline for the rollout itself
 
 **The first THREE articles this pipeline ever produces get a full manual
