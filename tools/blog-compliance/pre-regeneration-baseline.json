@@ -25,6 +25,12 @@
       "reverifiedAgainstCommit": "53eb032",
       "reverifiedAt": "2026-07-27T18:55:00.000Z",
       "result": "25/25 identical, zero deltas; positive control confirmed (all three real Best/Top-N-Alternatives title claims still trip); results array unchanged"
+    },
+    {
+      "note": "scan.js changed at commit c08def6 (2026-07-27, same day): a fourth bait-run draw tripped a fifth distinct Layer 1 idiom shape (\"only half the equation\", \"only a minute\") with zero true catches of the exclusivity/tenure claim across all four draws -- see README.md's 'Layer 1's real-world hit rate' section for the full tally. Recorded decision (approved and pulled forward, not a unilateral change): exclusivity:only and exclusivity:superlative demoted to LOG-ONLY for generator articles specifically, via a new opt-in `options.logOnlyFindingKeys` parameter on scanArticle()/scanAllArticles() (default: none -- unchanged from every prior call shape when omitted). Findings in demoted categories are still fully collected and reported, tagged logOnly, for the supervised read -- only what counts toward `tripped` changes. This reverification calls scanAllArticles(articles) with NO options -- the exact shape tools/fetch-blog-data.js (the real BLG batch path) uses -- specifically to prove the BLG path is unaffected by construction, not just by measurement, since a no-options call defaults logOnlyFindingKeys to an empty Set, mathematically identical to pre-c08def6 behavior. Same 25-slug scope and multiset finding-level diff methodology as the two reverifications above. Outcome: 25/25 IDENTICAL — zero deltas at all. results array below left UNCHANGED. The BLG scan path enforces exclusivity:only/superlative exactly as it always has; only the generator's own runGates() call (via GENERATOR_LOG_ONLY_FINDING_KEYS) opts into the demotion.",
+      "reverifiedAgainstCommit": "c08def6",
+      "reverifiedAt": "2026-07-27T19:10:00.000Z",
+      "result": "25/25 identical, zero deltas (proven by construction: no-options call, same as the real BLG batch path); results array unchanged"
     }
   ],
   "results": [

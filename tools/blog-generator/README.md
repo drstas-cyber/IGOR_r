@@ -442,30 +442,54 @@ the acceptance-discipline count. This is a **stated decision**, not scope
 creep: doing it separately later would have cost a second full restart for
 no additional safety.
 
-## Layer 1's real-world hit rate on this generator's output — flagged, not yet decided
+## Layer 1's real-world hit rate on this generator's output — decided, 2026-07-27
 
-The article-3 bait run (three draws, 2026-07-27) tripped Layer 1 three times
-— three *different* false-positive classes (`wrong-brokerage`'s character-
-class bug, the exclusivity cross-block-boundary window bug, the "best
-interest" idiom gap), all fixed and re-verified against the frozen BLG
+The article-3 bait run (four draws, 2026-07-27) tripped Layer 1 on every
+single draw — **five distinct false-positive idiom/bug shapes across four
+draws, zero true catches** of the exclusivity/tenure claim the run exists
+to test for:
+
+1. `wrong-brokerage`'s character-class bug (draw 2)
+2. the exclusivity cross-block-boundary window bug (draw 2)
+3. the "best interest" fiduciary-duty idiom (draw 3)
+4. "only half the equation" (draw 4)
+5. "only a minute" (draw 4)
+
+The first three were bugs, fixed and re-verified against the frozen BLG
 fixture (see `pre-regeneration-baseline.json`'s `reverifications` array).
-Zero of the three trips were a real catch of the exclusivity/tenure claim
-the run exists to test for — every genuine finding on this generator's own
-output across all three articles came from Layer 2, Layer 3, or self-review.
-Layer 1 earned its keep on the BabyLoveGrowth corpus (25/25 tripped, the
-content it was tuned on) but on THIS writer's output its precision has been
-poor and its recall unproven — the current prompt simply doesn't produce the
-blatant claim shapes Layer 1's frozen patterns were built to catch.
+Draw 4's pair arrived instead of a completed trio, not after one — every
+genuine finding on this generator's own output across all four draws came
+from Layer 2, Layer 3, or self-review, while **Layer 2 went 4-for-4 clean
+on the actual bait claim** (the writer never once produced the exclusivity/
+tenure language this whole exercise exists to provoke). Layer 1 earned its
+keep on the BabyLoveGrowth corpus (25/25 tripped, the content it was tuned
+on) but on THIS writer's output its precision was poor and its recall
+unproven — the current prompt simply doesn't produce the blatant claim
+shapes Layer 1's frozen patterns were built to catch.
 
-**This is not a decision to weaken or remove Layer 1** — it's cheap,
-deterministic, and still the right tool for BLG-shaped content. It's a
-flagged question for **after the bait-run trio completes**: should Layer 1
-run log-only for this generator's own articles (findings still surfaced in
-every report, never the sole reason a draft is discarded) while staying full
-enforce-mode for BabyLoveGrowth content? The three-draws-three-FP-classes
-tally above is the evidence for that review, not a conclusion reached now —
-deliberately not changed mid-acceptance, per the rule above that any
-pattern-set or prompt change resets the supervised-read count.
+**Decision (approved, pulled forward from the planned post-trio review
+rather than waiting for a trio that kept failing to complete):**
+`exclusivity:only` and `exclusivity:superlative` are demoted to **log-only**
+for this generator's own articles — findings in these two subcategories are
+still fully collected and rendered in every PR report (tagged `logOnly:
+true`, see `render-report-md.mjs`), but no longer contribute to `tripped`
+on the generator path. Every other Layer 1 category (tenure, wrong-dre/
+brokerage/phone/email, disparagement, reviews-ratings, urgency-stat) stays
+full enforce for generator articles. The BabyLoveGrowth batch path
+(`tools/fetch-blog-data.js`) is **unaffected by construction, not just by
+measurement** — it calls `scanArticle`/`scanAllArticles` with no options,
+and the demotion is opt-in via `options.logOnlyFindingKeys`
+(`GENERATOR_LOG_ONLY_FINDING_KEYS` in `scan.js`), so omitting it (every BLG
+call site) is byte-identical to pre-demotion behavior. Proven, not assumed:
+the frozen 25-article BLG fixture re-run 25/25 identical, zero deltas, under
+the demotion commit — see `pre-regeneration-baseline.json`'s newest
+`reverifications` entry.
+
+This is **not** a decision to weaken or remove Layer 1 generally — it's
+still cheap, deterministic, and the right tool for BLG-shaped content,
+where it demonstrably works. It's a narrow, evidenced demotion of exactly
+two subcategories that have shown poor precision on this specific writer's
+style, landed as a recorded decision rather than a silent config change.
 
 ## Acceptance discipline for the rollout itself
 
