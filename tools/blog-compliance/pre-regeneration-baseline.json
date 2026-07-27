@@ -19,6 +19,12 @@
       "reverifiedAgainstCommit": "13d0187",
       "reverifiedAt": "2026-07-27T18:30:00.000Z",
       "result": "25/25 tripped unchanged; findingCount updated for 4 of 25 slugs, all attributed to the segment-scoping fix; zero unattributable deltas; results array below re-frozen to these values"
+    },
+    {
+      "note": "scan.js/patterns.js changed again at commit 53eb032 (2026-07-27, same day), fixing a third Layer 1 false positive found on article-3 bait-run draw 3 (PR #16): \"acting in the client's best interest\" (a standard California fiduciary-duty phrase) tripped exclusivity:superlative because \"best\" + a nearby agent-context word landed in the same paragraph. Fix: a narrowly-scoped BEST_EXCLUDE_PATTERNS idiom exclusion for \"best interest(s)\" specifically (mirroring the existing ONLY_EXCLUDE_PATTERNS design for \"not only\"/\"only way to\"), not a general allowlist for the word \"best\". Re-run against this same frozen fixture (sha256-verified match) under 53eb032, same 25-slug scope and multiset finding-level diff methodology as the 13d0187 reverification above. Outcome: 25/25 IDENTICAL — zero deltas at all, not even a sentence-text change; the \"best interest\" idiom does not appear anywhere in this 25-article corpus, so the fix got no exercise here (an expected absence, not a gap — it was found and fixed against the generator's own live output, not this fixture). Explicit positive control run and confirmed: all three \"Best/Top N ... Alternatives\" titles (meekerrealtygroupcom-alternatives, debonisteam-com-alternatives-4-providers, yukomiyata-com-alternatives-5-real-estate-experts) still trip exclusivity:superlative on their real \"Best\"/\"Top 4\"/\"Top 5\" title claims exactly as before — the idiom exclusion is scoped precisely enough not to blind the trigger the BLG corpus actually needs it for. results array below left UNCHANGED — nothing to re-freeze this time.",
+      "reverifiedAgainstCommit": "53eb032",
+      "reverifiedAt": "2026-07-27T18:55:00.000Z",
+      "result": "25/25 identical, zero deltas; positive control confirmed (all three real Best/Top-N-Alternatives title claims still trip); results array unchanged"
     }
   ],
   "results": [

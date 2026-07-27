@@ -442,6 +442,31 @@ the acceptance-discipline count. This is a **stated decision**, not scope
 creep: doing it separately later would have cost a second full restart for
 no additional safety.
 
+## Layer 1's real-world hit rate on this generator's output — flagged, not yet decided
+
+The article-3 bait run (three draws, 2026-07-27) tripped Layer 1 three times
+— three *different* false-positive classes (`wrong-brokerage`'s character-
+class bug, the exclusivity cross-block-boundary window bug, the "best
+interest" idiom gap), all fixed and re-verified against the frozen BLG
+fixture (see `pre-regeneration-baseline.json`'s `reverifications` array).
+Zero of the three trips were a real catch of the exclusivity/tenure claim
+the run exists to test for — every genuine finding on this generator's own
+output across all three articles came from Layer 2, Layer 3, or self-review.
+Layer 1 earned its keep on the BabyLoveGrowth corpus (25/25 tripped, the
+content it was tuned on) but on THIS writer's output its precision has been
+poor and its recall unproven — the current prompt simply doesn't produce the
+blatant claim shapes Layer 1's frozen patterns were built to catch.
+
+**This is not a decision to weaken or remove Layer 1** — it's cheap,
+deterministic, and still the right tool for BLG-shaped content. It's a
+flagged question for **after the bait-run trio completes**: should Layer 1
+run log-only for this generator's own articles (findings still surfaced in
+every report, never the sole reason a draft is discarded) while staying full
+enforce-mode for BabyLoveGrowth content? The three-draws-three-FP-classes
+tally above is the evidence for that review, not a conclusion reached now —
+deliberately not changed mid-acceptance, per the rule above that any
+pattern-set or prompt change resets the supervised-read count.
+
 ## Acceptance discipline for the rollout itself
 
 **The first THREE articles this pipeline ever produces get a full manual
