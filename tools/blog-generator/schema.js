@@ -64,6 +64,25 @@ function hostnameOf(url) {
   }
 }
 
+// www-normalization (2026-07-27, draw 5 of the article-3 bait run): the
+// writer produced "www.rivcoacr.org" and "www.countytreasurer.org" -- both
+// real, correct hosts, rejected outright because CITATION_HOST_POLICY has
+// no www. variants, crashing the run on a real content gap rather than a
+// policy violation. Strips EXACTLY one leading "www." label before the
+// allowlist lookup below -- not a general subdomain-stripping scheme:
+// "www.rivcoacr.org.evil.com" strips to "rivcoacr.org.evil.com" (still not
+// on the list, still rejected) and "wwwrivcoacr.org" (no dot after "www",
+// not actually the www subdomain) is left untouched and still rejected.
+// Applied ONLY to the allowlist lookup -- error messages still show the
+// real host as cited, and isBareHostRoot()'s pathname check below is
+// entirely unaffected (bare-root rejection stays exactly as strict; draw
+// 5's bare-root catch on www.rivcoacr.org was itself a correct catch,
+// unrelated to and unchanged by this fix).
+export function normalizeHostForPolicy(host) {
+  if (typeof host !== 'string') return host;
+  return host.startsWith('www.') ? host.slice(4) : host;
+}
+
 // Bare-root rejection (added 2026-07-27). Found live, on article 1's own
 // first citation set: "https://rivcoacr.org/" resolved 200 unconditionally
 // and supported no specific claim -- the one URL shape that passes every
@@ -98,7 +117,7 @@ export function getCitationHostPolicyErrors(article) {
   for (const c of article.citations || []) {
     if (typeof c?.url !== 'string' || c.url.trim().length === 0) continue; // reported separately by the per-entry shape check
     const host = hostnameOf(c.url);
-    const policy = host ? CITATION_HOST_POLICY[host] : undefined;
+    const policy = host ? CITATION_HOST_POLICY[normalizeHostForPolicy(host)] : undefined;
     if (!policy) {
       errors.push(`citations[]: host "${host || c.url}" is not an approved citation host (id ${JSON.stringify(c?.id)}) — must be one of ${JSON.stringify(Object.keys(CITATION_HOST_POLICY))}`);
       continue;

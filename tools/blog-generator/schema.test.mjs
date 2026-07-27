@@ -312,6 +312,57 @@ describe('validateArticleSchema — citation host policy, paired with sourceType
   });
 });
 
+// Real incident: draw 5 of the article-3 bait run produced
+// "https://www.rivcoacr.org/" and "https://www.countytreasurer.org/..." --
+// real, correct hosts, rejected outright because the allowlist has no
+// www. variants, crashing the run with zero ground truth (the separate
+// silent-discard-gap fix). Exactly one leading "www." label is stripped
+// before the allowlist lookup -- not a general subdomain-stripping scheme.
+describe('validateArticleSchema — www. host normalization (2026-07-27)', () => {
+  test('POSITIVE CONTROL: www.rivcoacr.org + county-assessor passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Assessed value varies.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County Assessor', url: 'https://www.rivcoacr.org/property-tax-information/', sourceType: 'county-assessor' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('POSITIVE CONTROL: www.countytreasurer.org + county-tax-collector passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>Bills are due Nov 1.<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County Treasurer-Tax Collector', url: 'https://www.countytreasurer.org/property-tax-information/', sourceType: 'county-tax-collector' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('NEGATIVE: www.rivcoacr.org.evil.com still fails — strips to "rivcoacr.org.evil.com", no allowlist match', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'x', url: 'https://www.rivcoacr.org.evil.com/property-tax-information/', sourceType: 'county-assessor' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
+  });
+
+  test('NEGATIVE: wwwrivcoacr.org still fails — no dot after "www", not actually a www. prefix', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'x', url: 'https://wwwrivcoacr.org/property-tax-information/', sourceType: 'county-assessor' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /not an approved citation host/);
+  });
+
+  test('bare-root rejection is unaffected by www. normalization — a bare www.-prefixed root still fails', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'x', url: 'https://www.rivcoacr.org/', sourceType: 'county-assessor' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /bare host root/);
+  });
+});
+
 describe('validateArticleSchema — bare-root citation rejection (2026-07-27)', () => {
   // Real incident: article 1's citation 3 was "https://rivcoacr.org/" --
   // real tier-1 host, correct sourceType pairing, real 200 -- and

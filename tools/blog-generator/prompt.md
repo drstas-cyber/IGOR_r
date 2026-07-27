@@ -74,6 +74,9 @@ something works"), and organized with clear headings a reader can scan.
    `law.cornell.edu`. Nothing else counts as a permitted republisher — not
    any other legal-information site, however similar it looks to these two.
 
+   Use the host exactly as listed above — no `www.` prefix, no other
+   subdomain — even though a real site sometimes redirects between forms.
+
    Match `sourceType` to the actual host: a `county-assessor` citation
    must point at `rivcoacr.org` or `rivco.gov`, not at a tier-2 host that
    doesn't publish assessor records — `law.justia.com` and
