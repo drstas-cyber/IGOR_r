@@ -88,15 +88,21 @@ jobs:
       # handleTrippedGate in generate.mjs (tools/blog-generator/README.md
       # has the full design rationale for why a gate trip OR a schema-
       # validation failure gets its own PR instead of vanishing silently).
+      #
+      # Extracted to checkRejectedMarker.mjs (2026-07-27) rather than staying
+      # inline bash specifically so it's unit-tested (checkRejectedMarker.
+      # test.mjs) — the prior inline version silently reported `false` both
+      # when the .rejected/ directory genuinely had nothing new AND when the
+      # directory didn't exist at all, which are not the same answer: a
+      # checkpoint whose job is "was a marker written" must never report a
+      # confident false on a question it couldn't actually answer (same bug
+      # class as the implicit success() incident this workflow already
+      # documents below). The script reports a third, distinct `unknown`
+      # state for the missing-directory case instead.
       - name: Check whether a rejected-attempt marker was written
         id: check_rejected
         if: always()
-        run: |
-          if git status --porcelain -- src/data/generated-articles/.rejected/ | grep -q '^??'; then
-            echo 'has_rejected_marker=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'has_rejected_marker=false' >> "$GITHUB_OUTPUT"
-          fi
+        run: node tools/blog-generator/checkRejectedMarker.mjs >> "$GITHUB_OUTPUT"
 
       # Only reached (and only opens a PR) when generate.mjs actually wrote a
       # new file — a tripped/skipped/failed run has nothing new under
