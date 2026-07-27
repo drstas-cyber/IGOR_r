@@ -305,10 +305,38 @@ function findWrongIdentity(text) {
   return findings;
 }
 
-// Returns { tripped: boolean, findings: [...] }. Never mutates or rewrites
-// the article — the caller decides what to do with a tripped result
+// Generator-article-specific demotion (2026-07-27): the article-3 bait run
+// tripped Layer 1 on four consecutive draws, five distinct false-positive
+// idiom shapes ("far more useful... than one who can only handle small
+// talk", "relying only on a referral", "best interest", "only half the
+// equation", "only a minute"), zero true catches of the exclusivity/tenure
+// claim the run exists to test for -- every real finding on this
+// generator's own output came from Layer 2, Layer 3, or self-review (see
+// README's "Layer 1's real-world hit rate on this generator's output").
+// exclusivity:only and exclusivity:superlative demoted to log-only for
+// THIS pipeline's own writer specifically -- opt-in via
+// `options.logOnlyFindingKeys`, so every other caller (the BabyLoveGrowth
+// batch path in particular) is unaffected by construction, not just by
+// measurement: omit the option (the default) and behavior is byte-
+// identical to before this change. All other Layer 1 categories
+// (tenure, wrong-dre/brokerage/phone/email, disparagement, reviews-
+// ratings, urgency-stat) stay enforce for generator articles too --
+// this is a narrow, evidenced demotion of exactly two subcategories that
+// have shown poor precision on this writer's style, not a general Layer 1
+// relaxation.
+export const GENERATOR_LOG_ONLY_FINDING_KEYS = new Set([
+  'exclusivity:only',
+  'exclusivity:superlative',
+]);
+
+// Returns { tripped: boolean, findings: [...] }. `findings` always contains
+// EVERY finding, including ones demoted to log-only via
+// `options.logOnlyFindingKeys` -- demotion changes what counts toward
+// `tripped`, never what gets reported. Never mutates or rewrites the
+// article — the caller decides what to do with a tripped result
 // (report-only: log; build mode: exclude).
-export function scanArticle(article) {
+export function scanArticle(article, options = {}) {
+  const { logOnlyFindingKeys = new Set() } = options;
   const titleText = htmlToText(article.title || '');
   const bodyText = htmlToText(article.content_html || '');
   // Widens WHAT gets scanned, not the frozen patterns themselves (2026-07-26)
@@ -355,16 +383,20 @@ export function scanArticle(article) {
     ...findWrongIdentity(combined),
   ];
 
+  const trippingFindings = findings.filter(
+    (f) => !logOnlyFindingKeys.has(`${f.category}:${f.subcategory || ''}`)
+  );
+
   return {
     slug: article.slug || '(no slug)',
     title: article.title || '(no title)',
-    tripped: findings.length > 0,
+    tripped: trippingFindings.length > 0,
     findings,
   };
 }
 
-export function scanAllArticles(articles) {
-  return articles.map(scanArticle);
+export function scanAllArticles(articles, options = {}) {
+  return articles.map((a) => scanArticle(a, options));
 }
 
 // LOG-ONLY (2026-07-26) -- deliberately NOT wired into scanArticle()'s

@@ -25,7 +25,7 @@ import { verifyModel } from './modelVerify.mjs';
 import { runLlmClaimGate } from './llmClaimGate.mjs';
 import { validateArticleSchema } from './schema.js';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
-import { scanArticle, findUncitedClaims } from '../blog-compliance/scan.js';
+import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
 import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
@@ -206,12 +206,28 @@ export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
 // layer3 } — never throws on a trip (a trip is an expected, handled
 // outcome, not an error); only throws on an actual API/infra failure.
 export async function runGates({ apiKey, article }) {
-  const layer1Result = scanArticle(article);
+  // logOnlyFindingKeys (2026-07-27): exclusivity:only/superlative demoted
+  // for this generator's own articles specifically -- see
+  // GENERATOR_LOG_ONLY_FINDING_KEYS's header comment in scan.js. The
+  // BabyLoveGrowth batch path (tools/fetch-blog-data.js) calls scanArticle
+  // with no options and is unaffected by construction.
+  const layer1Result = scanArticle(article, { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS });
   // uncitedClaimCandidates (2026-07-26): LOG-ONLY, deliberately NOT added to
   // layer1Result.tripped or folded into `tripped` below -- see
   // findUncitedClaims()'s own header comment in scan.js. Visible in the
   // report for measurement, has zero effect on gate/discard behavior.
-  const layer1 = { tripped: layer1Result.tripped, findings: layer1Result.findings, uncitedClaimCandidates: findUncitedClaims(article) };
+  const layer1 = {
+    tripped: layer1Result.tripped,
+    // Tag each finding with whether it was demoted, so the report is
+    // unambiguous about why `tripped` can be false even with findings
+    // listed -- every finding still renders (see render-report-md.mjs),
+    // the supervised read adjudicates the demoted ones.
+    findings: layer1Result.findings.map((f) => ({
+      ...f,
+      logOnly: GENERATOR_LOG_ONLY_FINDING_KEYS.has(`${f.category}:${f.subcategory || ''}`),
+    })),
+    uncitedClaimCandidates: findUncitedClaims(article),
+  };
 
   // Layer 2 always runs even if layer 1 already tripped, so a single report
   // shows the full picture from both gates rather than stopping early.

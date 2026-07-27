@@ -35,7 +35,8 @@ lines.push('### Layer 1 — regex scanner (frozen pattern set 30d8154)');
 lines.push(`Tripped: **${report.layer1.tripped}**`);
 if (report.layer1.findings?.length) {
   for (const f of report.layer1.findings) {
-    lines.push(`- \`[${f.category}${f.subcategory ? ':' + f.subcategory : ''}]\` matched "${f.matchedText}" — ${f.sentence}`);
+    const tag = f.logOnly ? ' **[LOG-ONLY — demoted for generator articles, does not affect this gate\'s outcome]**' : '';
+    lines.push(`- \`[${f.category}${f.subcategory ? ':' + f.subcategory : ''}]\`${tag} matched "${f.matchedText}" — ${f.sentence}`);
   }
 } else {
   lines.push('_No findings._');

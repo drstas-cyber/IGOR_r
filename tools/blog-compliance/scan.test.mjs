@@ -3,7 +3,7 @@
 //   node --test tools/blog-compliance/scan.test.mjs
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain, findUncitedClaims } from './scan.js';
+import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from './scan.js';
 
 function article({ slug = 'test-article', title = 'Test Article', html = '' } = {}) {
   return { slug, title, content_html: html };
@@ -137,6 +137,48 @@ describe('(a) exclusivity claims', () => {
   test('NEGATIVE (must NOT trip): "top 5 neighborhoods" — no agent/alternative context nearby', () => {
     const r = scanArticle(article({ html: '<p>Here are the top 5 neighborhoods for families in Temecula Valley.</p>' }));
     assert.equal(categories(r).includes('exclusivity'), false);
+  });
+});
+
+describe('(a2) generator-article demotion, 2026-07-27 — exclusivity:only/superlative log-only via options.logOnlyFindingKeys', () => {
+  const EXCLUSIVITY_ONLY_ARTICLE = { html: '<p>George is the only agent in Temecula who speaks Russian.</p>' };
+  const TENURE_ARTICLE = { html: '<p>George has over a decade of experience in Temecula Valley.</p>' };
+
+  test('default (no options) — exclusivity:only trips, unchanged from before this option existed', () => {
+    const r = scanArticle(article(EXCLUSIVITY_ONLY_ARTICLE));
+    assert.equal(r.tripped, true);
+    assert.ok(categories(r).includes('exclusivity'));
+  });
+
+  test('with GENERATOR_LOG_ONLY_FINDING_KEYS — exclusivity:only no longer trips, but the finding is still in `findings`', () => {
+    const r = scanArticle(article(EXCLUSIVITY_ONLY_ARTICLE), { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS });
+    assert.equal(r.tripped, false, `expected demoted-only findings to not trip, got: ${JSON.stringify(r.findings)}`);
+    assert.ok(r.findings.some((f) => f.category === 'exclusivity' && f.subcategory === 'only'), 'finding must still be reported');
+  });
+
+  test('with GENERATOR_LOG_ONLY_FINDING_KEYS — a non-demoted category (tenure) still trips normally', () => {
+    const r = scanArticle(article(TENURE_ARTICLE), { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS });
+    assert.equal(r.tripped, true, 'only exclusivity:only/superlative are demoted — every other category must stay enforce');
+    assert.ok(categories(r).includes('tenure'));
+  });
+
+  test('with GENERATOR_LOG_ONLY_FINDING_KEYS — a demoted AND a non-demoted finding together still trip (from the non-demoted one)', () => {
+    const r = scanArticle(
+      article({ html: '<p>George is the only agent in Temecula, with over a decade of experience.</p>' }),
+      { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS }
+    );
+    assert.equal(r.tripped, true);
+    assert.ok(categories(r).includes('exclusivity'), 'the demoted finding must still be reported alongside the tripping one');
+    assert.ok(categories(r).includes('tenure'));
+  });
+
+  test('scanAllArticles(articles, options) passes the option through to every article', () => {
+    const results = scanAllArticles(
+      [article(EXCLUSIVITY_ONLY_ARTICLE), article(TENURE_ARTICLE)],
+      { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS }
+    );
+    assert.equal(results[0].tripped, false, 'exclusivity-only article demoted');
+    assert.equal(results[1].tripped, true, 'tenure article still trips');
   });
 });
 

@@ -144,10 +144,16 @@ describe('verifyModel — fails loudly rather than guessing', () => {
 });
 
 describe('runGates — EACH layer discards independently', () => {
+  // Uses a tenure violation, not exclusivity:only/superlative -- those two
+  // subcategories were demoted to log-only for generator articles
+  // (2026-07-27, see GENERATOR_LOG_ONLY_FINDING_KEYS in scan.js) and would
+  // no longer trip layer 1 alone, defeating this test's actual purpose.
+  // Tenure stays full-enforce, so it's still a valid "layer 1 alone trips
+  // the gate" case.
   const NON_COMPLIANT_TITLE_ARTICLE = {
     slug: 'trips-layer-1-only',
-    title: 'George: Only Trilingual Agent',
-    content_html: '<p>George is the only trilingual agent in the valley.</p>',
+    title: 'George: A Decade of Experience',
+    content_html: '<p>George brings over a decade of experience to every transaction.</p>',
   };
   const CLEAN_ARTICLE = {
     slug: 'trips-layer-2-only-generic',
@@ -194,6 +200,32 @@ describe('runGates — EACH layer discards independently', () => {
     assert.equal(result.layer1.tripped, true);
     assert.equal(result.layer2.tripped, false);
     assert.equal(result.tripped, true, 'overall gate must trip if EITHER layer trips');
+  });
+
+  // Regression test — proves the 2026-07-27 demotion end-to-end through
+  // runGates, not just at the scanArticle() unit level: an article whose
+  // ONLY layer-1 finding is exclusivity:only must NOT trip the gate on its
+  // own via the generator path, but the finding must still be present in
+  // the report for the supervised read.
+  const ONLY_EXCLUSIVITY_ARTICLE = {
+    slug: 'exclusivity-only-log-only',
+    title: 'Choosing an Agent Who Speaks Your Language',
+    content_html: '<p>George is the only bilingual agent working in this part of the valley.</p>',
+  };
+
+  test('exclusivity:only alone does NOT trip the gate via the generator path (demoted), but still appears in findings for the supervised read', async () => {
+    const directScan = scanArticle(ONLY_EXCLUSIVITY_ARTICLE);
+    assert.equal(directScan.tripped, true, 'sanity: this sentence must genuinely trip the BLG-path (undemoted) scanner, or this test proves nothing');
+    assert.ok(directScan.findings.some((f) => f.category === 'exclusivity' && f.subcategory === 'only'));
+
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST)); // layer 2 clean
+    const result = await runGates({ apiKey: 'test-key', article: ONLY_EXCLUSIVITY_ARTICLE });
+    assert.equal(result.layer1.tripped, false, 'exclusivity:only is demoted for generator articles — must not trip layer 1 alone');
+    assert.ok(
+      result.layer1.findings.some((f) => f.category === 'exclusivity' && f.subcategory === 'only' && f.logOnly === true),
+      'the finding must still be reported, tagged logOnly, for the supervised read to see'
+    );
+    assert.equal(result.tripped, false, 'nothing else trips this article, so the overall gate must pass');
   });
 
   test('layer 2 alone tripping (generic case) is enough to mark the whole gate tripped, even though layer 1 is clean', async () => {
