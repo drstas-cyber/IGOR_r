@@ -311,3 +311,59 @@ describe('validateArticleSchema — citation host policy, paired with sourceType
     assert.match(result.errors.join(), /not an approved citation host/);
   });
 });
+
+describe('validateArticleSchema — bare-root citation rejection (2026-07-27)', () => {
+  // Real incident: article 1's citation 3 was "https://rivcoacr.org/" --
+  // real tier-1 host, correct sourceType pairing, real 200 -- and
+  // supported no specific claim. rivco.gov used here since it's the same
+  // real host class (Riverside County) and permits sourceType
+  // "other-primary", keeping these tests grounded in the actual incident.
+
+  test('POSITIVE CONTROL: a bare root with trailing slash fails', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County', url: 'https://rivco.gov/', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /is a bare host root/);
+  });
+
+  test('POSITIVE CONTROL: a bare root with NO trailing slash also fails', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County', url: 'https://rivco.gov', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /is a bare host root/);
+  });
+
+  test('POSITIVE CONTROL: a real deep path passes', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County', url: 'https://rivco.gov/departments/assessor/property-tax-postponement', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  // The adopted recommendation: shallow-but-real passes -- only TRUE bare
+  // root fails. Rejecting this too would push the model toward fabricating
+  // a plausible deep path that 404s, a worse failure than a real shallow
+  // page (Layer 3's body-content verification is what confirms a shallow
+  // page actually carries the cited fact, not this structural check).
+  test('a shallow-but-real path (one segment) passes -- not required to deep-link', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County', url: 'https://rivco.gov/property-tax-information', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('a root with only a query string, no path, still fails as bare-root', () => {
+    const result = validateArticleSchema(validArticle({
+      content_html: '<p>x<sup class="citation" data-cite="1">[1]</sup></p>',
+      citations: [{ id: '1', sourceName: 'Riverside County', url: 'https://rivco.gov/?search=assessor', sourceType: 'other-primary' }],
+    }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(), /is a bare host root/);
+  });
+});

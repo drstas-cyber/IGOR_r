@@ -64,6 +64,30 @@ function hostnameOf(url) {
   }
 }
 
+// Bare-root rejection (added 2026-07-27). Found live, on article 1's own
+// first citation set: "https://rivcoacr.org/" resolved 200 unconditionally
+// and supported no specific claim -- the one URL shape that passes every
+// other check (real host, real sourceType pairing, real 200) while
+// carrying zero evidentiary weight. Narrow on purpose: rejects ONLY a
+// truly empty path (no path, or just "/") -- a real, shallow-but-genuine
+// page ("/property-tax-information/") passes. Deliberately not requiring
+// a "deep" link: over-tightening toward "must deep-link" would push the
+// model toward fabricating a plausible deep path that 404s, which Layer 3
+// would then have to catch instead -- and a 404 is a worse failure than a
+// shallow-but-real page. This check is purely structural (does the URL
+// even attempt to point at content); Layer 3's body-content verification
+// (citationResolver.mjs) is what confirms a shallow-but-real page
+// actually carries the cited fact.
+function isBareHostRoot(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false; // unparseable is the host-policy check's job, not this one's
+  }
+  return parsed.pathname.replace(/^\/+|\/+$/g, '').length === 0;
+}
+
 // Paired host<->sourceType check, self-contained like
 // getCitationConsistencyErrors() above so it can be called independently
 // (schema.js at generation time; anywhere else that needs to re-verify
@@ -183,6 +207,8 @@ export function validateArticleSchema(article) {
         errors.push(`citations[]: missing url (id ${JSON.stringify(c?.id)})`);
       } else if (c.url.toLowerCase().includes(CITATION_URL_FORBIDDEN_SUBSTRING)) {
         errors.push(`citations[]: url cites the competitor domain (id ${JSON.stringify(c?.id)}, url ${JSON.stringify(c.url)})`);
+      } else if (isBareHostRoot(c.url)) {
+        errors.push(`citations[]: url "${c.url}" is a bare host root — carries no specific claim (id ${JSON.stringify(c?.id)}). Cite the specific page, not the site homepage.`);
       }
       if (!CITATION_SOURCE_TYPES.includes(c?.sourceType)) {
         errors.push(`citations[]: sourceType ${JSON.stringify(c?.sourceType)} is not a primary-source category (id ${JSON.stringify(c?.id)}) — must be one of ${JSON.stringify(CITATION_SOURCE_TYPES)}`);
