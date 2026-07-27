@@ -516,6 +516,15 @@ own full manual read before merging — that part of the discipline
 continues, just as PRs onto an already-live blog instead of as a
 pre-launch condition.
 
+**Owner-delegated reads, on the record (2026-07-27):** the supervised reads
+for article 2 (PR #12) and article 3 (PR #17) — the two still outstanding
+after the owner-override above — were delegated to the assistant rather
+than performed by Stan directly. Same class of decision as the override
+itself: **a stated decision by the person with the authority to make it,
+not a dropped requirement.** The read still had to be real, not a rubber
+stamp — full checklist, findings reported before merging, a STOP instead
+of a merge if either article failed it.
+
 ## Cost
 
 Roughly **$0.15–$0.25 per article** for the writer (`claude-sonnet-5`, two
