@@ -17,13 +17,21 @@ function isolatedDir(prefix = 'generate-test-') {
 // ---------------------------------------------------------------------------
 // handleTrippedGate — the rejected-attempt marker writer.
 //
-// Requirement being tested (restated): the marker file must contain ONLY
-// {sourceTopic, rejectedAt, layer1, layer2} — never the discarded draft's
-// title, slug, or content_html. Proven RED first: at commit fbc8a38 (the
-// commit immediately before this one), handleTrippedGate does not exist —
-// `node --test` on this file against that commit fails with an import
-// error (confirmed via a throwaway `git worktree add` checkout before this
-// file was written). GREEN below is against the current working tree.
+// Requirement being tested (restated, updated 2026-07-27 for the
+// silent-discard-gap fix): the marker file must contain EXACTLY
+// {sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3,
+// schemaErrors} — never the discarded draft's title, slug, or
+// content_html, regardless of which discard reason (gate trip OR
+// schema-validation failure) produced it. sampleReport() below now sets
+// layer3 explicitly (previously omitted, which meant marker.layer3
+// silently vanished from the written JSON via JSON.stringify's
+// undefined-value-drop — this fixture predates layer3's existence in the
+// pipeline and was never updated after it was added; fixed here as part
+// of getting this test to actually reflect the real marker shape every
+// live run has written all session). Originally proven RED at commit
+// fbc8a38 (handleTrippedGate didn't exist yet); the failureClass/
+// schemaErrors fields were proven RED again on 2026-07-27 against the
+// pre-fix schema-invalid discard path (see the new describe block below).
 // ---------------------------------------------------------------------------
 
 describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
@@ -33,6 +41,7 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
       topic: { topic: 'What First-Time Buyers Should Know About Home Inspections', target_keyword: 'home inspection' },
       layer1: { tripped: true, findings: [{ category: 'tenure', matchedText: 'over a decade', sentence: 'George has over a decade of experience.' }] },
       layer2: { tripped: false, checklist: { tenure_claim: false } },
+      layer3: { tripped: false, results: [], resolved: [], failed: [], unsupported: [], inconclusive: [] },
       outcome: 'skipped',
       ...overrides,
     };
@@ -45,14 +54,35 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     assert.ok(fs.existsSync(markerPath));
   });
 
-  test('marker contains EXACTLY sourceTopic, rejectedAt, layer1, layer2 — no title/slug/content_html', () => {
+  test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors — no title/slug/content_html', () => {
     const dir = isolatedDir();
     const { markerPath } = handleTrippedGate(sampleReport(), { generatedDir: dir });
     const written = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
-    assert.deepEqual(new Set(Object.keys(written)), new Set(['sourceTopic', 'rejectedAt', 'layer1', 'layer2']));
+    assert.deepEqual(
+      new Set(Object.keys(written)),
+      new Set(['sourceTopic', 'rejectedAt', 'failureClass', 'layer1', 'layer2', 'layer3', 'schemaErrors'])
+    );
     assert.equal('title' in written, false);
     assert.equal('slug' in written, false);
     assert.equal('content_html' in written, false);
+  });
+
+  test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid"', () => {
+    const dir = isolatedDir();
+    const gateTrip = handleTrippedGate(sampleReport({ outcome: 'skipped' }), { generatedDir: dir });
+    assert.equal(gateTrip.marker.failureClass, 'gate_trip');
+    const schemaInvalid = handleTrippedGate(
+      sampleReport({ outcome: 'schema_invalid', schemaErrors: ['citations[]: host "x" is not an approved citation host'] }),
+      { generatedDir: dir }
+    );
+    assert.equal(schemaInvalid.marker.failureClass, 'schema_invalid');
+    assert.deepEqual(schemaInvalid.marker.schemaErrors, ['citations[]: host "x" is not an approved citation host']);
+  });
+
+  test('schemaErrors defaults to an empty array when not on the report (the normal gate-trip case)', () => {
+    const dir = isolatedDir();
+    const { marker } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    assert.deepEqual(marker.schemaErrors, []);
   });
 
   test('sourceTopic matches report.topic.topic exactly', () => {
@@ -264,6 +294,68 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.equal(report.outcome, 'generated');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() — schema-invalid discard, full path (2026-07-27, the
+// "silent-discard gap" fix). Real incident: draw 5 of the article-3
+// bait-run produced an article that passed BOTH compliance gates cleanly
+// but failed schema validation (a disallowed citation host) -- and exited
+// 1 with NO marker file and NO PR, leaving zero ground truth anywhere.
+// Proven RED against the pre-fix code (git-stashed generate.mjs, same
+// working tree, same test) before applying the fix in this same session:
+// the old schema-invalid branch never called handleTrippedGate, so this
+// exact test's marker-existence assertion failed outright. GREEN below is
+// against the current working tree.
+// ---------------------------------------------------------------------------
+
+describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
+  test('both gates pass but schema validation fails: exits non-zero, writes no real article, DOES write a rejected marker, marker carries failureClass + schemaErrors, report withholds article identity', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    // A citation host not on CITATION_HOST_POLICY's allowlist -- resolves
+    // fine (so Layer 3 doesn't trip and the run actually reaches schema
+    // validation), but schema.js's getCitationHostPolicyErrors rejects it.
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      citations: [{ id: '1', sourceName: 'Some Blog', url: 'https://not-on-the-list.example.com/page', sourceType: 'other-primary' }],
+      citationFetchStatuses: { 'https://not-on-the-list.example.com/page': 200 },
+      citationFetchBodies: { 'https://not-on-the-list.example.com/page': 'irrelevant body content' },
+    });
+    process.exitCode = undefined;
+
+    await main({
+      apiKey: 'test-key',
+      repo: 'owner/repo',
+      generatedDir,
+      topicsPath,
+      reportPath,
+      exec: noOpenPrsExec,
+    });
+
+    assert.equal(process.exitCode, 1, 'a schema-invalid run must exit non-zero, same as a gate trip');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir)
+      ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected')
+      : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file should be written directly under generatedDir');
+
+    const rejectedDir = path.join(generatedDir, '.rejected');
+    assert.ok(fs.existsSync(rejectedDir), 'a rejected-attempt marker directory must be written on a schema-invalid discard, same as a gate trip');
+    const markerFiles = fs.readdirSync(rejectedDir);
+    assert.equal(markerFiles.length, 1);
+    const marker = JSON.parse(fs.readFileSync(path.join(rejectedDir, markerFiles[0]), 'utf8'));
+    assert.equal(marker.sourceTopic, 'Understanding HOA Fees');
+    assert.equal(marker.failureClass, 'schema_invalid');
+    assert.ok(marker.schemaErrors.length > 0, 'the marker must carry the actual schema errors, not just a boolean');
+    assert.match(marker.schemaErrors.join(), /not an approved citation host/);
+    assert.equal('title' in marker, false, 'never the discarded draft\'s identity, same rule as a gate trip');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'schema_invalid');
+    assert.equal('article' in report, false, 'the persisted report must not carry the discarded article\'s identity either');
+    assert.ok(report.schemaErrors.length > 0);
   });
 });
 

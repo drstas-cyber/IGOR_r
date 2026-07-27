@@ -86,8 +86,8 @@ jobs:
 
       # Mutually exclusive with has_new_article above by construction — see
       # handleTrippedGate in generate.mjs (tools/blog-generator/README.md
-      # has the full design rationale for why a gate trip gets its own PR
-      # instead of vanishing silently).
+      # has the full design rationale for why a gate trip OR a schema-
+      # validation failure gets its own PR instead of vanishing silently).
       - name: Check whether a rejected-attempt marker was written
         id: check_rejected
         if: always()
@@ -177,9 +177,9 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "blog: record rejected generation attempt (gate trip, no article content)"
+          commit-message: "blog: record rejected generation attempt (no article content)"
           branch: "blog-generator/rejected-${{ github.run_id }}"
-          title: "[Blog draft] Rejected generation attempt — gate trip, topic released if closed unmerged"
+          title: "[Blog draft] Rejected generation attempt — topic released if closed unmerged"
           body: ${{ steps.report.outputs.body }}
           add-paths: |
             src/data/generated-articles/.rejected/

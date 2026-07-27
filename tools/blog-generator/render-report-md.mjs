@@ -93,6 +93,16 @@ if (report.layer3?.results?.length) {
   lines.push('_No citations in this article._');
 }
 lines.push('');
+if (report.outcome === 'schema_invalid' && report.schemaErrors?.length) {
+  lines.push('---');
+  lines.push('');
+  lines.push('### Schema validation — FAILED (after both compliance gates passed)');
+  lines.push('Both Layer 1 and Layer 2 passed on this draft; it was discarded because schema validation failed:');
+  for (const e of report.schemaErrors) {
+    lines.push(`- ${e}`);
+  }
+  lines.push('');
+}
 lines.push('---');
 lines.push('');
 lines.push('**Reminder for the reviewer:** gate-clean is not the same as compliant. This is a review-and-EDIT step, not a rubber stamp — read the article, don\'t just check that both gates say pass. Layer 3 proves citation URLs resolve, not that they support their claims — verifying that is part of the manual read too. If this is one of the first three articles this pipeline has produced under the current prompt, it requires a full manual read regardless of gate results (see `tools/blog-generator/README.md`).');

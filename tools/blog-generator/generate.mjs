@@ -264,12 +264,18 @@ function writeReport(report, reportPath = REPORT_PATH) {
   console.log(`[generate] report written to ${path.relative(PROJECT_ROOT, reportPath)}`);
 }
 
-// Called when a gate trip discards a draft. Writes a rejected-attempt
-// MARKER only — never the discarded article's title, slug, or
-// content_html — to <generatedDir>/.rejected/<slugified-topic>.json.
-// Exactly five fields: sourceTopic, rejectedAt, layer1, layer2, layer3
-// (findings snippets only — the same class of quoting already used in the
-// PR report all session, never the draft itself).
+// Called on ANY post-generation discard — a gate trip OR a schema-
+// validation failure (2026-07-27: previously only gate trips went through
+// here; a schema-invalid draft exited 1 with no marker and no PR, leaving
+// zero ground truth — see the "silent-discard gap" incident this fixed).
+// Writes a rejected-attempt MARKER only — never the discarded article's
+// title, slug, or content_html, regardless of which discard reason fired
+// — to <generatedDir>/.rejected/<slugified-topic>.json. Fields:
+// sourceTopic, rejectedAt, failureClass ('gate_trip' | 'schema_invalid'),
+// layer1, layer2, layer3 (findings snippets only — the same class of
+// quoting already used in the PR report all session, never the draft
+// itself), schemaErrors (empty array unless failureClass is
+// 'schema_invalid').
 //
 // This file (and the PR opened from it — see generate-article.yml) is what
 // makes getOpenPrAttemptedTopics() see the topic as "spoken for" while that
@@ -278,14 +284,17 @@ function writeReport(report, reportPath = REPORT_PATH) {
 // decisions (README.md), not emergent behavior: an open generator PR means
 // the topic is spoken for; closing it unmerged releases it; merging it
 // (rejection or real article) leaves a permanent record ground-truth
-// checking will always see.
+// checking will always see. That guarantee now holds for a schema-invalid
+// discard exactly as it always has for a gate trip.
 export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {}) {
   const marker = {
     sourceTopic: report.topic.topic,
     rejectedAt: new Date().toISOString(),
+    failureClass: report.outcome === 'schema_invalid' ? 'schema_invalid' : 'gate_trip',
     layer1: report.layer1,
     layer2: report.layer2,
     layer3: report.layer3,
+    schemaErrors: report.schemaErrors || [],
   };
   const rejectedDir = path.join(generatedDir, '.rejected');
   fs.mkdirSync(rejectedDir, { recursive: true });
@@ -440,11 +449,18 @@ export async function main({
 
   const schemaCheck = validateArticleSchema(article);
   if (!schemaCheck.valid) {
-    report.article = { title: article.title, slug: article.slug };
+    // Deliberately NOT setting report.article here (title/slug) — same
+    // identity-withholding rule as a gate trip above; this report becomes
+    // a rejected-attempt PR's body via handleTrippedGate below, exactly
+    // like a gate trip, and must never carry the discarded draft's
+    // identity, only the findings (here: schema errors) that justified
+    // discarding it.
     report.outcome = 'schema_invalid';
     report.schemaErrors = schemaCheck.errors;
     console.error('[generate] article passed both compliance gates but FAILED schema validation:');
     schemaCheck.errors.forEach((e) => console.error(`    - ${e}`));
+    const { markerPath } = handleTrippedGate(report, { generatedDir });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;
