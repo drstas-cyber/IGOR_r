@@ -8,7 +8,8 @@ import ContactPage from '@/components/ContactPage';
 import SellMyHousePage from '@/components/SellMyHousePage';
 import BuyerHomesPage from '@/components/BuyerHomesPage';
 import AboutGeorgePage from '@/components/AboutGeorgePage';
-import BlogPlaceholderPage from '@/components/BlogPlaceholderPage';
+import BlogIndexPage from '@/components/BlogIndexPage';
+import BlogPostPage from '@/components/BlogPostPage';
 import NotFound from '@/components/NotFound';
 import { captureFirstTouch } from '@/lib/attribution';
 
@@ -40,21 +41,19 @@ function App() {
           <Route path="/homes-for-sale-temecula/" element={<BuyerHomesPage />} />
           <Route path="/about-george" element={<AboutGeorgePage />} />
           <Route path="/about-george/" element={<AboutGeorgePage />} />
-          {/* Blog routes removed 2026-07-24 — AI-authored content fabricates
-              first-person claims attributed to George, reintroduces removed
-              tenure/exclusivity language. BlogIndexPage/BlogPostPage, the
-              article data, and the fetch pipeline stay on disk untouched.
-              /blog/ and /blog specifically get a real placeholder route
-              (below) — added 2026-07-26 to replace an orphaned pre-unpublish
-              deployment artifact that was still resolving stale content at
-              that exact path; see the audit that led to this. Every other
-              /blog/* path (individual article slugs) still falls through to
-              the catch-all (soft-404, noindex) until content is fixed and
-              re-verified — do not add more blog routes here without also
-              wiring the corresponding entry in tools/seo-prerender.js's
-              ROUTES array, or the static prerendered <head> won't match. */}
-          <Route path="/blog" element={<BlogPlaceholderPage />} />
-          <Route path="/blog/" element={<BlogPlaceholderPage />} />
+          {/* Blog re-enabled 2026-07-26 — relaunched on the self-hosted
+              generator pipeline (tools/blog-generator/), not BabyLoveGrowth.
+              Content is two-gate-verified (regex scanner + independent LLM
+              claim review) and the first 3 articles get a full human read
+              before publish (see tools/blog-generator/README.md). Only
+              published:true articles ever reach blog-articles.json — see
+              tools/fetch-blog-data.js's merge step. Adding another blog
+              route here requires a matching entry in
+              tools/seo-prerender.js's ROUTES array. */}
+          <Route path="/blog" element={<BlogIndexPage />} />
+          <Route path="/blog/" element={<BlogIndexPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/blog/:slug/" element={<BlogPostPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

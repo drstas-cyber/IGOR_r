@@ -56,11 +56,21 @@ function unwrapList(page) {
   return [];
 }
 
-export async function fetchAllSummaries(apiKey) {
+// onFirstPage (optional): called once with the RAW, un-unwrapped page-1
+// response, before any {articles:[...]}/{data:[...]}/bare-array unwrapping.
+// Lets a caller inspect whatever metadata (total/count/etc.) the API
+// includes alongside the items array without every caller needing to care —
+// existing callers that don't pass it are unaffected.
+export async function fetchAllSummaries(apiKey, { onFirstPage } = {}) {
   const all = [];
   let offset = 0;
+  let isFirstPage = true;
   for (;;) {
     const page = await apiGet(`/v1/articles?limit=${PAGE_LIMIT}&offset=${offset}`, apiKey);
+    if (isFirstPage) {
+      onFirstPage?.(page);
+      isFirstPage = false;
+    }
     const items = unwrapList(page);
     all.push(...items);
     if (items.length < PAGE_LIMIT) break;

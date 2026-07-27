@@ -19,10 +19,9 @@ export default function BlogIndexPage() {
       <Helmet>
         <title>{TITLE}</title>
         <meta name="description" content={DESCRIPTION} />
-        {/* Interim: AI-authored article content is unvetted for compliance
-            (fabricated claims, reintroduced tenure/exclusivity language) —
-            noindex until BabyLoveGrowth's content fix ships. Feature stays live. */}
-        <meta name="robots" content="noindex, follow" />
+        {/* Re-indexed 2026-07-26 — relaunched on the two-gate-verified
+            self-hosted generator pipeline; see tools/blog-generator/README.md. */}
+        <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://temeculavalleyhomes.us/blog/" />
         <meta property="og:title" content={TITLE} />
         <meta property="og:description" content={DESCRIPTION} />

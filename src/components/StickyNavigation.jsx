@@ -33,6 +33,7 @@ export default function StickyNavigation() {
     { label: 'Search Homes', href: APEX_SEARCH_NAV_URL, external: true },
     { label: 'Home Value', href: homeValueHref },
     { label: 'About George', href: '#about-george' },
+    { label: 'Blog', href: '/blog/' },
     { label: 'Contact', href: '#contact' }
   ];
 

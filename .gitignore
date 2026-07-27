@@ -23,8 +23,9 @@ tools/blog-compliance/last-report.json
 # GitHub Actions workflow to build the PR body, not meant to persist in git.
 tools/blog-generator/.last-run-report.json
 
-# Raw content snapshot from a real BABYLOVE_API_KEY fetch — contains full
+# Raw content snapshots from a real BABYLOVE_API_KEY fetch — contain full
 # article bodies (including the exclusivity/DRE claims found during the
-# 2026-07-26 audit) and must never reach git history. Enables offline mode
-# (BLOG_COMPLIANCE_FIXTURE=true) so subsequent runs don't need the key.
-tools/blog-compliance/.articles-cache.json
+# 2026-07-26 audit) and must never reach git history. Glob covers the frozen
+# pre-regeneration baseline (.articles-cache.json) and any later acceptance-
+# test snapshots (.articles-cache-acceptance.json etc.) under one pattern.
+tools/blog-compliance/.articles-cache*.json

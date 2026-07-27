@@ -34,10 +34,9 @@ const ROUTES = [
   { path: '/sell-my-house/',                    component: 'SellMyHousePage.jsx',    priority: 0.8, changefreq: 'monthly' },
   { path: '/about-george/',                     component: 'AboutGeorgePage.jsx',    priority: 0.7, changefreq: 'monthly' },
   { path: '/contact/',                          component: 'ContactPage.jsx',        priority: 0.7, changefreq: 'yearly'  },
-  // Placeholder only — noindex means the existing !noindex sitemap filter
-  // below excludes it automatically, no special-casing needed. Do not point
-  // this at BlogIndexPage.jsx; that's the real (currently unrouted) blog.
-  { path: '/blog/',                             component: 'BlogPlaceholderPage.jsx', priority: 0.1, changefreq: 'monthly' },
+  // /blog/ and /blog/<slug>/ are NOT listed here — they're generated
+  // dynamically from src/data/blog-articles.json by prerenderBlog() below,
+  // one entry per article, not a static component like the routes above.
 ];
 
 function extractHelmet(src) {
@@ -174,27 +173,33 @@ function buildBlogPostHead(article) {
   return parts.join('\n');
 }
 
-// Interim noindex: AI-authored article content is unvetted for compliance
-// (fabricated claims, reintroduced tenure/exclusivity language — see the
-// 2026-07-24 site audit). Blog stays live and crawlable (noindex, FOLLOW —
-// not "none") but out of the index and out of the sitemap until
-// BabyLoveGrowth's content fix ships. Remove BLOG_NOINDEX + the two
-// `else excludedBlogNoindex/` branches below to re-enable indexing later.
-const BLOG_NOINDEX = 'noindex, follow';
-
+// Re-enabled 2026-07-26 — relaunched on the self-hosted, two-gate-verified
+// generator pipeline (tools/blog-generator/), not BabyLoveGrowth.
+// blog-articles.json only ever contains published:true articles (see
+// tools/fetch-blog-data.js's merge step), and the first 3 generator articles
+// each get a full human read before publish — see
+// tools/blog-generator/README.md. Indexable by default now, same as any
+// other route; pushed into the `indexable` array so sitemap.xml includes
+// every blog route exactly like the static pages above.
+//
+// RESIDUAL RISK, worth knowing: if BABYLOVE_API_KEY is ever re-added to the
+// Cloudflare Pages build environment without first setting
+// BLOG_COMPLIANCE_ENFORCE=true, BabyLoveGrowth articles would merge in here
+// and ship indexable by default too — the compliance filter is still
+// report-only (see tools/blog-compliance/README.md). Not a risk today
+// (the key is deleted), but a real one to close before ever re-adding it.
 function prerenderBlog(baseHtml, indexable) {
   const articles = loadBlogArticles();
-  let excludedBlogNoindex = 0;
 
   const blogIndexSeo = {
     title: 'Temecula Real Estate Blog | George Khazanovskiy',
     description: 'Real estate insights, market updates, and home buying/selling guides for Temecula Valley, Murrieta, and Menifee.',
     canonical: `${SITE}/blog/`,
-    robots: BLOG_NOINDEX,
+    robots: 'index, follow',
   };
   writeRouteHtml('/blog/', patchHead(baseHtml, blogIndexSeo, '/blog/'));
-  excludedBlogNoindex += 1;
-  console.log(`[seo-prerender] /blog/ (${articles.length} articles) [noindex — interim]`);
+  indexable.push({ path: '/blog/', priority: 0.6, changefreq: 'weekly' });
+  console.log(`[seo-prerender] /blog/ (${articles.length} articles)`);
 
   for (const article of articles) {
     if (!article.slug) {
@@ -208,7 +213,7 @@ function prerenderBlog(baseHtml, indexable) {
       canonical: `${SITE}${routePath}`,
       ogImage: article.hero_image_url,
       twitterImage: article.hero_image_url,
-      robots: BLOG_NOINDEX,
+      robots: 'index, follow',
     };
     let patched = patchHead(baseHtml, seo, routePath);
     const blogHead = buildBlogPostHead(article);
@@ -216,12 +221,12 @@ function prerenderBlog(baseHtml, indexable) {
       patched = patched.replace('</head>', `  ${blogHead}\n</head>`);
     }
     writeRouteHtml(routePath, patched);
-    excludedBlogNoindex += 1;
-    console.log(`[seo-prerender] ${routePath} [noindex — interim]`);
+    indexable.push({ path: routePath, priority: 0.6, changefreq: 'monthly' });
+    console.log(`[seo-prerender] ${routePath}`);
     console.log(`    title: ${(seo.title || '(missing)').slice(0, 90)}`);
   }
 
-  console.log(`[seo-prerender] blog: ${excludedBlogNoindex} route(s) rendered but excluded from sitemap (interim noindex)`);
+  console.log(`[seo-prerender] blog: ${articles.length + 1} route(s) rendered and indexable (blog index + ${articles.length} article(s))`);
 }
 
 function main() {
@@ -265,11 +270,10 @@ function main() {
     console.log(`    robots:    ${seo.robots || '(inherits index,follow)'}`);
   }
 
-  // Blog unpublished 2026-07-24 (unrouted in App.jsx too) — AI content still
-  // fails substantiation review. prerenderBlog() is left defined, dormant,
-  // for reinstatement once the content is fixed and re-verified; do not
-  // delete it or the call below stays commented indefinitely by accident.
-  // prerenderBlog(baseHtml, indexable);
+  // Blog relaunched 2026-07-26 on the self-hosted generator pipeline — see
+  // the comment on prerenderBlog() above for the compliance model and the
+  // residual BabyLoveGrowth-report-only-mode risk.
+  prerenderBlog(baseHtml, indexable);
 
   const sitemap = buildSitemap(indexable);
   fs.writeFileSync(path.join(DIST, 'sitemap.xml'), sitemap, 'utf8');
