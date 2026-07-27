@@ -435,6 +435,19 @@ caught the pattern the scanner missed). Both gates existing does not retire
 this requirement — it's a floor under the rollout, not a step that gets
 skipped once the gates look reliable.
 
+**Owner override, on the record (2026-07-27):** the blog relaunched with
+only 1 of these 3 supervised reads complete, not 3. Stan reviewed article
+1 (HOA fees) directly on a real Cloudflare preview deployment
+(fc6ed1fd.igor-r.pages.dev — routes, footnotes, citations, JSON-LD, all
+verified against the actual build, not a mockup) and made the call to
+publish rather than wait for articles 2 and 3. This is a **stated
+decision, not an oversight or a quietly-dropped requirement**: the gate
+existed, was known, and was deliberately overridden by the person with
+the authority to accept that risk. Articles 2 and 3 still each need their
+own full manual read before merging — that part of the discipline
+continues, just as PRs onto an already-live blog instead of as a
+pre-launch condition.
+
 ## Cost
 
 Roughly **$0.15–$0.25 per article** for the writer (`claude-sonnet-5`, two
