@@ -67,33 +67,68 @@ function wordWindow(text, index, windowWords) {
   return `${before} ${after}`;
 }
 
-function findExclusivityClaims(text) {
+// Block-level tags that mark a genuine content boundary for the windowed-
+// proximity checks below (findExclusivityClaims, findDisparagement,
+// findRatedN) -- a context word in one paragraph/list item must not make an
+// unrelated trigger word in a SIBLING paragraph/list item look "nearby"
+// just because htmlToText() flattens the whole document into one
+// space-joined string with no sentence/list-item boundaries preserved.
+// Deliberately NOT inline tags (<strong>, <em>, <sup>, <a>, ...) -- "the
+// <strong>only</strong> agent" must still read as one continuous phrase,
+// matching htmlToText()'s own documented contract (see its tests).
+const BLOCK_TAG_SPLIT_PATTERN = /<\/?(?:p|li|ul|ol|div|h[1-6]|tr|td|th|table|thead|tbody|blockquote)\b[^>]*>/gi;
+
+// Splits raw HTML into per-block-element plain-text segments, each run
+// through the EXISTING htmlToText() unchanged -- one tag-stripping/entity-
+// decoding implementation in this file, not two copies that can drift.
+// Used ONLY by the windowed-proximity checks; everything else in this file
+// (findRegexCategory, findWrongIdentity, findUncitedClaims) still scans the
+// single flattened `combined` string exactly as before, untouched by this.
+//
+// Found 2026-07-27, article-3 bait-run draw 2: a <ul> had "agent" in one
+// <li> and an unrelated "only" four bullets later in a different <li>;
+// flattened into one blob they landed within EXCLUSIVITY_WINDOW_WORDS of
+// each other and false-tripped exclusivity on a sentence that never
+// mentioned George at all. Segmenting per block element means each
+// windowed search only ever looks within the same paragraph/list item the
+// trigger word actually appeared in.
+function splitIntoWindowSegments(html) {
+  if (!html) return [];
+  return html
+    .split(BLOCK_TAG_SPLIT_PATTERN)
+    .map((chunk) => htmlToText(chunk))
+    .filter((s) => s.length > 0);
+}
+
+function findExclusivityClaims(segments) {
   const findings = [];
-  SUPERLATIVE_TRIGGER_PATTERN.lastIndex = 0;
-  let m;
-  while ((m = SUPERLATIVE_TRIGGER_PATTERN.exec(text)) !== null) {
-    const isOnly = /^only$/i.test(m[0]);
-    // The "not only" / "only way to" idiom exclusions are specific to the
-    // word "only" — "best"/"top N" have no equivalent false-positive idiom.
-    if (isOnly) {
-      const excluded = EXCLUSIVITY_EXCLUDE_PATTERNS.some((p) => {
-        p.lastIndex = 0;
-        const localWindow = text.slice(Math.max(0, m.index - 20), m.index + 20);
-        return p.test(localWindow);
-      });
-      if (excluded) continue;
+  for (const text of segments) {
+    SUPERLATIVE_TRIGGER_PATTERN.lastIndex = 0;
+    let m;
+    while ((m = SUPERLATIVE_TRIGGER_PATTERN.exec(text)) !== null) {
+      const isOnly = /^only$/i.test(m[0]);
+      // The "not only" / "only way to" idiom exclusions are specific to the
+      // word "only" — "best"/"top N" have no equivalent false-positive idiom.
+      if (isOnly) {
+        const excluded = EXCLUSIVITY_EXCLUDE_PATTERNS.some((p) => {
+          p.lastIndex = 0;
+          const localWindow = text.slice(Math.max(0, m.index - 20), m.index + 20);
+          return p.test(localWindow);
+        });
+        if (excluded) continue;
+      }
+      const window = wordWindow(text, m.index, EXCLUSIVITY_WINDOW_WORDS).toLowerCase();
+      const hasContext = EXCLUSIVITY_CONTEXT_WORDS.some((w) => window.includes(w));
+      if (hasContext) {
+        findings.push({
+          category: 'exclusivity',
+          subcategory: isOnly ? 'only' : 'superlative',
+          matchedText: m[0],
+          sentence: sentenceContaining(text, m.index, m[0].length),
+        });
+      }
+      if (m[0].length === 0) SUPERLATIVE_TRIGGER_PATTERN.lastIndex++;
     }
-    const window = wordWindow(text, m.index, EXCLUSIVITY_WINDOW_WORDS).toLowerCase();
-    const hasContext = EXCLUSIVITY_CONTEXT_WORDS.some((w) => window.includes(w));
-    if (hasContext) {
-      findings.push({
-        category: 'exclusivity',
-        subcategory: isOnly ? 'only' : 'superlative',
-        matchedText: m[0],
-        sentence: sentenceContaining(text, m.index, m[0].length),
-      });
-    }
-    if (m[0].length === 0) SUPERLATIVE_TRIGGER_PATTERN.lastIndex++;
   }
   return findings;
 }
@@ -148,34 +183,36 @@ export function isReferenceDomain(matchedDomain) {
   return matchedDomain.toLowerCase() === REFERENCE.domain.toLowerCase();
 }
 
-function findDisparagement(text) {
+function findDisparagement(segments) {
   const findings = [];
-  COMPETITOR_DOMAIN_PATTERN.lastIndex = 0;
-  let m;
-  while ((m = COMPETITOR_DOMAIN_PATTERN.exec(text)) !== null) {
-    if (isReferenceContactBlockDomain(text, m.index, m[0])) continue;
-    if (isReferenceDomain(m[0])) continue;
-    const window = wordWindow(text, m.index, DISPARAGEMENT_WINDOW_WORDS).toLowerCase();
-    const sentimentHit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
-    const comparisonHit = COMPARISON_FRAMING_WORDS.find((w) => window.includes(w));
-    // Report both independently if both are present rather than picking one —
-    // a domain matched on both is a stronger signal, and collapsing to a
-    // single finding would hide that from the report.
-    if (sentimentHit) {
-      findings.push({
-        category: 'disparagement',
-        subcategory: 'sentiment',
-        matchedText: `${m[0]} ... "${sentimentHit}"`,
-        sentence: sentenceContaining(text, m.index, m[0].length),
-      });
-    }
-    if (comparisonHit) {
-      findings.push({
-        category: 'disparagement',
-        subcategory: 'comparison-framing',
-        matchedText: `${m[0]} ... "${comparisonHit}"`,
-        sentence: sentenceContaining(text, m.index, m[0].length),
-      });
+  for (const text of segments) {
+    COMPETITOR_DOMAIN_PATTERN.lastIndex = 0;
+    let m;
+    while ((m = COMPETITOR_DOMAIN_PATTERN.exec(text)) !== null) {
+      if (isReferenceContactBlockDomain(text, m.index, m[0])) continue;
+      if (isReferenceDomain(m[0])) continue;
+      const window = wordWindow(text, m.index, DISPARAGEMENT_WINDOW_WORDS).toLowerCase();
+      const sentimentHit = DISPARAGEMENT_WORDS.find((w) => window.includes(w));
+      const comparisonHit = COMPARISON_FRAMING_WORDS.find((w) => window.includes(w));
+      // Report both independently if both are present rather than picking one —
+      // a domain matched on both is a stronger signal, and collapsing to a
+      // single finding would hide that from the report.
+      if (sentimentHit) {
+        findings.push({
+          category: 'disparagement',
+          subcategory: 'sentiment',
+          matchedText: `${m[0]} ... "${sentimentHit}"`,
+          sentence: sentenceContaining(text, m.index, m[0].length),
+        });
+      }
+      if (comparisonHit) {
+        findings.push({
+          category: 'disparagement',
+          subcategory: 'comparison-framing',
+          matchedText: `${m[0]} ... "${comparisonHit}"`,
+          sentence: sentenceContaining(text, m.index, m[0].length),
+        });
+      }
     }
   }
   return findings;
@@ -184,20 +221,22 @@ function findDisparagement(text) {
 // "rated N" only counts as a review/rating claim if a review/star/client/
 // testimonial word is nearby — otherwise it's just as likely to be an
 // unrelated numeric scoring scale ("neighborhood rated 7 for walkability").
-function findRatedN(text) {
+function findRatedN(segments) {
   const findings = [];
-  RATED_N_PATTERN.lastIndex = 0;
-  let m;
-  while ((m = RATED_N_PATTERN.exec(text)) !== null) {
-    const window = wordWindow(text, m.index, RATED_N_WINDOW_WORDS).toLowerCase();
-    const hasContext = RATED_N_CONTEXT_WORDS.some((w) => window.includes(w));
-    if (hasContext) {
-      findings.push({
-        category: 'reviews-ratings',
-        subcategory: 'rated-n',
-        matchedText: m[0],
-        sentence: sentenceContaining(text, m.index, m[0].length),
-      });
+  for (const text of segments) {
+    RATED_N_PATTERN.lastIndex = 0;
+    let m;
+    while ((m = RATED_N_PATTERN.exec(text)) !== null) {
+      const window = wordWindow(text, m.index, RATED_N_WINDOW_WORDS).toLowerCase();
+      const hasContext = RATED_N_CONTEXT_WORDS.some((w) => window.includes(w));
+      if (hasContext) {
+        findings.push({
+          category: 'reviews-ratings',
+          subcategory: 'rated-n',
+          matchedText: m[0],
+          sentence: sentenceContaining(text, m.index, m[0].length),
+        });
+      }
     }
   }
   return findings;
@@ -290,13 +329,24 @@ export function scanArticle(article) {
     .join('. ');
   const combined = `${titleText}\n${bodyText}\n${citationsText}`;
 
+  // Windowed-proximity checks (exclusivity, disparagement, rated-N) scan
+  // per-block-element segments instead of the single flattened `combined`
+  // blob -- see splitIntoWindowSegments()'s comment for why. Title and the
+  // synthetic citations string have no block tags to split on, so each is
+  // just its own single segment, unchanged from before.
+  const windowSegments = [
+    titleText,
+    ...splitIntoWindowSegments(article.content_html || ''),
+    citationsText,
+  ].filter((s) => s.length > 0);
+
   const findings = [
-    ...findExclusivityClaims(combined),
+    ...findExclusivityClaims(windowSegments),
     ...findRegexCategory(combined, TENURE_PATTERNS, 'tenure'),
     ...findRegexCategory(combined, REVIEW_PATTERNS, 'reviews-ratings'),
-    ...findRatedN(combined),
+    ...findRatedN(windowSegments),
     ...findRegexCategory(combined, URGENCY_STAT_PATTERNS, 'urgency-stat'),
-    ...findDisparagement(combined),
+    ...findDisparagement(windowSegments),
     ...findWrongIdentity(combined),
   ];
 

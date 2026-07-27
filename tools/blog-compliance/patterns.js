@@ -156,7 +156,21 @@ export const DISPARAGEMENT_WINDOW_WORDS = 12;
 
 // --- (f) Wrong DRE / brokerage / phone / email ----------------------------
 export const DRE_PATTERN = /\bDRE\s*#?\s*(\d{6,8})\b/gi;
-export const BROKERAGE_MENTION_PATTERN = /\b(brokerage|broker(?:ed)?\s+(?:with|by|through)|licensed\s+(?:with|under)|affiliated\s+with)\s+([A-Z][\w&,.'’ -]{3,50})/g;
+// Capture group 2's character class must include '#' -- found 2026-07-27,
+// article-3 bait-run draw 2: "licensed under DRE #02034120 and affiliated
+// with Allison James Estates & Homes." has "licensed under" (a trigger
+// phrase) immediately followed by "DRE #...", and the '#' broke the
+// capture right after "DRE ", before it ever reached the real brokerage
+// name later in the same sentence. The check then correctly found "DRE"
+// doesn't contain "allison james" and flagged wrong-brokerage on a
+// completely correct brokerage statement. Adding '#' lets the capture read
+// through the DRE-number span to the actual brokerage name that follows --
+// this only widens what group 2 can CONTAIN, it doesn't relax the
+// containment check itself, so a genuinely wrong brokerage after "DRE
+// #wrong-or-right-number" still trips exactly as before (see
+// scan.test.mjs's poison-pill tests, which pair a wrong DRE with a wrong
+// brokerage in one sentence and must still catch both).
+export const BROKERAGE_MENTION_PATTERN = /\b(brokerage|broker(?:ed)?\s+(?:with|by|through)|licensed\s+(?:with|under)|affiliated\s+with)\s+([A-Z][\w&,.'’ #-]{3,50})/g;
 export const PHONE_PATTERN = /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 export const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[\w.-]+/gi;
 

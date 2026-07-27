@@ -59,6 +59,36 @@ describe('(a) exclusivity claims', () => {
     assert.equal(categories(r).includes('exclusivity'), false);
   });
 
+  // Regression test — real false positive found 2026-07-27, article-3
+  // bait-run draw 2 (PR #14): a <ul> had "agent" in one <li> and an
+  // unrelated "only" four bullets later in a different <li>. Flattened
+  // into one blob (htmlToText() joins block tags with a bare space, no
+  // sentence/list-item boundary), the two landed within
+  // EXCLUSIVITY_WINDOW_WORDS of each other and false-tripped exclusivity
+  // on a sentence that never mentioned an agent at all. Fixed by scanning
+  // per-block-element segments instead of one flattened blob.
+  test('NEGATIVE (must NOT trip): "agent" in one list item, unrelated "only" several list items later', () => {
+    const r = scanArticle(article({
+      html: `<ul>
+        <li>Look up the agent's license status yourself through official state resources.</li>
+        <li>Review property tax and assessment information directly through the county's official site.</li>
+        <li>Have contracts and disclosures reviewed by a real estate attorney if you have questions.</li>
+        <li>Get home inspections from independently chosen, licensed inspectors rather than relying only on a referral.</li>
+      </ul>`,
+    }));
+    assert.equal(categories(r).includes('exclusivity'), false, `expected no exclusivity finding, got: ${JSON.stringify(r.findings)}`);
+  });
+
+  test('POSITIVE (must still trip): "agent" and "only" in the SAME list item — the fix must not blind same-item proximity', () => {
+    const r = scanArticle(article({
+      html: `<ul>
+        <li>Review property tax and assessment information directly through the county's official site.</li>
+        <li>George is the only agent in Temecula who speaks Russian.</li>
+      </ul>`,
+    }));
+    assert.ok(categories(r).includes('exclusivity'), `expected exclusivity to fire, got: ${JSON.stringify(r.findings)}`);
+  });
+
   // Widened 2026-07-26 after the real gap: "only" alone missed
   // superlative-framed competitor-comparison titles entirely.
   test('POSITIVE (real title, verbatim): "Best...Alternatives" trips', () => {
@@ -401,6 +431,26 @@ describe('(f) wrong DRE / brokerage / phone / email', () => {
   test('NEGATIVE (must NOT trip): correct brokerage', () => {
     const r = scanArticle(article({ html: '<p>George is affiliated with Allison James Estates & Homes.</p>' }));
     assert.equal(categories(r).includes('wrong-brokerage'), false);
+  });
+
+  // Regression test — real false positive found 2026-07-27, article-3
+  // bait-run draw 2 (PR #14): "licensed under" (a BROKERAGE_MENTION_PATTERN
+  // trigger) landed immediately before "DRE #...", and the '#' fell outside
+  // the capture group's character class, truncating the capture at "DRE "
+  // before it ever reached the real, correct brokerage name later in the
+  // same sentence. Fixed by adding '#' to the character class.
+  test('NEGATIVE (must NOT trip): correct brokerage stated after a DRE number in the same sentence', () => {
+    const r = scanArticle(article({
+      html: '<p>George Khazanovskiy is a real estate agent, licensed under DRE #02034120 and affiliated with Allison James Estates & Homes.</p>',
+    }));
+    assert.equal(categories(r).includes('wrong-brokerage'), false, `expected no wrong-brokerage finding, got: ${JSON.stringify(r.findings)}`);
+  });
+
+  test('POSITIVE (must still trip): a wrong brokerage stated after a DRE number in the same sentence — the fix must not blind the category generally', () => {
+    const r = scanArticle(article({
+      html: '<p>George Khazanovskiy is a real estate agent, licensed under DRE #02034120 and affiliated with Century 21 Premier Realty.</p>',
+    }));
+    assert.ok(categories(r).includes('wrong-brokerage'), `expected wrong-brokerage to fire, got: ${JSON.stringify(r.findings)}`);
   });
 
   // POSITIVE CONTROL, added 2026-07-26: the real 25-article batch showed
