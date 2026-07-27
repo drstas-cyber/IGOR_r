@@ -24,19 +24,42 @@
 /contact/
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
-# /blog was unrouted 2026-07-24 (falls through to the NotFound catch-all) but
-# was never added above, so it silently inherited CF's 7-day default HTML
-# cache and kept serving stale pre-unpublish content at the edge — required
-# a manual purge to clear. no-store here (not the 300s pattern above) so any
-# currently-unlisted path — /blog now, or whatever's next — can never again
-# go stale for days unnoticed. Explicit no-slash + slash + wildcard so this
-# can't depend on exact CF Pages glob semantics for the bare route.
-/blog
-  Cache-Control: no-store
+# /blog relaunched 2026-07-27 (real routes, real content, was unrouted
+# placeholder before that -- see the git history for the no-store block
+# this replaces, kept the /blog was unrouted... incident stale for
+# reference). Same per-route 300s edge-cache pattern as the routes above,
+# now that /blog/ and its articles are real, actively-served pages rather
+# than an unrouted path silently inheriting CF's 7-day default.
+#
+# NOT a /blog/* wildcard, deliberately: CF Pages _headers rules CONCATENATE
+# across overlapping patterns rather than "most specific wins" (verified
+# empirically this session, see the dead-slug block below) -- a wildcard
+# no-store rule here would concatenate onto these specific routes' 300s
+# rule rather than being overridden by it, silently defeating caching for
+# every article again. Both slash and bare forms listed per route, same
+# reason as the dead-slug block below (verified: Cloudflare does not 301
+# the bare form to the slash form on this site).
+#
+# MAINTENANCE: every new article this pipeline publishes needs its own
+# pair of lines added here at merge/publish time -- there is no wildcard
+# catching new articles automatically, on purpose (see above). An
+# unlisted /blog/* path (a removed article, a typo, an old bookmark)
+# falls through to CF's default HTML caching rather than this explicit
+# 300s pattern -- a real but much lower-severity residual risk than the
+# original incident (a live article's stale content persisting), not
+# solved here; revisit if it ever actually causes a problem.
 /blog/
-  Cache-Control: no-store
-/blog/*
-  Cache-Control: no-store
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/hoa-fees-temecula-homebuyers-guide/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/hoa-fees-temecula-homebuyers-guide
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/home-inspection-guide-first-time-buyers-temecula/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/home-inspection-guide-first-time-buyers-temecula
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
