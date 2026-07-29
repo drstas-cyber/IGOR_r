@@ -1,0 +1,153 @@
+{
+  "sourceTopic": "How Property Taxes Work for Temecula Valley Homebuyers",
+  "rejectedAt": "2026-07-29T17:23:44.096Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "percentage",
+        "matchedText": "2%",
+        "sentence": "Constitution caps the annual increase in assessed value at 2% unless there is a change in ownership or new construction,"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "percentage",
+        "matchedText": "1%",
+        "sentence": "data-cite=\"3\">[3] A typical bill combines the general 1% tax authorized under Proposition 13 with any voter-approved"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "percentage",
+        "matchedText": "1%",
+        "sentence": "o escrow. These special taxes are separate from the general 1% rate and don't follow the same 2% annual cap that applies t"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "percentage",
+        "matchedText": "2%",
+        "sentence": "separate from the general 1% rate and don't follow the same 2% annual cap that applies to assessed value — they're set acc"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "year",
+        "matchedText": "1978",
+        "sentence": "ped by Proposition 13, a constitutional amendment passed in 1978. It sets the general property tax rate and limits how much"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": true,
+      "tenure_evidence": "George Khazanovskiy, a Temecula Valley real estate agent with Allison James Estates & Homes, works with buyers throughout Temecula, Murrieta, and Menifee",
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "Proposition 13, a constitutional amendment passed in 1978",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": true,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CONS&division=&title=&part=&chapter=&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CONS&division=&title=&part=&chapter=&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder - Property Tax Information",
+        "url": "https://rivcoacr.org/property-tax-information/",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      },
+      {
+        "id": "4",
+        "sourceName": "Riverside County Treasurer-Tax Collector - Property Tax Information",
+        "url": "https://countytreasurer.org/property-tax-information/",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
+      {
+        "id": "5",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CONS&division=&title=&part=&chapter=&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CONS&division=&title=&part=&chapter=&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "5",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder - Property Tax Information",
+        "url": "https://rivcoacr.org/property-tax-information/",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "unsupported": [],
+    "inconclusive": [
+      {
+        "id": "4",
+        "sourceName": "Riverside County Treasurer-Tax Collector - Property Tax Information",
+        "url": "https://countytreasurer.org/property-tax-information/",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      }
+    ]
+  },
+  "schemaErrors": []
+}
