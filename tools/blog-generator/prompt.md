@@ -90,9 +90,25 @@ something works"), and organized with clear headings a reader can scan.
    with nothing after it) resolves successfully but proves nothing — it
    is the same as not having a source. Link to the actual section, page,
    or document containing what you're citing. A short, real page is fine
-   ("`/property-tax-information/`" is a legitimate citation) — it does
-   not need to be a deep link — but it must be the page that actually
-   discusses the claim, not the site's front door.
+   — it does not need to be a deep link — but it must be a page that
+   actually exists and actually discusses the claim, not the site's
+   front door, and never a plausible-sounding path you're guessing at.
+
+   **`rivcoacr.org` specifically has repeatedly tripped Layer 3 on
+   invented paths** (`/property-tax-information/`, `/property-search`,
+   `/property-owners` — three different guesses across three runs, all
+   404). You do not reliably know this site's real URL structure —
+   don't guess one. Use only these two verified-live pages for
+   `rivcoacr.org` citations, exactly as written:
+   - `https://www.rivcoacr.org/RegularPropertyTaxBills` — substantive
+     content on the bill mailing schedule, the two installment due
+     dates (December 10 / April 10), and late-payment penalties.
+   - `https://www.rivcoacr.org/GeneralTaxInformation` — a real hub page
+     linking assessment appeals, change-of-ownership reporting, and
+     Prop 13/19, if the claim doesn't fit the bills page above.
+   If a claim needs a `rivcoacr.org` citation that isn't covered by
+   either of these two pages, omit the claim per rule 4 rather than
+   inventing a third path.
 
    **Cite only claims that are essential to THIS topic — never reach for
    generic legal boilerplate to fill out the citations array.** A
