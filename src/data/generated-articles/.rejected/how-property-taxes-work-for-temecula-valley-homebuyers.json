@@ -1,0 +1,138 @@
+{
+  "sourceTopic": "How Property Taxes Work for Temecula Valley Homebuyers",
+  "rejectedAt": "2026-07-29T16:35:19.820Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": []
+  },
+  "layer2": {
+    "tripped": false,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": false,
+      "statistic_evidence": null,
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": true,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%202.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder",
+        "url": "https://rivcoacr.org/property-owners",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      },
+      {
+        "id": "4",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982, Section 53311 et seq.",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "5",
+        "sourceName": "Riverside County Treasurer-Tax Collector, Property Tax Information",
+        "url": "https://countytreasurer.org/tax-collection/property-tax-information",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
+      {
+        "id": "6",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Property Search",
+        "url": "https://rivcoacr.org/property-search",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%202.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "4",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982, Section 53311 et seq.",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayexpandedbranch.xhtml?tocCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder",
+        "url": "https://rivcoacr.org/property-owners",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      },
+      {
+        "id": "6",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Property Search",
+        "url": "https://rivcoacr.org/property-search",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "unsupported": [],
+    "inconclusive": [
+      {
+        "id": "5",
+        "sourceName": "Riverside County Treasurer-Tax Collector, Property Tax Information",
+        "url": "https://countytreasurer.org/tax-collection/property-tax-information",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      }
+    ]
+  },
+  "schemaErrors": []
+}
