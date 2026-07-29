@@ -1,0 +1,113 @@
+{
+  "sourceTopic": "How Property Taxes Work for Temecula Valley Homebuyers",
+  "rejectedAt": "2026-07-29T01:54:38.729Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "year",
+        "matchedText": "1978",
+        "sentence": "nia's property tax structure is shaped by Proposition 13, a 1978 constitutional amendment that limits how property is assess"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "Proposition 13, a 1978 constitutional amendment",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": true,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%202.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Treasurer-Tax Collector - Property Tax Information",
+        "url": "https://countytreasurer.org/property-tax-information",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
+      {
+        "id": "4",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder - Property Search",
+        "url": "https://rivcoacr.org/property-search",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 2",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%202.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [
+      {
+        "id": "4",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder - Property Search",
+        "url": "https://rivcoacr.org/property-search",
+        "host": "rivcoacr.org",
+        "outcome": "FAILED",
+        "status": 404
+      }
+    ],
+    "unsupported": [],
+    "inconclusive": [
+      {
+        "id": "3",
+        "sourceName": "Riverside County Treasurer-Tax Collector - Property Tax Information",
+        "url": "https://countytreasurer.org/property-tax-information",
+        "host": "countytreasurer.org",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      }
+    ]
+  },
+  "schemaErrors": []
+}
