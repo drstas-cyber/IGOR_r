@@ -15,9 +15,14 @@ not a content farm:
 - Every PR this pipeline opens is a **review-and-EDIT step, not a rubber
   stamp.** Read the article. Both gates passing means "no known automated
   red flag," not "ready to publish as-is."
-- Cadence is **manual only** (`workflow_dispatch`), indefinitely. The cron
-  line in `.github/workflows/generate-article.yml` is commented out on
-  purpose — see "On ever enabling cron" below.
+- Cadence is scheduled — weekly, Mondays 14:00 UTC / 7am Pacific — as of
+  2026-08-01 (`workflow_dispatch` stays available alongside the cron; see
+  "On ever enabling cron" below for the decision record). **The schedule
+  only controls how often a PR gets opened.** Publishing is a separate,
+  still-fully-manual gate: every PR the cron opens gets the exact same
+  full supervised read as a manually-triggered one, and nothing merges
+  without it. Cron widens the top of the funnel, not the gate at the
+  bottom.
 
 ## How this fits with the existing pipeline
 
@@ -411,13 +416,70 @@ Required repo setup before the first run:
 
 ## On ever enabling cron
 
-Don't, without first re-reading the acceptance discipline below and
-confirming: (a) topics.json has meaningfully more than 20 entries so it
-doesn't dry up in weeks, (b) enough manual runs have gone through without a
-gate trip that the false-negative rate feels genuinely low, and (c) Stan/the
-site owner has explicitly signed off — this is a business risk decision
-about a domain that also serves paid landing pages, not just an engineering
-one.
+**Enabled 2026-08-01.** The three conditions this section used to gate on,
+checked against the actual state at the time:
+
+(a) **topics.json has meaningfully more than 20 entries so it doesn't dry
+up in weeks** — **not clearly met.** `topics.json` has 21 entries, not
+"meaningfully more than 20." 6 are attempted (5 published articles +
+article 6, escrow guide, merged and published 2026-08-01), leaving **15**
+available. At one generation per week, that's roughly 15 weeks (~3.5
+months) of runway before the queue is dry — comfortably past "weeks," but
+not the wide margin the original condition envisioned. Recorded here as a
+known, accepted gap, not a met condition — see "What happens when the
+queue runs dry" below for why this matters more than it would on a pipeline
+that fails loudly when it has nothing to do.
+
+(b) **enough manual runs have gone through without a gate trip that the
+false-negative rate feels genuinely low** — met. Six real articles
+generated, zero gate trips across any of them (all six: Layer 1 clean,
+Layer 2 clean, Layer 3 clean or no-citations-needed). The article-3 bait
+run separately stress-tested the gates against deliberately-provoked
+exclusivity/tenure language (see "Layer 1's real-world hit rate" above) —
+Layer 2 caught what Layer 1 missed, 4-for-4.
+
+(c) **Stan/the site owner has explicitly signed off** — met, 2026-08-01,
+explicit instruction to enable the schedule.
+
+**What did not change:** the publish gate. Cron changes generation cadence
+only. Every PR the schedule opens — real article or rejected-attempt
+marker — still requires the exact same full supervised read (or, for a
+rejected attempt, a human decision on whether to close it and release the
+topic) before anything merges. A PR that fails its read does not merge,
+cron or no cron. See "Owner-delegated reads" below for who's authorized to
+perform that read when it isn't Stan directly.
+
+### What happens when the queue runs dry — verified, not assumed
+
+`generate.mjs`'s "no available topics" path (the branch taken when
+`pickNextAvailableTopic()` returns nothing) does **not** fail the run.
+Verified by reading the code and by an isolated empirical run of the real
+`main()` export against a fixture with zero available topics (2026-08-01):
+it logs `[generate] no available topics ... Nothing to do.` and returns
+with `process.exitCode` left `undefined` — a **green**, successful job.
+No report file, no rejected marker, no PR of either kind. Contrast with
+every other early-return in `main()` (missing API key, missing
+`GITHUB_REPOSITORY`, a gate trip) — all of those explicitly set
+`process.exitCode = 1`. The topics-exhausted path is the one early exit
+that doesn't, and nothing in `.github/workflows/generate-article.yml`
+checks for "job succeeded but opened no PR of either kind" as its own
+signal either.
+
+**Practical consequence:** once `topics.json` actually runs dry, the
+weekly cron will run green, silently, indefinitely, doing nothing —
+forever, or until someone happens to notice 15 (now fewer) weeks of
+silence. This is the same failure class ("a discarded run left no
+ground-truth trace") the rejected-attempt-marker mechanism was built to
+close for gate trips — it was never extended to cover the empty-queue
+case. **This is a known gap, not a fixed one** — flagged here rather than
+silently patched, since it changes `generate.mjs`'s control flow and this
+README's own "any prompt.md change requires re-running the acceptance
+discipline" spirit argues for treating pipeline-behavior changes as
+deliberate, reviewed decisions rather than incidental fixes. Until it's
+addressed (e.g. matching the other guards' `process.exitCode = 1`, or an
+explicit "queue exhausted" notification step), the practical mitigation is
+the runway math in (a) above — restock `topics.json` before the ~15-week
+runway closes, and don't assume silence means "on track."
 
 ## Any prompt.md change requires re-running the acceptance discipline
 
@@ -524,6 +586,13 @@ itself: **a stated decision by the person with the authority to make it,
 not a dropped requirement.** The read still had to be real, not a rubber
 stamp — full checklist, findings reported before merging, a STOP instead
 of a merge if either article failed it.
+
+**Owner-delegated read, article 6 (2026-08-01):** the first article
+generated after the cron decision above — "What to Expect During Escrow
+When Buying a Home" (PR #22) — was also delegated. Same standing rule:
+real read (see commit `5a657be`), not a rubber stamp, gated on passing
+before merge. This is the precedent the cron decision explicitly relies
+on continuing for every future scheduled run, not a one-time exception.
 
 ## Cost
 

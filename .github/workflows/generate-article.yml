@@ -1,13 +1,17 @@
 name: generate-article
 
-# Manual trigger ONLY, indefinitely — this is a low-volume, human-edited
-# pipeline, not a content farm. See tools/blog-generator/README.md for why.
-# To ever move to a schedule, uncomment the `schedule:` block below AND read
-# the README section on what has to be true first.
+# Scheduled generation, manual trigger kept alongside — this is still a
+# low-volume, human-edited pipeline, not a content farm. See
+# tools/blog-generator/README.md, "On ever enabling cron" for the three
+# conditions that gated this and the 2026-08-01 decision record.
+#
+# Cron opens PRs. It never merges them. Every PR this schedule opens still
+# requires a full supervised read before merge — enabling the schedule
+# changes generation cadence only, not the publish gate.
 on:
   workflow_dispatch: {}
-  # schedule:
-  #   - cron: '0 15 * * 1'  # commented indefinitely — do not enable without reading the README
+  schedule:
+    - cron: '0 14 * * 1'  # Mondays 14:00 UTC / 7am Pacific (PDT)
 
 permissions:
   contents: write
