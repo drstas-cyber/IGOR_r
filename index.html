@@ -304,18 +304,6 @@
       }
     </script>
 
-    <!-- Schema.org Structured Data - Block 5: FAQPage REMOVED 2026-08-05.
-         Previously a sitewide (every route) hardcoded block with no
-         matching visible content anywhere on the page -- a live match-
-         the-visible-content violation, and carried two unverifiable
-         review/stat claims cleaned up sitewide in this same change (see
-         git history for exact wording). Replaced by a homepage-scoped
-         FAQPage block generated from src/data/homepage-faq.js, injected
-         only into the homepage route by tools/seo-prerender.js -- see
-         that file's comment at the '/' route injection point. Two
-         FAQPage blocks on one page violates Google's structured data
-         guidelines, so this one had to die, not be supplemented. -->
-
     <!-- Schema.org Structured Data - Block 6: Service offerings -->
     <script type="application/ld+json">
       {
@@ -338,19 +326,6 @@
       }
     </script>
 
-    <!-- Schema.org Structured Data - Block 7: BreadcrumbList REMOVED
-         2026-08-04 (audit item 1). This block was hardcoded and shipped
-         byte-identical on every route via this shared base template,
-         including every blog article -- position 2 always claimed
-         "Russian Speaking Realtor" regardless of the actual page, wrong
-         everywhere except that one route (and even there the item URL
-         was missing the trailing slash against site convention). Option
-         B chosen over per-route generation: correct per-route breadcrumbs
-         would need static injection in tools/seo-prerender.js AND
-         matching <Helmet> blocks in 8 separate page/article components --
-         disproportionate for what this was. A wrong breadcrumb is worse
-         than none; deleting the single shared block fixes every route and
-         every article at once, by construction. -->
   </head>
   <body>
     <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=PLACEHOLDER_PIXEL_ID&ev=PageView&noscript=1"/></noscript>
