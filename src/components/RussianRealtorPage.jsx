@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,9 @@ import Footer from './Footer';
 import MobileBottomBar from './MobileBottomBar';
 
 export default function RussianRealtorPage() {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // Scroll-reset on navigation is now handled centrally by
+  // src/components/ScrollToTop.jsx (audit item 4) -- removed here to
+  // avoid the redundant/inconsistent per-component pattern.
 
   const handleCall = () => {
     window.location.href = "tel:6192772766";

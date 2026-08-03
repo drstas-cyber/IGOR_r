@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Helmet } from 'react-helmet';
 import StickyNavigation from '@/components/StickyNavigation';
 import AgentBioSection from '@/components/AgentBioSection';
@@ -9,8 +9,9 @@ import MobileBottomBar from '@/components/MobileBottomBar';
 import Footer from '@/components/Footer';
 
 export default function AboutGeorgePage() {
-  useEffect(() => { window.scrollTo(0, 0); }, []);
-
+  // Scroll-reset on navigation is now handled centrally by
+  // src/components/ScrollToTop.jsx (audit item 4) -- removed here to
+  // avoid the redundant/inconsistent per-component pattern.
   return (
     <>
       <Helmet>

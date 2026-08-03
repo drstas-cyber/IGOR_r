@@ -16,7 +16,8 @@ export default function ContactPage() {
   useEffect(() => {
     resetFormTimer();
     if (window.location.search.includes('submitted=true')) setSubmitted(true);
-    window.scrollTo(0, 0);
+    // Scroll-reset on navigation is now handled centrally by
+    // src/components/ScrollToTop.jsx (audit item 4).
   }, []);
 
   const handleSubmit = async (e) => {

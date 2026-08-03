@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 
 /**
  * Catch-all route for unmatched URLs (e.g. the phantom landing-page paths from
@@ -42,15 +43,15 @@ export default function NotFound() {
           The page you're looking for may have moved or no longer exists. Here are some places to start instead.
         </p>
         <nav className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center" aria-label="Helpful links">
-          <a href="/" className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
+          <Link to="/" className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
             Return Home
-          </a>
-          <a href="/homes-for-sale-temecula/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
+          </Link>
+          <Link to="/homes-for-sale-temecula/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
             Homes For Sale
-          </a>
-          <a href="/contact/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
+          </Link>
+          <Link to="/contact/" className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold transition-colors text-center">
             Contact George
-          </a>
+          </Link>
         </nav>
       </main>
     </>
