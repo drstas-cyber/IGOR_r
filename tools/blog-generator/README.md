@@ -619,6 +619,17 @@ delegated the same "owner-delegated read" way individual article reads
 already have been (see "Owner-delegated reads" above) — either way, it is
 a standing commitment this decision depends on, not optional follow-up.
 
+**Checklist line item added 2026-08-03** (see "Site-wide fabricated-claims
+sweep" below): the weekly retrospective audit also re-checks the
+homepage's Google-reviews badge (`src/lib/reviews.js` — `GOOGLE_RATING`,
+`GOOGLE_REVIEW_COUNT`) against George's live Google Business listing.
+These are real, hardcoded values, not fetched live — accurate the day
+they're set, silently stale the day they're not. A hardcoded "5.0 · 17
+reviews" badge is exactly the kind of claim this project has spent this
+entire sweep removing when it's *not* backed by a real, checkable source;
+the difference here is it genuinely is checkable, so the audit is "does
+this still match," not "is this real."
+
 **Rollback — the one-commit unpublish line**, for an article that fails
 retrospectively:
 
@@ -853,6 +864,46 @@ real read (see commit `5a657be`), not a rubber stamp, gated on passing
 before merge. This is the precedent the cron decision explicitly relies
 on continuing for every future scheduled run, not a one-time exception.
 
+## Site-wide fabricated-claims sweep — closed, 2026-08-03
+
+This file is nominally the blog-generator's own README, but this entry
+covers the **whole site**, not just generated articles — recorded here
+because this is the only decision log this repo has, and everything else
+in this multi-day sweep already lives here.
+
+**2026-08-03 full-site fabricated-claims sweep: clean in both languages
+across bundle + all static shells.** Covered, across this and the
+preceding sessions: the homepage FAQ (replaced the sitewide hardcoded
+FAQPage block that had no matching visible content, dropped its
+"five-star reviewed" and uncited "~80% buyer-side" claims), the same two
+claims cleaned from 6 more locations found while verifying (meta/OG/
+Twitter descriptions, three JSON-LD schema descriptions, the `<noscript>`
+fallback, `AboutGeorgePage.jsx`, a visible stat on `ContactPage.jsx`), a
+named-competitor line (`ListingAlertsSection.jsx`), and the last
+fabricated content on the domain — the Russian-language page's "Топ
+Риэлтор" superlative badge and fabricated "5.0★ … dozens of satisfied
+families" review claim, plus a stale contact email, none of which had an
+English-side equivalent left to clean by the time they were found. Zero
+known fabricated claims remain, verified by direct grep of the live
+bundle and every static route shell, not by re-reading source and
+assuming the build reflects it.
+
+**The 5.0/17 Google-reviews badge is not part of that cleanup — it's the
+inverse case, verified real, not removed.** `src/lib/reviews.js`'s
+`GOOGLE_RATING`/`GOOGLE_REVIEW_COUNT` (5.0 stars, 17 reviews) and the
+attributed review text in `GoogleReviews.jsx` were confirmed by the owner
+against George's live Google Business listing — legitimate, source-linked,
+not invented. The distinction from everything else in this sweep: those
+were unsourced text with nothing behind them; this is a real number with
+a real source, just not fetched live.
+
+**Caveat, stated plainly:** hardcoded values go stale. A rating or review
+count that was accurate on verification day silently drifts if the real
+listing changes and nobody re-checks. This is now a standing line item in
+the weekly retrospective audit (see "Automated publishing" §4, above) —
+check the badge against the live listing, don't assume a 2026-07-26 (or
+2026-08-03) verification date stays true forever.
+
 ## Cost
 
 Roughly **$0.15–$0.25 per article** for the writer (`claude-sonnet-5`, two
@@ -896,4 +947,93 @@ specific build. This is a deliberate design choice, not an oversight:
 retirement must not be one leftover env var away from re-entering
 production -- this incident's own log was the proof it otherwise would
 be. See `tools/fetch-blog-data.test.mjs` for the regression coverage.
+
+## CLOSING ENTRY — 2026-08-03
+
+Everything above this line documents how the system got here. This entry
+is the state it was left in — after it, the system runs itself; nothing
+new was built to produce this entry, only recorded, committed, and
+verified.
+
+### Final inventory
+
+| | |
+|---|---|
+| Articles live | **8** |
+| Topics available | **39** of 47 (~78 days runway at current cadence) |
+| `_headers` rules used | **76** / 100 (~12 more articles fit, ~24 days runway — binds before the topic runway does) |
+| Open PRs | **0** |
+| Test count | **342** / 342 passing |
+| Cron schedule | `0 14 */2 * *` — every other day, 14:00 UTC / 7:00 AM Pacific (PDT) |
+| Next scheduled run | **Wednesday, 2026-08-05, 14:00 UTC / 7:00 AM PDT** |
+
+Deploy state at close: commit `68cde16` on both `temeculavalleyhomes.us`
+and `igor-r.pages.dev` (`version.json` identical on both hosts, `dirty:
+false`, `buildEnv: cf-pages`). Local `main`, `origin/main`, and the
+deployed commit are the same commit. Bundle: `index-3a825d3d.js` /
+`index-e4f8b727.css`.
+
+**Left deliberately untracked, not part of this session's work:** five
+paths were untracked in git status before this session's first message
+and remain so — `.github/workflows/conversion-monitor.yml`,
+`tools/blog-compliance/run-acceptance-scan.mjs`,
+`tools/blog-compliance/write-acceptance-fixture.mjs`,
+`tools/blog-generator/dry-run-topic-selection.mjs` (used read-only,
+extensively, throughout this session's queue checks — genuinely useful,
+not touched), and `tools/monitor/`. No context on their completeness or
+intended scope; committing someone else's in-progress work without that
+context risks shipping something premature or broken. Not mine to decide
+finished.
+
+### Standing operations
+
+**Every other day, 14:00 UTC:** `generate-article.yml` fires (workflow_dispatch
+also stays available any time). One topic is generated, self-reviewed, and
+run through three gates (regex scanner, independent LLM claim review,
+citation URL resolution).
+
+**Auto-publishes vs. holds:** a run merges and publishes itself **only**
+when every gate came back perfectly silent — zero findings anywhere,
+including log-only ones, zero self-review corrections, every citation
+resolved. Any finding at all, however minor, opens a PR and holds for a
+supervised human read, exactly as it always has. Six real generation
+attempts since automated publishing was enabled; zero have been silent so
+far (self-review has caught a real issue — an uncited number, a broken
+citation URL — on every one) — the hold path is proven live, the
+auto-merge execution path is proven by unit test and by manual exercise
+of the identical commands, not yet by a live silent trigger.
+
+**Weekly retrospective audit** (compensating control for the one thing
+pre-merge review no longer covers on a silent run): full six-category
+read of everything auto-published that week, report-only, same verdict
+scale as every article read this project has ever done. Now explicitly
+includes: re-checking the Google-reviews badge (`src/lib/reviews.js`)
+against George's live listing. Stan's manual fallback (Mondays) or
+delegatable the same way individual reads have been.
+
+**Queue-exhausted signal:** if `topics.json` ever runs dry, the run fails
+loud — `process.exitCode = 1` plus a `::error::` GitHub Actions annotation
+— never a silent green no-op. Distinguishable from a gate trip (which
+opens a rejected-attempt PR) and from a real failure (generic `FATAL`
+error, no annotation) by the Monday-morning signal table in the
+"Automated publishing" section above.
+
+**Three thresholds that need future action, none urgent, none silent:**
+
+1. **`_headers` cap — closest, ~24 days out.** 76/100 rules, 2 rules per
+   article, ~12 articles of headroom left. Will start throwing (safely —
+   merged-but-unpublished, not a broken build) on `insertCacheEntry()`
+   once it's exhausted. Headroom exists if needed sooner: 50 of the 76
+   rules are the prunable dead-BabyLoveGrowth `noindex` block, an SEO-
+   timing judgment call outside any task so far, not pulled.
+2. **Topic runway — ~78 days out.** 39 of 47 topics available. Restock
+   `topics.json` before it closes; the queue-exhausted signal above is the
+   backstop if this estimate is wrong, not the plan.
+3. **Node.js 20 deprecation warning** on every GitHub Actions run
+   (`actions/checkout@v4`, `actions/setup-node@v4` — currently forced onto
+   Node 24 by GitHub, still working, but flagged in every run's
+   annotations). No functional impact yet; a `node-version: '20'` bump in
+   both workflow files is the eventual fix, not urgent, not silent —
+   it's been sitting in the annotations of every single run this whole
+   project.
 
