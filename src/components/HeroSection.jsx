@@ -61,7 +61,7 @@ export default function HeroSection() {
               Get Free Home Valuation
             </a>
             <a
-              href="tel:6192772766"
+              href="tel:+16192772766"
               className="border-2 border-white/60 hover:border-white text-white px-8 py-3 min-h-[48px] flex items-center justify-center rounded-md font-bold text-lg transition-colors text-center"
             >
               Call Now — (619) 277-2766

@@ -82,7 +82,7 @@ export default function AgentBioSection() {
             </div>
 
             <a 
-              href="tel:6192772766"
+              href="tel:+16192772766"
               className="inline-block text-center bg-[#8B3018] hover:bg-[#702613] text-white font-sans text-[14px] py-[14px] px-[24px] rounded-lg transition-all hover:shadow-lg w-full max-w-sm font-medium"
             >
               📞 Call George — 619-277-2766

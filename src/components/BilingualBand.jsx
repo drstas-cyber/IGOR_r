@@ -27,7 +27,7 @@ export default function BilingualBand() {
             "Real estate in your language, your culture, your trust."
           </p>
           <a 
-            href="tel:6192772766"
+            href="tel:+16192772766"
             className="inline-block bg-[#C8920A] hover:bg-[#A37508] text-[#12202A] font-sans text-[14px] font-bold py-[14px] px-[24px] rounded transition-colors"
           >
             📞 Позвонить сейчас — Call George

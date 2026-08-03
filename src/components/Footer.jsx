@@ -70,7 +70,7 @@ export default function Footer() {
             <p className="font-sans text-[14px] text-[#12202A]">Free consultation. No obligation. Available 7 days a week.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <a href="tel:6192772766" className="bg-[#12202A] hover:bg-[#1a3a4a] text-white font-bold py-4 px-8 rounded-lg text-[16px] transition-colors whitespace-nowrap text-center">
+            <a href="tel:+16192772766" className="bg-[#12202A] hover:bg-[#1a3a4a] text-white font-bold py-4 px-8 rounded-lg text-[16px] transition-colors whitespace-nowrap text-center">
               Call (619) 277-2766
             </a>
             <Link to="/contact/" className="bg-white hover:bg-gray-100 text-[#12202A] font-bold py-4 px-8 rounded-lg text-[16px] transition-colors whitespace-nowrap text-center">
@@ -92,7 +92,7 @@ export default function Footer() {
               Expert Real Estate Services in Temecula Valley. Dedicated to your long-term real estate success with George Khazanovskiy.
             </p>
             <div className="pt-2 flex flex-col space-y-2">
-              <a href="tel:6192772766" className="font-sans text-[13px] text-[#C8920A] font-bold hover:text-white transition-colors">
+              <a href="tel:+16192772766" className="font-sans text-[13px] text-[#C8920A] font-bold hover:text-white transition-colors">
                 📞 619-277-2766
               </a>
               <a href="mailto:askgeorgek@gmail.com" className="font-sans text-[13px] text-gray-300 hover:text-[#C8920A] transition-colors">

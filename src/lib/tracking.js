@@ -2,7 +2,11 @@
  * Google Ads & GA4 conversion tracking helpers.
  * AW ID: AW-18044804522
  * Form Submission Label: J5XxCNy15ZEcEKq7t5xD  (action 7553506012, PRIMARY $100)
- * Phone Click Label: 6MWcCKutt5AcEK6Cu5xD
+ *
+ * Phone-click tracking is NOT handled here — see the delegated tel: click
+ * listener in index.html (label LL2DCN-15ZEcEKq7t5xD, $50), the live path.
+ * See docs/tracking-notes.md for the removal history of the dead
+ * trackPhoneClick() helper that used to live in this file.
  */
 
 export function trackFormSubmission(formName, formData = {}) {
@@ -25,22 +29,6 @@ export function trackFormSubmission(formName, formData = {}) {
     send_to: 'AW-18044804522/J5XxCNy15ZEcEKq7t5xD',
     value: 100.0,
     currency: 'USD',
-  });
-}
-
-export function trackPhoneClick() {
-  if (typeof window.gtag !== 'function') return;
-
-  // Google Ads conversion — Phone Click ($25)
-  window.gtag('event', 'conversion', {
-    send_to: 'AW-18044804522/6MWcCKutt5AcEK6Cu5xD',
-    value: 25.0,
-    currency: 'USD',
-  });
-
-  window.gtag('event', 'phone_click', {
-    event_category: 'engagement',
-    event_label: 'click_to_call',
   });
 }
 

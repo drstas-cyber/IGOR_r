@@ -32,7 +32,7 @@ export default function StatsBar() {
           ))}
         </div>
         <div className="text-center mt-8">
-          <a href="tel:6192772766" className="font-sans text-[14px] text-[#C8920A] hover:text-white transition-colors font-semibold inline-block py-3 px-4">
+          <a href="tel:+16192772766" className="font-sans text-[14px] text-[#C8920A] hover:text-white transition-colors font-semibold inline-block py-3 px-4">
             Ready to make your move? Call George: (619) 277-2766
           </a>
         </div>

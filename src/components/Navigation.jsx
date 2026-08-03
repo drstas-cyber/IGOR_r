@@ -74,7 +74,7 @@ export default function Navigation() {
               🇷🇺 RU
             </Link>
 
-            <a href="tel:16192772766">
+            <a href="tel:+16192772766">
               <Button className="bg-accent hover:bg-accent/90 text-secondary font-semibold uppercase tracking-wider text-xs px-6 py-5 rounded-none border border-accent">
                 <span className="hidden sm:inline">Inquire Now</span>
                 <span className="sm:hidden">Call</span>

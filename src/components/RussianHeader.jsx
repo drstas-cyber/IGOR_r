@@ -95,7 +95,7 @@ export default function RussianHeader() {
                 Оценить дом
               </Button>
               <a
-                href="tel:16192772766"
+                href="tel:+16192772766"
                 className="flex items-center gap-2 text-[#12202A] hover:text-accent font-semibold text-[14px] transition-colors"
               >
                 <Phone className="w-4 h-4" />

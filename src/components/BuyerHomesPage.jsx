@@ -86,7 +86,7 @@ export default function BuyerHomesPage() {
                 See Featured Listings
               </a>
               <a
-                href="tel:6192772766"
+                href="tel:+16192772766"
                 className="bg-white hover:bg-gray-100 text-[#12202A] font-bold px-8 py-4 rounded-md text-lg shadow-lg transition-colors"
               >
                 Call (619) 277-2766

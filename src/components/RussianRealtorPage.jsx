@@ -16,7 +16,7 @@ export default function RussianRealtorPage() {
   // avoid the redundant/inconsistent per-component pattern.
 
   const handleCall = () => {
-    window.location.href = "tel:6192772766";
+    window.location.href = "tel:+16192772766";
   };
 
   const handleEmail = () => {
