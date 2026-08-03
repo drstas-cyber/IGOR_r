@@ -338,7 +338,22 @@ export async function main({
 
   const topic = pickNextAvailableTopic(topics, attempted);
   if (!topic) {
-    console.log('[generate] no available topics — every topic in topics.json has already been attempted (real article or open rejected-attempt PR). Nothing to do.');
+    // Deliberately loud and non-zero (2026-08-03) — this used to be a plain
+    // console.log with no exit code, the one early-return in this function
+    // that didn't fail the run, unlike every guard clause above and below
+    // it. On a schedule that's a silent, permanently-green no-op once
+    // topics.json runs dry: no PR, no marker, nothing ground-truth-visible,
+    // discovered only by a human happening to notice the queue never
+    // refills. `::error::` is the same GitHub Actions annotation mechanism
+    // checkRejectedMarker.mjs already uses (there via ::warning::) — it
+    // surfaces in the run's Annotations list, not just buried in the log.
+    // NOT a gate trip and NOT a bug: no rejected-attempt marker gets
+    // written (there is no discarded draft to record — generation never
+    // started) and no PR of either kind opens. The fix is operational
+    // (add topics to topics.json), not a prompt or gate problem, so it
+    // must never look like either of those in the Actions list.
+    console.error('::error::[generate] QUEUE EXHAUSTED — every topic in topics.json has already been attempted (real article or open rejected-attempt PR). This is not a gate trip and not a bug: add more topics to topics.json. See tools/blog-generator/README.md, "What happens when the queue runs dry."');
+    process.exitCode = 1;
     return;
   }
   console.log(`[generate] topic: "${topic.topic}" (keyword: "${topic.target_keyword}")`);
