@@ -29,6 +29,7 @@ import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from 
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
 import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
+import { computeAllSilent } from './autoPublishGate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -419,6 +420,12 @@ export async function main({
     layer1: gateResult.layer1,
     layer2: gateResult.layer2,
     layer3: gateResult.layer3,
+    // violationsFound (2026-08-03): previously computed but never carried
+    // into the report — added so it's visible in the PR body/audit trail
+    // and so computeAllSilent() (the auto-publish gate) has it without a
+    // second parameter thread. Present on every outcome, not just
+    // 'generated' — a tripped run's self-review pass still ran.
+    selfReview: { violationsFound: reviewed.violations_found || [] },
     outcome: null,
   };
 
@@ -488,11 +495,19 @@ export async function main({
   report.article = { title: article.title, slug: article.slug };
   report.outcome = 'generated';
   report.outputPath = path.relative(PROJECT_ROOT, outPath);
+  // allSilent (2026-08-03, owner decision — see README.md "Automated
+  // publishing"): computed here, once, on the same report object the PR
+  // body and checkAllSilent.mjs both read — never re-derived separately
+  // by the workflow (which would mean two places could disagree about
+  // what "silent" means). See autoPublishGate.mjs for exactly what this
+  // requires.
+  report.allSilent = computeAllSilent(report);
   writeReport(report, reportPath);
 
   console.log(`[generate] SUCCESS — wrote ${path.relative(PROJECT_ROOT, outPath)}`);
   console.log(`[generate] title: ${article.title}`);
-  console.log(`[generate] published: ${article.published} (deliberately false — flipping to true is a separate, explicit PR-review edit)`);
+  console.log(`[generate] published: ${article.published} (deliberately false — flipping to true is a separate, explicit edit, whether done by the auto-publish path or a human PR review)`);
+  console.log(`[generate] allSilent: ${report.allSilent} (${report.allSilent ? 'eligible for auto-merge/auto-publish' : 'holds for a supervised human read'})`);
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));

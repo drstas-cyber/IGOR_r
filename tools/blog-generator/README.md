@@ -7,22 +7,25 @@ risk of scaled AI content on a domain that also hosts paid landing pages —
 so this is deliberately built as a **low-volume, human-edited pipeline**,
 not a content farm:
 
-- `topics.json` seeds **20** topics, not 100. It's trivially extensible
-  (just add another `{topic, target_keyword}` entry), but 20 is the
-  deliberate starting scope. It carries **no status field** — see "How
-  topic availability is decided" below for why and how "already attempted"
-  is derived instead.
+- `topics.json` seeds **40** topics (restocked from 20, 2026-08-03 —
+  see "Automated publishing" below). Trivially extensible (just add
+  another `{topic, target_keyword}` entry). It carries **no status
+  field** — see "How topic availability is decided" below for why and
+  how "already attempted" is derived instead.
 - Every PR this pipeline opens is a **review-and-EDIT step, not a rubber
-  stamp.** Read the article. Both gates passing means "no known automated
-  red flag," not "ready to publish as-is."
-- Cadence is scheduled — weekly, Mondays 14:00 UTC / 7am Pacific — as of
-  2026-08-01 (`workflow_dispatch` stays available alongside the cron; see
-  "On ever enabling cron" below for the decision record). **The schedule
-  only controls how often a PR gets opened.** Publishing is a separate,
-  still-fully-manual gate: every PR the cron opens gets the exact same
-  full supervised read as a manually-triggered one, and nothing merges
-  without it. Cron widens the top of the funnel, not the gate at the
-  bottom.
+  stamp** — UNLESS the run was perfectly silent, in which case it merges
+  and publishes automatically as of 2026-08-03 (owner decision — see
+  "Automated publishing" below for the exact conditions). Any finding
+  anywhere, including a log-only one, still means: read the article, both
+  gates passing means "no known automated red flag," not "ready to
+  publish as-is."
+- Cadence: every other day, 14:00 UTC, as of 2026-08-03 (`workflow_dispatch`
+  stays available alongside the cron; supersedes the 2026-08-01 weekly-cron
+  decision — see "Automated publishing" below). **The schedule controls
+  how often a PR gets opened AND, on a perfectly silent run, whether it
+  auto-publishes.** A run with any finding still requires a full supervised
+  human read before merge, exactly as before — cron changed cadence and
+  added the silent-only fast path; it did not touch the gates themselves.
 
 ## How this fits with the existing pipeline
 
@@ -362,11 +365,16 @@ do clicking through a mirror instead of the source of record.
 ## Publishing (merge ≠ publish)
 
 Generated articles default to `published: false`. Merging the PR to `main`
-does **not** put the article live — a human has to make a **separate,
-deliberate edit**: open the generated article's JSON file and flip
-`"published": false` to `"published": true"`. This is a second safety gate
-independent of the PR review itself, matching the "review-and-EDIT, not
-rubber-stamp" framing above.
+does **not** put the article live by itself — flipping `"published": false`
+to `"published": true"` is a second, separate gate, done via
+`setPublished.mjs` (extracted 2026-08-03) either by a human after a
+supervised read, or automatically on a perfectly-silent run as of
+2026-08-03 — see "Automated publishing" below for the exact conditions and
+why a human read is still the default path for anything with a finding.
+
+`setPublished.mjs --slug=<slug> --value=false` is also the exact rollback
+command for the retrospective-audit compensating control (see "Automated
+publishing" §4) — the same script, opposite direction.
 
 At build time, `tools/fetch-blog-data.js` merges eligible (`published:
 true`) generated articles with whatever BabyLoveGrowth contributes, handling
@@ -379,7 +387,8 @@ appears later.
 
 ## The GitHub Actions workflow
 
-`.github/workflows/generate-article.yml` — `workflow_dispatch` only, with a
+`.github/workflows/generate-article.yml` — `workflow_dispatch` plus a
+schedule as of 2026-08-03 (see "Automated publishing" above), with a
 `concurrency` group (`generate-article`, `cancel-in-progress: false`) so a
 second trigger queues behind an in-flight run instead of racing it — two
 runs starting close together could otherwise both read the same
@@ -412,12 +421,28 @@ Required repo setup before the first run:
 4. If branch protection on `main` requires status checks or blocks the
    `github-actions[bot]` actor from opening PRs, that will need to change —
    this cannot be verified without a real run (see the build report's
-   "cannot verify without pushing" list).
+   "cannot verify without pushing" list). As of 2026-08-03 this also
+   applies to *merging*: the auto-merge step (see "Automated publishing"
+   above) runs `gh pr merge` as the same actor/token, gated behind
+   `gh pr checks --watch` passing first — if branch protection blocks that
+   actor from merging (as opposed to just opening PRs), the auto-merge
+   step fails, the job goes red, and the PR is left open exactly as it
+   would be for a non-silent run, just with a failed auto-merge attempt
+   as the reason rather than a finding. Not distinguishable from a real
+   infra failure by the Monday-morning signal table alone — check the job
+   log if an "all-silent" PR is unexpectedly still open.
 
 ## On ever enabling cron
 
-**Enabled 2026-08-01.** The three conditions this section used to gate on,
-checked against the actual state at the time:
+**Superseded 2026-08-03 — see "Automated publishing" below.** This section
+is kept as the historical record of the original weekly-cron decision; the
+cadence, topic count, and queue-exhausted status described below are all
+stale as of the newer decision. Left in place rather than deleted, same
+reasoning as every other decision record in this file: the reasoning stays
+readable even after the decision it describes is superseded.
+
+**Enabled 2026-08-01 (superseded 2026-08-03).** The three conditions this
+section used to gate on, checked against the actual state at the time:
 
 (a) **topics.json has meaningfully more than 20 entries so it doesn't dry
 up in weeks** — **not clearly met.** `topics.json` has 21 entries, not
@@ -465,21 +490,202 @@ that doesn't, and nothing in `.github/workflows/generate-article.yml`
 checks for "job succeeded but opened no PR of either kind" as its own
 signal either.
 
-**Practical consequence:** once `topics.json` actually runs dry, the
-weekly cron will run green, silently, indefinitely, doing nothing —
-forever, or until someone happens to notice 15 (now fewer) weeks of
-silence. This is the same failure class ("a discarded run left no
-ground-truth trace") the rejected-attempt-marker mechanism was built to
-close for gate trips — it was never extended to cover the empty-queue
-case. **This is a known gap, not a fixed one** — flagged here rather than
-silently patched, since it changes `generate.mjs`'s control flow and this
-README's own "any prompt.md change requires re-running the acceptance
-discipline" spirit argues for treating pipeline-behavior changes as
-deliberate, reviewed decisions rather than incidental fixes. Until it's
-addressed (e.g. matching the other guards' `process.exitCode = 1`, or an
-explicit "queue exhausted" notification step), the practical mitigation is
-the runway math in (a) above — restock `topics.json` before the ~15-week
-runway closes, and don't assume silence means "on track."
+**Fixed 2026-08-03** (the day after this was written) — `generate.mjs`'s
+"no available topics" branch now sets `process.exitCode = 1` and emits a
+`::error::` GitHub Actions annotation (same mechanism `checkRejectedMarker.
+mjs` already used via `::warning::`), so it surfaces as a distinct red run
+with a visible annotation, not a silent green no-op. Verified empirically
+against the same isolated fixture that exposed the gap: `process.exitCode`
+went from `undefined` to `1` on an otherwise-identical run. Deliberately
+does NOT write a rejected-attempt marker or open a PR — there's no
+discarded draft to record, this is an operational signal (topics.json
+needs more entries), not a content event. See `autoPublishGate.mjs`'s
+sibling `checkAllSilent.mjs` for the same "read the structured report,
+don't parse logs" discipline applied to this era's harder problem
+(auto-publish eligibility). The queue-exhausted red run is now this
+pipeline's backstop against silently running dry — not the plan for
+managing the topic queue, which is restocking `topics.json` proactively
+(see "Automated publishing" below for the current runway numbers).
+
+## Automated publishing (owner decision, 2026-08-03)
+
+**Supersedes the 2026-08-01 weekly-cron decision above.** Owner (Stan)
+instruction, explicit, this date. Nothing here weakens the gates
+themselves — every check that existed before this decision still runs,
+still means the same thing, and still holds a PR for a human on any
+finding. What changes is what happens on a run with **zero** findings of
+any kind: it now merges and publishes itself, with a standing weekly
+retrospective audit as the compensating control for removing the pre-
+merge human read on that one path.
+
+### 1. Cadence
+
+Every other day, 14:00 UTC (`0 14 */2 * *`), `workflow_dispatch` kept
+alongside. `*/2` in the day-of-month field means "every odd day of the
+month" — accepted, known quirk: a 31-day month fires on day 31 and day 1
+of the next month on consecutive calendar days, since cron has no
+month-boundary-surviving "every N days" concept. Considered and rejected
+`0 14 * * 1,3,5` (Mon/Wed/Fri): cleaner and drift-free, but it changes the
+cadence to 3 fixed weekdays with an irregular 3-day Fri→Mon gap, which
+reads as a different schedule shape rather than "every other day." `*/2`
+stays truer to what was actually asked for; the quirk's worst case (one
+extra generation attempt around 31-day month boundaries, ~7×/year,
+costing at most one topic) is immaterial at this pipeline's volume.
+
+### 2. The auto-publish path — exact conditions
+
+A cron-generated PR (real article, `outcome: 'generated'`) auto-merges and
+auto-publishes **only** when every one of these holds — see
+`autoPublishGate.mjs`'s `computeAllSilent()` for the actual implementation,
+covered by `autoPublishGate.test.mjs`:
+
+- **Layer 1:** zero findings of any kind, **including log-only demoted
+  ones** (`exclusivity:only` / `exclusivity:superlative`, demoted for
+  generator articles — see "Layer 1's real-world hit rate" above). A
+  demoted finding still means the scanner saw something.
+- **Layer 1's separate uncited-claim-candidate signal**
+  (`findUncitedClaims()`) also zero — a distinct log-only mechanism from
+  the demoted findings above, still a signal, not silence.
+- **Layer 2:** every boolean in the independent LLM checklist false
+  (`layer2.tripped === false` — already exactly that, reused directly).
+- **Layer 3:** every citation `RESOLVED`. `failed`/`unsupported` already
+  trip Layer 3's own gate; `inconclusive` (`UNREACHABLE_LIKELY_BOT`) does
+  **not** trip Layer 3 on its own (a bot-block is inconclusive, not proof
+  of a bad citation) but **does** disqualify auto-silent — inconclusive is
+  not the same thing as verified. Zero citations is silent (nothing to
+  verify is not the same as something unverified).
+- **Schema:** clean — guaranteed by construction; a schema-invalid draft
+  never reaches `outcome: 'generated'` in the first place.
+- **Self-review:** zero violations found, full stop — **narrower than "no
+  real corrections beyond formatting" reads on its face, a deliberate,
+  disclosed decision, not a silent gap.** `violations_found` is a
+  free-text description array with no structured formatting-vs-substantive
+  classification. Guessing that distinction with a keyword match would be
+  exactly the kind of fragile text-parsing this whole design instruction
+  said not to do ("implement the auto-merge as a machine-readable flag...
+  don't parse logs" applies just as much to parsing a model's own
+  free-text self-description as to parsing a job log). Until the
+  self-review tool schema grows an actual structured classification, any
+  correction — formatting or not — holds the PR for a human read.
+
+**ANY finding anywhere — even log-only — holds the PR for a supervised
+read, exactly as before this decision.** Silence publishes; signal waits
+for a human. This is the standing rule, unchanged: *a PR that fails its
+read does not merge, cron or no cron* — extended to *a PR with any finding
+at all, however minor, does not auto-merge*.
+
+### 3. Mechanism
+
+`report.allSilent` is computed once, in `generate.mjs`, on the same report
+object the PR body and the auto-merge check both read (`computeAllSilent()`
+never re-derived a second way that could disagree with itself).
+`checkAllSilent.mjs` (matching `checkRejectedMarker.mjs`'s exact extracted,
+fail-closed, three-state-aware pattern) reads that report and emits
+`all_silent`/`article_slug` to `$GITHUB_OUTPUT` — the workflow's auto-merge
+step gates on that flag, never on log text.
+
+On `all_silent == 'true'`: the workflow first runs `gh pr checks --watch`
+on the just-opened PR and only merges if the PR's own required checks
+(build-check, Cloudflare Pages preview) pass — a silent article whose
+build genuinely breaks does not get merged just because the content gates
+were clean. After a successful merge, a separate step fetches main fresh,
+runs `setPublished.mjs --slug=<slug> --value=true` and
+`headersCacheEntry.mjs --slug=<slug>`, and commits both changes together
+as **one** atomic commit (`blog: auto-publish "<slug>" (perfectly silent
+run)`) — unlike the human-read path's two separate commits (read, then a
+distinct publish-flag flip), there's no separate human judgment call to
+represent as two edits here; the auto-merge itself *is* the combined
+decision, so recording it as one commit is more honest than manufacturing
+a fake split.
+
+**Failure mode, by design:** if `setPublished.mjs` or `headersCacheEntry.
+mjs` throws (e.g. the `_headers` 100-rule cap, see §5 below) after the PR
+has already merged, the step aborts (GitHub Actions' default `-e` for
+`run:` blocks) before the commit/push ever happens. The article lands on
+`main`, merged, but `published: false` — a safe, visibly-incomplete state
+(nothing goes live wrong), not silent: the job is red, requiring a human
+to notice and finish the publish step by hand using the same two scripts.
+
+### 4. Compensating control — retrospective audit
+
+Pre-merge human reads no longer happen on silent runs, so the floor moves
+from *before* publish to *after*: a **standing weekly audit** — the full
+six-category read (fabricated speech, misattributed quotes, prohibited
+claims, stats-vs-citations, identity block, quality/rendering) of
+**everything auto-published that week**, report-only, same verdict scale
+(CLEAR / NEEDS-FIX / REJECT) used for every prior audit in this project.
+Stan can run it manually (his own stated fallback, Mondays) or it can be
+delegated the same "owner-delegated read" way individual article reads
+already have been (see "Owner-delegated reads" above) — either way, it is
+a standing commitment this decision depends on, not optional follow-up.
+
+**Rollback — the one-commit unpublish line**, for an article that fails
+retrospectively:
+
+```
+node tools/blog-generator/setPublished.mjs --slug=<slug> --value=false
+git add src/data/generated-articles/<slug>.json
+git commit -m "blog: unpublish <slug> -- failed retrospective audit (<one-line reason>)"
+git push origin main
+```
+
+Deliberately does **not** touch `public/_headers` — the cache-entry rule
+stays (a 404/removed page is a separate, later decision if the article is
+permanently retired, not an automatic side effect of unpublishing) and
+does **not** delete the `generated-articles/<slug>.json` file — the
+content and its full gate/audit history stay in git history either way,
+matching this pipeline's existing "never delete, always record" pattern
+for rejected-attempt markers.
+
+### 5. Topic runway
+
+Restocked `topics.json` from 20 to **40** entries, 2026-08-03, same rules
+as the original 20 (no competitor topics, no exclusivity/tenure bait),
+biased toward citable statute/county-fact subjects over market-practice
+ones per instruction (new topics: PCOR, documentary transfer tax, natural
+hazard disclosure, agency relationship disclosure, Prop 19 base-year
+transfers, the homeowners' property tax exemption, title insurance,
+TDS exemptions, property tax appeals, Fair Housing Act, recorded closing
+documents, grant vs. quitclaim deeds, the Real Estate Recovery Fund,
+Davis-Stirling HOA board elections, HOA reserve studies, seller disclosure
+timelines, 1031 exchanges, the supplemental property tax bill, and the
+Right to Repair Act).
+
+6 topics attempted (5 published articles + escrow guide), **34 available**.
+At this cadence (~15 successful generations/month, extrapolating from 6/6
+clean so far), that's roughly **68 days (~2.3 months)** of runway. The
+queue-exhausted red run (fixed 2026-08-03, above) is the backstop if this
+estimate is wrong, not the plan — restock before it fires.
+
+### 6. `_headers` automation — and the runway that actually binds first
+
+`headersCacheEntry.mjs` generates and inserts the per-route Cloudflare
+Pages cache-entry pair from a slug automatically (see Mechanism above) —
+the manual step that produced the exact "guaranteed future miss" this
+instruction named. `insertCacheEntry()` is idempotent (a slug that already
+has an entry is a no-op, not a duplicate) and fails closed at Cloudflare
+Pages' **100-rule limit**, refusing to write a file that would break at
+deploy time rather than shipping it and finding out later.
+
+**Verified against the real file, 2026-08-03: 72 of 100 rules used.**
+Each new article costs 2 rules, so **14 more articles fit** before the
+cap. At this cadence's ~15 successful generations/month, that's roughly
+**28 days (~1 month) of runway — the constraint that actually binds
+first**, well before the 68-day topic runway above. **Flagging this
+plainly rather than letting the topic-runway number read as the whole
+picture:** within about a month, `insertCacheEntry()` will start throwing
+on every silent run, which (per the failure mode in §3) leaves each
+article merged-but-unpublished until a human intervenes — not a broken
+build, but a real, foreseeable interruption to the auto-publish path if
+nothing changes first.
+
+**Available headroom, not exercised here:** 50 of the current 72 rules
+(69%) are the "Dead BabyLoveGrowth blog articles" `noindex` block (25
+retired slugs × 2 forms), added 2026-07-24 for pages that were already
+fully deindex-verified live at the time. Whether enough time has now
+passed to safely prune some or all of that block is a real SEO-timing
+judgment call outside this task's scope — noted here as the lever that
+exists, not pulled.
 
 ## Any prompt.md change requires re-running the acceptance discipline
 

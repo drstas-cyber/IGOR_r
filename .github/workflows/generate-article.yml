@@ -1,17 +1,31 @@
 name: generate-article
 
-# Scheduled generation, manual trigger kept alongside — this is still a
-# low-volume, human-edited pipeline, not a content farm. See
-# tools/blog-generator/README.md, "On ever enabling cron" for the three
-# conditions that gated this and the 2026-08-01 decision record.
+# Cadence changed 2026-08-03 (owner decision, supersedes the 2026-08-01
+# weekly-cron decision): every other day, 14:00 UTC. See
+# tools/blog-generator/README.md, "Automated publishing" for the full
+# record. `*/2` in the day-of-month field means "every odd day of the
+# month" (1,3,5,...,31) -- accepted, known quirk: a 31-day month fires on
+# day 31 AND day 1 of the next month on consecutive calendar days, since
+# cron has no "every N days" concept that survives a month boundary. The
+# clean alternative (`0 14 * * 1,3,5`, Mon/Wed/Fri) was considered and
+# rejected: it changes the cadence to 3 fixed weekdays/week with an
+# irregular 3-day Fri->Mon gap, which isn't "every other day" so much as a
+# different schedule shape -- `*/2` stays truer to what was actually
+# asked for, and the quirk's worst case (one extra generation attempt,
+# ~7x/year, consuming at most one topic) is immaterial at this pipeline's
+# cost and volume.
 #
-# Cron opens PRs. It never merges them. Every PR this schedule opens still
-# requires a full supervised read before merge — enabling the schedule
-# changes generation cadence only, not the publish gate.
+# Auto-publish note (2026-08-03): a PR this schedule opens now merges AND
+# publishes automatically, but ONLY when the run was perfectly silent --
+# see the "Check whether the run was perfectly silent" / "Auto-merge" /
+# "Publish" steps below and README.md's "Automated publishing" section.
+# ANY finding anywhere, including a log-only one, still holds the PR for
+# a supervised human read exactly as before this change. Cron controls
+# generation cadence; it does not weaken what gets published unread.
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 14 * * 1'  # Mondays 14:00 UTC / 7am Pacific (PDT)
+    - cron: '0 14 */2 * *'  # every other day (odd days of month), 14:00 UTC / 7am Pacific (PDT)
 
 permissions:
   contents: write
@@ -108,6 +122,19 @@ jobs:
         if: always()
         run: node tools/blog-generator/checkRejectedMarker.mjs >> "$GITHUB_OUTPUT"
 
+      # Auto-publish gate (owner decision, 2026-08-03) — reads the
+      # STRUCTURED report generate.mjs wrote (report.allSilent, computed by
+      # autoPublishGate.mjs), never the job log. "Don't parse logs" applies
+      # here the same way it already applies to has_new_article/
+      # has_rejected_marker above. Safe to run unconditionally (always()):
+      # checkAllSilent.mjs fails closed on a missing report or a non-
+      # 'generated' outcome, so it correctly reports all_silent=false on a
+      # tripped/skipped run without needing its own extra guard condition.
+      - name: Check whether the run was perfectly silent (auto-publish eligible)
+        id: check_silent
+        if: always()
+        run: node tools/blog-generator/checkAllSilent.mjs >> "$GITHUB_OUTPUT"
+
       # Only reached (and only opens a PR) when generate.mjs actually wrote a
       # new file — a tripped/skipped/failed run has nothing new under
       # src/data/generated-articles/, so this step is a no-op and the job's
@@ -121,6 +148,7 @@ jobs:
       # infer. See the sibling rejected-attempt step below for why this
       # actually matters, not just for symmetry.
       - name: Open PR with the generated article
+        id: open_pr
         if: success() && steps.check.outputs.has_new_article == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -194,3 +222,80 @@ jobs:
           add-paths: |
             src/data/generated-articles/.rejected/
             tools/blog-generator/citation-host-log.json
+
+      # ----------------------------------------------------------------
+      # Automated publishing (owner decision, 2026-08-03) — see
+      # tools/blog-generator/README.md "Automated publishing" for the
+      # full condition list, the retrospective-audit compensating
+      # control, and the one-commit unpublish rollback line.
+      #
+      # Gated on steps.check_silent.outputs.all_silent == 'true', which
+      # is ONLY 'true' when report.outcome === 'generated' AND
+      # report.allSilent === true (autoPublishGate.mjs) — Layer 1 zero
+      # findings including log-only, Layer 2 all checks false, Layer 3
+      # every citation RESOLVED, self-review zero violations, schema
+      # already guaranteed clean by construction (a schema-invalid draft
+      # never reaches outcome: 'generated' at all). ANY finding anywhere
+      # leaves all_silent at 'false' and both steps below are no-ops —
+      # the PR opened above simply sits, exactly like every PR before
+      # this change, waiting for a supervised human read.
+      # ----------------------------------------------------------------
+
+      # Waits for the PR's own required checks (build-check, Cloudflare
+      # Pages preview) before merging — never merges on the strength of
+      # "the run was silent" alone. `gh pr checks --watch` blocks until
+      # every check resolves and exits non-zero if any of them failed,
+      # which aborts this step (bash's default `-e` for GitHub Actions
+      # `run:` blocks) before the merge command ever runs — a silent
+      # article whose build genuinely breaks does NOT get merged just
+      # because the content gates were clean.
+      - name: Auto-merge (perfectly silent run only)
+        id: auto_merge
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.open_pr.outputs.pull-request-number }}"
+          echo "[auto-merge] perfectly silent run -- waiting for PR #$PR_NUMBER's required checks before merging..."
+          gh pr checks "$PR_NUMBER" --watch
+          echo "[auto-merge] checks passed -- merging PR #$PR_NUMBER."
+          gh pr merge "$PR_NUMBER" --merge --delete-branch
+
+      # Runs only after a successful auto-merge above. Fetches the just-
+      # merged main fresh (never assumes what branch/state the workspace
+      # was left on by the create-pull-request action) and performs the
+      # exact same "full sequence" a human previously did across two
+      # commits (published:true flip, _headers cache entry) — here as one
+      # atomic commit, since there's no separate human judgment call
+      # splitting them on this path: the auto-merge itself IS the
+      # combined decision. setPublished.mjs and headersCacheEntry.mjs
+      # both fail closed (throw, non-zero exit, `-e` aborts the step) —
+      # on either failure the article lands on main merged but left
+      # published:false, a safe, visibly-incomplete state, never wrongly
+      # live. A step failure here still leaves the job red.
+      - name: Publish (perfectly silent run only) — flip published:true, add _headers entry, commit, push
+        if: success() && steps.auto_merge.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SLUG="${{ steps.check_silent.outputs.article_slug }}"
+          git fetch origin main
+          git checkout -B main origin/main
+          node tools/blog-generator/setPublished.mjs --slug="$SLUG" --value=true
+          node tools/blog-generator/headersCacheEntry.mjs --slug="$SLUG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "src/data/generated-articles/${SLUG}.json" public/_headers
+          git commit -m "blog: auto-publish \"$SLUG\" (perfectly silent run)
+
+          Merge + published:true flip + _headers cache entry, done
+          automatically because this run tripped nothing anywhere: Layer 1
+          zero findings (including log-only), Layer 2 all checks false,
+          Layer 3 every citation RESOLVED, self-review zero violations.
+          See tools/blog-generator/README.md, \"Automated publishing\",
+          for the full condition list and the retrospective-audit
+          compensating control that reviews everything this path
+          publishes.
+
+          Run: ${{ github.run_id }}"
+          git push origin main

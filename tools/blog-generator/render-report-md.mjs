@@ -28,6 +28,12 @@ lines.push('');
 if (report.outcome === 'generated') {
   lines.push(`**Article:** ${report.article.title} (\`${report.article.slug}\`)`);
   lines.push('');
+  lines.push(
+    report.allSilent
+      ? '**Perfectly silent — auto-merge/auto-publish path.** Zero findings anywhere (including log-only), all Layer 2 checks false, every citation RESOLVED, self-review found nothing to fix. This PR merges and publishes automatically; see `tools/blog-generator/README.md`, "Automated publishing."'
+      : '**Not perfectly silent — holds for a supervised human read**, same standing rule as before automated publishing existed. See the findings below for what disqualified the auto-publish path.'
+  );
+  lines.push('');
 }
 lines.push('---');
 lines.push('');
@@ -49,6 +55,16 @@ if (report.layer1.uncitedClaimCandidates?.length) {
   }
 }
 lines.push('');
+if (report.selfReview) {
+  lines.push('### Self-review (writer model, second pass)');
+  if (report.selfReview.violationsFound?.length) {
+    lines.push(`${report.selfReview.violationsFound.length} correction(s) found and fixed:`);
+    for (const v of report.selfReview.violationsFound) lines.push(`- ${v}`);
+  } else {
+    lines.push('_None — the draft was already clean per the model._');
+  }
+  lines.push('');
+}
 lines.push('### Layer 2 — independent LLM claim review (claude-haiku-4-5-20251001)');
 lines.push(`Tripped: **${report.layer2.tripped}**`);
 const c = report.layer2.checklist;
@@ -105,6 +121,10 @@ if (report.outcome === 'schema_invalid' && report.schemaErrors?.length) {
 }
 lines.push('---');
 lines.push('');
-lines.push('**Reminder for the reviewer:** gate-clean is not the same as compliant. This is a review-and-EDIT step, not a rubber stamp — read the article, don\'t just check that both gates say pass. Layer 3 proves citation URLs resolve, not that they support their claims — verifying that is part of the manual read too. If this is one of the first three articles this pipeline has produced under the current prompt, it requires a full manual read regardless of gate results (see `tools/blog-generator/README.md`).');
+lines.push(
+  report.outcome === 'generated' && report.allSilent
+    ? '**Reminder:** this run auto-merges and auto-publishes because it was perfectly silent. It is still covered by the weekly retrospective audit — a full six-category read of everything auto-published that week, report-only, same verdict scale. An article that fails retrospectively gets unpublished by a single documented commit (see `tools/blog-generator/README.md`, "Automated publishing").'
+    : '**Reminder for the reviewer:** gate-clean is not the same as compliant. This is a review-and-EDIT step, not a rubber stamp — read the article, don\'t just check that both gates say pass. Layer 3 proves citation URLs resolve, not that they support their claims — verifying that is part of the manual read too. If this is one of the first three articles this pipeline has produced under the current prompt, it requires a full manual read regardless of gate results (see `tools/blog-generator/README.md`).'
+);
 
 console.log(lines.join('\n'));
