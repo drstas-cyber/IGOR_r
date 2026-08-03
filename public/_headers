@@ -76,6 +76,14 @@
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 /blog/escrow-process-homebuyers-guide
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/home-staging-tips-for-sellers/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/home-staging-tips-for-sellers
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/california-seller-disclosure-requirements/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/california-seller-disclosure-requirements
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
