@@ -10,6 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toJsonLdScript } from '../src/lib/blog.js';
 import { buildHomepageFaqJsonLd } from '../src/data/homepage-faq.js';
+import { TESTIMONIALS } from '../src/data/testimonials.js';
+import { GOOGLE_REVIEWS_URL } from '../src/lib/reviews.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +72,30 @@ function htmlEscapeAttr(s) {
 
 function htmlEscapeText(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Homepage-only, plain-HTML crawler fallback for the testimonials section
+// (see the '/' route branch in main() for why this exists and why it's
+// wrapped in <noscript>). No schema involved -- see src/data/testimonials.js
+// for why that's intentional -- so this is the only mechanism that makes the
+// real review text reachable to a crawler that doesn't execute JS.
+function buildTestimonialsNoscriptHtml(testimonials, reviewsUrl) {
+  const cards = testimonials.map((r) => {
+    const stars = '★'.repeat(r.rating || 5);
+    return `<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #ddd;">
+          <p>${stars}</p>
+          <p>&quot;${htmlEscapeText(r.text)}&quot;</p>
+          <p><strong>${htmlEscapeText(r.reviewerName)}</strong> — ${htmlEscapeText(r.displayDate)} · <a href="${htmlEscapeAttr(r.sourceUrl)}">on Google</a></p>
+        </div>`;
+  }).join('\n');
+
+  return `<noscript>
+      <div style="max-width:800px;margin:0 auto;padding:40px 20px;font-family:sans-serif;">
+        <h2>What clients say</h2>
+        ${cards}
+        <p><a href="${htmlEscapeAttr(reviewsUrl)}">Read all reviews on Google</a></p>
+      </div>
+    </noscript>`;
 }
 
 function patchHead(html, seo, routePath) {
@@ -273,6 +299,18 @@ function main() {
       if (faqLd) {
         patched = patched.replace('</head>', `  <script type="application/ld+json">${faqLd}</script>\n</head>`);
       }
+
+      // Testimonials (2026-08-04): same visibility gap the FAQ block above
+      // exists to close -- a component-only section renders fine for live
+      // browsers but is invisible to a crawler that doesn't execute JS.
+      // Unlike the FAQ there's no schema to lean on here by design (see
+      // src/data/testimonials.js), so the actual visible text has to be
+      // reachable from raw HTML directly. Wrapped in <noscript> so it's
+      // inert, and never visibly duplicated, once React mounts over #root
+      // for a real, JS-enabled visitor -- same technique already used for
+      // the sitewide crawler-fallback block further down <body>.
+      const testimonialsHtml = buildTestimonialsNoscriptHtml(TESTIMONIALS, GOOGLE_REVIEWS_URL);
+      patched = patched.replace('<div id="root"></div>', `<div id="root"></div>\n\n    ${testimonialsHtml}`);
     }
     writeRouteHtml(route.path, patched);
 
