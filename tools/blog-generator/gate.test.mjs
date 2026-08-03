@@ -1,7 +1,7 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { scanArticle } from '../blog-compliance/scan.js';
-import { runLlmClaimGate } from './llmClaimGate.mjs';
+import { runLlmClaimGate, CHECKLIST_TOOL, REVIEWER_SYSTEM_PROMPT } from './llmClaimGate.mjs';
 import { verifyModel } from './modelVerify.mjs';
 import { runGates } from './generate.mjs';
 
@@ -120,6 +120,78 @@ describe('layer 2 (independent LLM claim review) — mocked API', () => {
   test('an undefined citations param does not throw -- serializes as an empty array', async () => {
     mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST));
     await assert.doesNotReject(() => runLlmClaimGate({ apiKey: 'test-key', model: 'claude-haiku-4-5-20251001', title: 't', contentHtml: '<p>x</p>' }));
+  });
+});
+
+// competitor_mention scope fix (2026-08-03) — triggered by a real, live
+// misfire: workflow run #19 (PR #23, gate trip) flagged competitor_mention
+// TRUE on "Buyers in this market compare homes against new construction in
+// growing communities like Sommers Bend and Heirloom Farms" — the model
+// read "communities" as competing businesses, not neighborhood names this
+// site's own content already uses throughout (Wolf Creek, Redhawk,
+// Harveston, etc.).
+//
+// IMPORTANT LIMIT ON WHAT THESE TESTS PROVE: no live ANTHROPIC_API_KEY was
+// available to re-run the actual model against the fixed prompt, so these
+// are plumbing tests (the code correctly acts on whatever checklist comes
+// back) plus a textual regression guard on the description/prompt content
+// itself — NOT proof the model's real judgment changed. That gap is
+// filled the same way this file's own header comment says it always is
+// for layer 2: "only proven by ... real runs against a live model." The
+// standing rule this refinement itself invokes covers it — the next
+// article this pipeline generates gets a full human read regardless of
+// silence, specifically as the acceptance check on this change (see
+// README.md's decision log entry, 2026-08-03).
+describe('competitor_mention scope fix (2026-08-03, run #19 misfire)', () => {
+  const REAL_MISFIRE_EVIDENCE_TEXT =
+    'Buyers in this market compare homes against new construction in growing communities like Sommers Bend and Heirloom Farms, ' +
+    'as well as established neighborhoods throughout Temecula, Murrieta, and Menifee.';
+
+  test('description text is explicitly scoped to agents/brokerages/teams/domains, not place names', () => {
+    const desc = CHECKLIST_TOOL.input_schema.properties.competitor_mention.description;
+    assert.match(desc, /AGENT|BROKERAGE|TEAM/);
+    assert.match(desc, /neighborhood/i);
+    assert.match(desc, /master-planned communit/i);
+    assert.match(desc, /Sommers Bend/);
+    assert.match(desc, /Heirloom Farms/);
+  });
+
+  test('system prompt reinforces the scope and overrides the general "when unsure, flag true" default for this one category', () => {
+    assert.match(REVIEWER_SYSTEM_PROMPT, /competitor_mention/);
+    assert.match(REVIEWER_SYSTEM_PROMPT, /does not override this scoping/i);
+  });
+
+  // Plumbing only (see block header): confirms the code does NOT trip the
+  // gate when the model correctly returns competitor_mention: false for
+  // text shaped exactly like the real misfire's evidence -- i.e. once the
+  // model gets this right, nothing downstream re-introduces a false trip.
+  test('PLUMBING: a checklist correctly returning false for the real misfire text does not trip the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST)); // competitor_mention: false
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 'Preparing Your Temecula Home for Sale',
+      contentHtml: `<p>${REAL_MISFIRE_EVIDENCE_TEXT}</p>`,
+    });
+    assert.equal(result.tripped, false);
+    assert.equal(result.checklist.competitor_mention, false);
+  });
+
+  // Plumbing only: confirms a REAL competitor mention (agent/team/domain)
+  // still trips exactly as before -- the rescoped, narrower description
+  // must not have accidentally narrowed it into never firing at all.
+  test('PLUMBING: a checklist correctly returning true for an actual competing agent/team/domain still trips the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', {
+      ...CLEAN_CHECKLIST,
+      competitor_mention: true,
+      competitor_evidence: 'Unlike the DeBonis Team or agents at meekerrealtygroup.com, we ...',
+    }));
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 't', contentHtml: '<p>Unlike the DeBonis Team or agents at meekerrealtygroup.com, we take a different approach.</p>',
+    });
+    assert.equal(result.tripped, true);
+    assert.equal(result.checklist.competitor_mention, true);
+    assert.match(result.checklist.competitor_evidence, /DeBonis Team|meekerrealtygroup\.com/);
   });
 });
 

@@ -761,6 +761,59 @@ where it demonstrably works. It's a narrow, evidenced demotion of exactly
 two subcategories that have shown poor precision on this specific writer's
 style, landed as a recorded decision rather than a silent config change.
 
+## Layer 2 `competitor_mention` scope fix — decided, 2026-08-03
+
+**Trigger:** run #19 (`generate-article` workflow, database ID
+`30831867535`) — the 2026-08-03 scheduled cron firing, delayed to 16:22
+UTC from its nominal 14:00 slot. Layer 2 flagged `competitor_mention:
+true` on: *"Buyers in this market compare homes against new construction
+in growing communities like Sommers Bend and Heirloom Farms, as well as
+established neighborhoods throughout Temecula, Murrieta, and Menifee."*
+The model read "communities" as competing businesses. The run was
+correctly discarded (PR #23, rejected-attempt marker, topic released on
+close) — the gate did its job, tripping fail-closed on a false positive
+rather than shipping something unreviewed. The finding itself was the
+bug: `competitor_mention`'s description was unscoped enough to sweep in a
+neighborhood/master-planned-community name, which this site's own content
+uses constantly (Wolf Creek, Redhawk, Harveston, Sommers Bend, Heirloom
+Farms, and every other neighborhood-guide topic in `topics.json`).
+
+**Fix:** `llmClaimGate.mjs`'s `CHECKLIST_TOOL.competitor_mention`
+description and `REVIEWER_SYSTEM_PROMPT` both rescoped explicitly to
+competing real estate **agents, brokerages, teams, and their
+websites/domains** (e.g. "the DeBonis Team", "meekerrealtygroup.com"),
+explicitly **excluding** neighborhood names, master-planned communities,
+housing developments, and builders' community names — with the exact
+Sommers Bend / Heirloom Farms example named in the prompt itself, plus an
+explicit note that the general "when unsure, flag true" instruction does
+not override this one category's scoping.
+
+**What proves this, and what doesn't — stated plainly:** no live
+`ANTHROPIC_API_KEY` was available to re-run the actual model against the
+fixed prompt and confirm its real judgment changed. `gate.test.mjs` has
+three new tests: a textual regression guard on the description/prompt
+content (would have failed against the pre-fix text, which contained
+none of "neighborhood," "master-planned," "Sommers Bend," or "Heirloom
+Farms"), and two plumbing tests (the code correctly acts on a
+`competitor_mention: false` response for text shaped like the real
+misfire, and correctly still trips on an actual competing agent/team/
+domain). These prove the code's handling and the prompt's stated intent —
+**not** the model's real behavior on a live call. Same limit this file's
+own "Why seven layers" section already states about layer 2 generally:
+"a mocked layer-2 test proves plumbing, not judgment... only proven by
+... real runs against a live model."
+
+**Acceptance check (standing rule invoked): the next article this
+pipeline generates gets a full human read regardless of what `allSilent`
+says**, specifically because this changes Layer 2 behavior — same
+discipline as "any prompt.md change requires re-running the acceptance
+discipline" below, applied here to a `llmClaimGate.mjs` change instead.
+Auto-publish stays correct by construction either way (a genuinely silent
+run still requires zero findings to auto-merge), but this one is getting
+a deliberate human look regardless, specifically to confirm the rescoped
+prompt behaves as intended on real model output before trusting it to
+gate unattended publishing again.
+
 ## Acceptance discipline for the rollout itself
 
 **The first THREE articles this pipeline ever produces get a full manual

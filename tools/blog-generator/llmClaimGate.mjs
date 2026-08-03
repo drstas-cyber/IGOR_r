@@ -15,7 +15,10 @@
 
 import { createMessage, extractToolInput } from './anthropicClient.mjs';
 
-const CHECKLIST_TOOL = {
+// Exported (2026-08-03) so the competitor_mention scoping fix is directly
+// testable against the actual description text sent to the model, not
+// just a plumbing test of code that happens to reference it elsewhere.
+export const CHECKLIST_TOOL = {
   name: 'report_compliance_check',
   description: 'Report findings from reviewing a real estate blog article against six compliance rules.',
   input_schema: {
@@ -34,7 +37,17 @@ const CHECKLIST_TOOL = {
       // from general knowledge of whether a number sounds plausible.
       uncited_statistic: { type: 'boolean', description: 'Does the article state a specific number, rate, percentage, dollar figure, date, or deadline that has NO corresponding entry in the citations array provided below (i.e., no inline data-cite marker + matching citations[] entry backs it up)? Cross-reference the citations array directly rather than judging from general knowledge of whether the number sounds right -- if a number is present with no matching citation, this is true regardless of whether the number happens to be accurate.' },
       statistic_evidence: { type: ['string', 'null'], description: 'Exact quoted sentence containing the uncited number, if uncited_statistic is true, else null.' },
-      competitor_mention: { type: 'boolean', description: 'Does the article name or reference a competitor, competitor domain, or frame content as a comparison against another agent/brokerage?' },
+      // Rescoped 2026-08-03 after run #19's real misfire (PR #23): "Buyers
+      // in this market compare homes against new construction in growing
+      // communities like Sommers Bend and Heirloom Farms" was flagged true
+      // -- the model read "communities" as competing businesses. Scoped
+      // explicitly to real estate agents/brokerages/teams/their websites,
+      // explicitly excluding neighborhoods, master-planned communities,
+      // housing developments, and builders' community names, which are
+      // legitimate local geography this site's own content already uses
+      // throughout (Wolf Creek, Redhawk, Harveston, Sommers Bend, Heirloom
+      // Farms, etc.).
+      competitor_mention: { type: 'boolean', description: 'Does the article name or reference a competing real estate AGENT, BROKERAGE, or TEAM, or their website/domain (e.g. "the DeBonis Team", "meekerrealtygroup.com"), or frame content as a comparison against another agent/brokerage? SCOPED NARROWLY to competing real estate businesses and their people/sites. Does NOT include neighborhood names, master-planned communities, housing developments, or builders\' community names -- "homes in Sommers Bend and Heirloom Farms" or "the Redhawk and Harveston neighborhoods" is ordinary local geography, never a competitor mention on its own, even though it names a "community."' },
       competitor_evidence: { type: ['string', 'null'] },
       contact_mismatch: { type: 'boolean', description: 'Does the article state any contact/identity detail (DRE, brokerage, phone, email) that does NOT exactly match: DRE 02034120, Allison James Estates & Homes, 619-277-2766, askgeorgek@gmail.com? (No contact info present at all is NOT a mismatch — false in that case.)' },
       contact_evidence: { type: ['string', 'null'] },
@@ -59,7 +72,7 @@ const CHECKLIST_TOOL = {
   },
 };
 
-const REVIEWER_SYSTEM_PROMPT = `You are an independent compliance reviewer for a real estate blog. You did
+export const REVIEWER_SYSTEM_PROMPT = `You are an independent compliance reviewer for a real estate blog. You did
 not write the article you're about to review. Read it carefully and report
 findings using the report_compliance_check tool — do not write prose, only
 call the tool. Be strict: partial or implied phrasing counts (e.g. "he's
@@ -75,7 +88,16 @@ matching entry is uncited, regardless of whether it sounds accurate. (2)
 legal_duty_overstated — for any claim about what a law "requires" or
 "mandates," compare the article's phrasing against the cited source's own
 language; flag it if the article states the duty more strongly or more
-absolutely than the source does.`;
+absolutely than the source does. (3) competitor_mention — scoped narrowly
+to competing real estate businesses: another agent's name, a brokerage or
+team name, or a competitor's website/domain (e.g. "the DeBonis Team",
+"meekerrealtygroup.com"). Does NOT include neighborhood names, master-
+planned communities, housing developments, or builders' community names —
+"homes in Sommers Bend and Heirloom Farms" is ordinary local geography this
+site's own content already uses throughout, never a competitor mention by
+itself just because it's called a "community." The general "when unsure,
+flag true" instruction above does not override this scoping — a place name
+is never competitor_mention regardless of how the sentence around it reads.`;
 
 // Returns { tripped: boolean, checklist: {...} }. tripped is computed here,
 // independently of anything the model claims about itself — never trust a
