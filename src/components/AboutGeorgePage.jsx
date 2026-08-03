@@ -21,7 +21,7 @@ export default function AboutGeorgePage() {
         <meta name="keywords" content="George Khazanovskiy, Temecula realtor, Russian speaking realtor Temecula, Ukrainian realtor Temecula, Allison James, DRE 02034120, Temecula real estate agent, trilingual realtor" />
 
         <meta property="og:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta property="og:description" content="Experienced, five-star reviewed, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee. Allison James Estates & Homes." />
+        <meta property="og:description" content="Experienced, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee. Allison James Estates & Homes." />
         <meta property="og:type" content="profile" />
         <meta property="og:url" content="https://temeculavalleyhomes.us/about-george/" />
         <meta property="og:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
@@ -30,7 +30,7 @@ export default function AboutGeorgePage() {
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="About George Khazanovskiy | Temecula Valley Realtor®" />
-        <meta name="twitter:description" content="Experienced, five-star reviewed, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee." />
+        <meta name="twitter:description" content="Experienced, Russian/Ukrainian-speaking realtor serving Temecula, Murrieta + Menifee." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/george-photo.jpg" />
 
         <script type="application/ld+json">{JSON.stringify({

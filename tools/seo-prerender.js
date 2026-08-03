@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toJsonLdScript } from '../src/lib/blog.js';
+import { buildHomepageFaqJsonLd } from '../src/data/homepage-faq.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -256,6 +257,22 @@ function main() {
     let patched = patchHead(baseHtml, seo, route.path);
     if (route.head) {
       patched = patched.replace('</head>', `  ${route.head}\n</head>`);
+    }
+    // Homepage FAQ schema (2026-08-05): extractHelmet() above only captures
+    // a fixed tag whitelist (title/meta/canonical/OG/Twitter) via regex --
+    // it does NOT read <script type="application/ld+json"> out of a
+    // component's <Helmet> at all. Without this, the FAQ schema added to
+    // HomePage.jsx's Helmet would render correctly for live browsers
+    // (client-side DOM update) but be silently absent from this static,
+    // crawler-visible HTML -- the exact bug class this homepage FAQ project
+    // exists to fix, just relocated. Injected directly from the same
+    // src/data/homepage-faq.js array HomepageFAQSection.jsx renders, same
+    // pattern buildBlogPostHead() already uses for blog articles below.
+    if (route.path === '/') {
+      const faqLd = toJsonLdScript(buildHomepageFaqJsonLd());
+      if (faqLd) {
+        patched = patched.replace('</head>', `  <script type="application/ld+json">${faqLd}</script>\n</head>`);
+      }
     }
     writeRouteHtml(route.path, patched);
 

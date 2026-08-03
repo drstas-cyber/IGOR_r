@@ -10,12 +10,16 @@ import GoogleReviews from '@/components/GoogleReviews';
 import ContactForm from '@/components/ContactForm';
 import AgentBioSection from '@/components/AgentBioSection';
 import ListingAlertsSection from '@/components/ListingAlertsSection';
+import HomepageFAQSection from '@/components/HomepageFAQSection';
 import MobileBottomBar from '@/components/MobileBottomBar';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
+import { buildHomepageFaqJsonLd } from '@/data/homepage-faq';
+import { toJsonLdScript } from '@/lib/blog';
 
 export default function HomePage() {
   const { toast } = useToast();
+  const faqJsonLd = toJsonLdScript(buildHomepageFaqJsonLd());
 
   // Cross-page "/#home-value" links (StickyNavigation, on pages other than
   // "/") land here via a full page load, which the browser tries to
@@ -64,6 +68,7 @@ export default function HomePage() {
         <meta name="twitter:title" content="Temecula Valley Homes For Sale | George Khazanovskiy" />
         <meta name="twitter:description" content="Temecula Realtor George Khazanovskiy — Russian & Ukrainian speaking. Request a free home valuation or a no-obligation buyer consultation. DRE #02034120." />
         <meta name="twitter:image" content="https://temeculavalleyhomes.us/images/og-image.jpg" />
+        {faqJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />}
       </Helmet>
 
       <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
@@ -94,6 +99,10 @@ export default function HomePage() {
 
         {/* 8. Listing Alerts */}
         <ListingAlertsSection />
+
+        {/* 9. FAQ — visible text and FAQPage JSON-LD both generated from
+            src/data/homepage-faq.js; see that file's header comment. */}
+        <HomepageFAQSection />
         </main>
 
         <Footer />

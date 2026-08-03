@@ -176,7 +176,7 @@ export default function ContactPage() {
           <h2 className="text-xl font-serif font-bold text-white mb-4 text-center">Why George?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              ['Buyer-Side Specialist', '~80% of George’s practice is buyer representation.'],
+              ['Buyer-Side Specialist', 'George primarily represents buyers across Temecula Valley.'],
               ['Active Local Market', 'Strategic pricing and full-service marketing for Temecula sellers.'],
               ['Trilingual Agent', 'English, Russian, Ukrainian — serving all families.'],
               ['Allison James Estates & Homes', 'A trusted, full-service brokerage.'],
