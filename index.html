@@ -338,17 +338,19 @@
       }
     </script>
 
-    <!-- Schema.org Structured Data - Block 7: BreadcrumbList -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://temeculavalleyhomes.us/" },
-          { "@type": "ListItem", "position": 2, "name": "Russian Speaking Realtor", "item": "https://temeculavalleyhomes.us/russian-speaking-realtor-temecula" }
-        ]
-      }
-    </script>
+    <!-- Schema.org Structured Data - Block 7: BreadcrumbList REMOVED
+         2026-08-04 (audit item 1). This block was hardcoded and shipped
+         byte-identical on every route via this shared base template,
+         including every blog article -- position 2 always claimed
+         "Russian Speaking Realtor" regardless of the actual page, wrong
+         everywhere except that one route (and even there the item URL
+         was missing the trailing slash against site convention). Option
+         B chosen over per-route generation: correct per-route breadcrumbs
+         would need static injection in tools/seo-prerender.js AND
+         matching <Helmet> blocks in 8 separate page/article components --
+         disproportionate for what this was. A wrong breadcrumb is worse
+         than none; deleting the single shared block fixes every route and
+         every article at once, by construction. -->
   </head>
   <body>
     <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=PLACEHOLDER_PIXEL_ID&ev=PageView&noscript=1"/></noscript>
