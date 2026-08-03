@@ -20,12 +20,12 @@ export default function RussianRealtorPage() {
   };
 
   const handleEmail = () => {
-    window.location.href = "mailto:george@temeculavalleyhomes.us";
+    window.location.href = "mailto:askgeorgek@gmail.com";
   };
 
   const whyGeorgeFeatures = [
     { icon: "📍", title: "Местный эксперт", description: "Русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
-    { icon: "⭐", title: "5.0★ отзывов", description: "Исключительно положительные отзывы от десятков довольных семей в Южной Калифорнии." },
+    { icon: "🏡", title: "Бесплатная оценка", description: "Бесплатная, необязательная оценка стоимости вашего дома на основе анализа сравнимых продаж." },
     { icon: "📅", title: "Опытный риэлтор", description: "Лицензированный риэлтор с глубоким опытом переговоров и инвестиций." },
     { icon: "🗣️", title: "Двуязычный", description: "Свободно владею русским, украинским и английским. Никаких языковых барьеров." },
     { icon: "📝", title: "Сделки на русском", description: "Полное объяснение всех контрактов, инспекций и эскроу на вашем родном языке." },
@@ -193,7 +193,7 @@ export default function RussianRealtorPage() {
               <p className="font-sans text-[16px] text-gray-600 mb-6">Realtor® &middot; DRE #02034120</p>
               
               <div className="grid grid-cols-2 gap-3 mb-8 w-full">
-                {['Топ Риэлтор', 'Лицензированный риэлтор', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
+                {['Allison James Estates & Homes', 'Лицензированный риэлтор', 'Русский/Английский', 'Поддержка 7 дней'].map((stat, i) => (
                   <div key={i} className="bg-[#F5E6D3] text-[#12202A] text-[13px] sm:text-[12px] py-2 px-3 rounded-full text-center font-medium">
                     {stat}
                   </div>

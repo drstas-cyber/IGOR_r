@@ -60,7 +60,7 @@ export default function ListingAlertsSection() {
             Get New Listings Before Anyone Else
           </h2>
           <p className="font-sans text-[16px] text-[#E0E0E0] leading-[1.6] max-w-2xl mx-auto">
-            Instant alerts the moment a home hits the market in your target area — hours before Zillow or Redfin. Free. No obligation. Cancel anytime.
+            Instant alerts the moment a home hits the market in your target area — before they hit the major listing sites. Free. No obligation. Cancel anytime.
           </p>
         </motion.div>
 

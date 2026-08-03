@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { HOMEPAGE_FAQ } from '@/data/homepage-faq';
+import { linkifyContact } from '@/lib/linkifyContact';
 
 // Accessible by construction: native <details>/<summary> rather than a
 // hand-rolled ARIA accordion — keyboard-operable (Enter/Space toggle,
@@ -11,6 +12,26 @@ import { HOMEPAGE_FAQ } from '@/data/homepage-faq';
 // HOMEPAGE_FAQ — the same array HomePage.jsx's Helmet script and
 // tools/seo-prerender.js's static injection both read — so this text and
 // the FAQPage schema cannot drift apart.
+// Renders an answer string with its phone/email substrings turned into
+// real tel:/mailto: links -- see src/lib/linkifyContact.js. The FAQPage
+// JSON-LD (buildHomepageFaqJsonLd, in src/data/homepage-faq.js) reads
+// HOMEPAGE_FAQ's raw strings directly and never sees this transform, so
+// the schema's answer text stays plain, exactly as approved.
+function renderAnswer(answer) {
+  return linkifyContact(answer).map((segment, i) => {
+    if (typeof segment === 'string') return <React.Fragment key={i}>{segment}</React.Fragment>;
+    return (
+      <a
+        key={i}
+        href={segment.href}
+        className="text-[#C8920A] underline decoration-[#C8920A]/40 hover:decoration-[#C8920A] underline-offset-2"
+      >
+        {segment.text}
+      </a>
+    );
+  });
+}
+
 export default function HomepageFAQSection() {
   return (
     <section id="faq" className="bg-[#FAF6EF] py-[60px] px-[24px] lg:px-[80px]">
@@ -49,7 +70,7 @@ export default function HomepageFAQSection() {
                 </span>
               </summary>
               <p className="font-sans text-[15px] text-[#3A3A3A] leading-[1.7] mt-3 pr-8">
-                {item.answer}
+                {renderAnswer(item.answer)}
               </p>
             </details>
           ))}
