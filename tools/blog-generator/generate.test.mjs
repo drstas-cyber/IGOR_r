@@ -123,20 +123,20 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     assert.ok(fs.existsSync(markerPath));
   });
 
-  test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors — no title/slug/content_html', () => {
+  test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors, internalLinkErrors — no title/slug/content_html', () => {
     const dir = isolatedDir();
     const { markerPath } = handleTrippedGate(sampleReport(), { generatedDir: dir });
     const written = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
     assert.deepEqual(
       new Set(Object.keys(written)),
-      new Set(['sourceTopic', 'rejectedAt', 'failureClass', 'layer1', 'layer2', 'layer3', 'schemaErrors'])
+      new Set(['sourceTopic', 'rejectedAt', 'failureClass', 'layer1', 'layer2', 'layer3', 'schemaErrors', 'internalLinkErrors'])
     );
     assert.equal('title' in written, false);
     assert.equal('slug' in written, false);
     assert.equal('content_html' in written, false);
   });
 
-  test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid"', () => {
+  test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid", "internal_link_invalid" for outcome "internal_link_invalid"', () => {
     const dir = isolatedDir();
     const gateTrip = handleTrippedGate(sampleReport({ outcome: 'skipped' }), { generatedDir: dir });
     assert.equal(gateTrip.marker.failureClass, 'gate_trip');
@@ -146,6 +146,12 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     );
     assert.equal(schemaInvalid.marker.failureClass, 'schema_invalid');
     assert.deepEqual(schemaInvalid.marker.schemaErrors, ['citations[]: host "x" is not an approved citation host']);
+    const linkInvalid = handleTrippedGate(
+      sampleReport({ outcome: 'internal_link_invalid', internalLinkErrors: ['https://temeculavalleyhomes.us/blog/invented-slug/'] }),
+      { generatedDir: dir }
+    );
+    assert.equal(linkInvalid.marker.failureClass, 'internal_link_invalid');
+    assert.deepEqual(linkInvalid.marker.internalLinkErrors, ['https://temeculavalleyhomes.us/blog/invented-slug/']);
   });
 
   test('schemaErrors defaults to an empty array when not on the report (the normal gate-trip case)', () => {
@@ -426,6 +432,80 @@ describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
     assert.equal(report.outcome, 'schema_invalid');
     assert.equal('article' in report, false, 'the persisted report must not carry the discarded article\'s identity either');
     assert.ok(report.schemaErrors.length > 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Internal-link gate — full path (Batch B, Part 3, 2026-08-08). Mirrors the
+// schema-invalid discard test immediately above exactly: both gates pass,
+// schema validation passes, but the draft contains a link to a URL that is
+// not in knownRoutes -- must discard via the same handleTrippedGate path,
+// never write a real article, never lose the topic silently.
+// ---------------------------------------------------------------------------
+
+describe('main() — internal-link-invalid discard, full path (2026-08-08)', () => {
+  test('an invented internal link discards the run: exits non-zero, writes no real article, DOES write a rejected marker with failureClass internal_link_invalid', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      citations: [],
+      extraContentHtml: ' <a href="/blog/best-temecula-neighborhoods-guide-that-does-not-exist/">a guide</a>',
+    });
+    process.exitCode = undefined;
+
+    await main({
+      apiKey: 'test-key',
+      repo: 'owner/repo',
+      generatedDir,
+      topicsPath,
+      reportPath,
+      exec: noOpenPrsExec,
+    });
+
+    assert.equal(process.exitCode, 1, 'an internal-link-invalid run must exit non-zero, same as a schema-invalid discard');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir)
+      ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected')
+      : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file should be written');
+
+    const rejectedDir = path.join(generatedDir, '.rejected');
+    assert.ok(fs.existsSync(rejectedDir), 'a rejected-attempt marker must be written');
+    const markerFiles = fs.readdirSync(rejectedDir);
+    assert.equal(markerFiles.length, 1);
+    const marker = JSON.parse(fs.readFileSync(path.join(rejectedDir, markerFiles[0]), 'utf8'));
+    assert.equal(marker.failureClass, 'internal_link_invalid');
+    assert.ok(marker.internalLinkErrors.length > 0, 'the marker must carry the actual invalid link(s), not just a boolean');
+    assert.match(marker.internalLinkErrors.join(), /best-temecula-neighborhoods-guide-that-does-not-exist/);
+    assert.equal('title' in marker, false, 'never the discarded draft\'s identity');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'internal_link_invalid');
+    assert.equal('article' in report, false);
+  });
+
+  test('a link to a real known route (the homepage) passes the gate and the run completes normally', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      citations: [],
+      extraContentHtml: ' <a href="https://temeculavalleyhomes.us/">the homepage</a>',
+    });
+    process.exitCode = undefined;
+
+    await main({
+      apiKey: 'test-key',
+      repo: 'owner/repo',
+      generatedDir,
+      topicsPath,
+      reportPath,
+      exec: noOpenPrsExec,
+    });
+
+    assert.equal(process.exitCode, undefined, 'a valid internal link must not discard the run');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
   });
 });
 

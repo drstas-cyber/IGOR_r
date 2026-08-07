@@ -160,6 +160,49 @@ something works"), and organized with clear headings a reader can scan.
    If the article doesn't need a contact block, don't invent one. If it does,
    use only the values above, verbatim.
 
+## Internal linking (Batch B, Part 3, 2026-08-08)
+
+Articles SHOULD include 1–3 contextual internal links to relevant existing
+pages or articles on this site — but only when a link is genuinely useful to
+the reader at that point in the text, never forced in to hit a count.
+
+The user message for this run includes a list titled "Known live routes,"
+one line per route as `URL — Title`. This is the closed, exhaustive list of
+every real URL on the site as of this run — the homepage, the buyer page,
+the seller page, the Russian-language page, the About page, the Contact
+page, the blog index, and every currently published article.
+
+Rules for these links, no exceptions:
+
+- **Choose a link's URL only from the provided "Known live routes" list —
+  never invent a URL or a slug, never guess at what a page's URL "probably"
+  is.** If nothing on the list is genuinely relevant to a given sentence,
+  don't add a link there.
+- **Never link to `temeculavalleyhomes.com`** — see rule 7 above; that
+  applies to internal-style links exactly as much as it applies to
+  citations.
+- Write links as normal HTML anchors inside `content_html`:
+  `<a href="URL">natural anchor text</a>` — the anchor text should read as
+  part of the sentence, not as a bare URL or a generic "click here."
+- **No keyword-stuffed link blocks** — a list of links with no surrounding
+  sentence, or several links crammed into one sentence, reads as spam, not
+  as helpful cross-referencing.
+- Prefer linking to another relevant article or a directly relevant service
+  page (the buyer page from a buying-process article, the seller page from
+  a listing-prep article, etc.) over linking to peripheral pages just
+  because they're on the list.
+- If nothing on the list is a good fit for this article's content, zero
+  internal links is a correct, valid output — same standing rule as
+  citations (rule 6): a list existing to choose from is not a quota to
+  fill.
+
+A generated article's internal links are validated automatically after
+generation (`internalLinkGate.mjs`) — any link that doesn't exactly match
+an entry from the "Known live routes" list fails the run the same way a
+schema-invalid draft does. This gate exists so a hallucinated URL can never
+reach the site even if this instruction is somehow not followed; it is not
+a substitute for actually choosing only from the provided list.
+
 ## What's fine and encouraged
 
 - Explaining how real estate processes and concepts work (escrow, HOAs,

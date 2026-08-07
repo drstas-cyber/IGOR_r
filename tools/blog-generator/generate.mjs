@@ -25,6 +25,8 @@ import { verifyModel } from './modelVerify.mjs';
 import { runLlmClaimGate } from './llmClaimGate.mjs';
 import { validateArticleSchema } from './schema.js';
 import { validateSelfReview } from './selfReviewSchema.mjs';
+import { getKnownRoutes, formatKnownRoutesForPrompt } from './knownRoutes.mjs';
+import { validateInternalLinks } from './internalLinkGate.mjs';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
@@ -131,7 +133,13 @@ function loadSystemPrompt() {
   return fs.readFileSync(PROMPT_PATH, 'utf8');
 }
 
-async function generateDraft({ apiKey, topic, systemPrompt }) {
+// knownRoutesText (Batch B, Part 3, 2026-08-08): appended to the per-run
+// user message, not baked into the static system prompt (prompt.md) --
+// the live route/article list changes every time a new article publishes,
+// so it has to be injected fresh each run, the same reason `topic` already
+// is. See prompt.md's "Internal linking" section for the rules governing
+// how the model is told to use this list.
+async function generateDraft({ apiKey, topic, systemPrompt, knownRoutesText }) {
   const response = await createMessage({
     apiKey,
     model: WRITER_MODEL,
@@ -139,7 +147,7 @@ async function generateDraft({ apiKey, topic, systemPrompt }) {
     messages: [
       {
         role: 'user',
-        content: `Write an article for this topic: "${topic.topic}"\nTarget keyword: "${topic.target_keyword}"`,
+        content: `Write an article for this topic: "${topic.topic}"\nTarget keyword: "${topic.target_keyword}"\n\nKnown live routes (choose internal link URLs ONLY from this list, per the "Internal linking" section of your system prompt -- never invent a URL):\n${knownRoutesText}`,
       },
     ],
     tools: [DRAFT_TOOL],
@@ -315,11 +323,13 @@ function writeReport(report, reportPath = REPORT_PATH) {
 // Writes a rejected-attempt MARKER only — never the discarded article's
 // title, slug, or content_html, regardless of which discard reason fired
 // — to <generatedDir>/.rejected/<slugified-topic>.json. Fields:
-// sourceTopic, rejectedAt, failureClass ('gate_trip' | 'schema_invalid'),
+// sourceTopic, rejectedAt, failureClass ('gate_trip' | 'schema_invalid' |
+// 'internal_link_invalid' — the last added 2026-08-08, Batch B Part 3),
 // layer1, layer2, layer3 (findings snippets only — the same class of
 // quoting already used in the PR report all session, never the draft
 // itself), schemaErrors (empty array unless failureClass is
-// 'schema_invalid').
+// 'schema_invalid'), internalLinkErrors (empty array unless failureClass
+// is 'internal_link_invalid').
 //
 // This file (and the PR opened from it — see generate-article.yml) is what
 // makes getOpenPrAttemptedTopics() see the topic as "spoken for" while that
@@ -331,14 +341,16 @@ function writeReport(report, reportPath = REPORT_PATH) {
 // checking will always see. That guarantee now holds for a schema-invalid
 // discard exactly as it always has for a gate trip.
 export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {}) {
+  const FAILURE_CLASSES = new Set(['schema_invalid', 'internal_link_invalid']);
   const marker = {
     sourceTopic: report.topic.topic,
     rejectedAt: new Date().toISOString(),
-    failureClass: report.outcome === 'schema_invalid' ? 'schema_invalid' : 'gate_trip',
+    failureClass: FAILURE_CLASSES.has(report.outcome) ? report.outcome : 'gate_trip',
     layer1: report.layer1,
     layer2: report.layer2,
     layer3: report.layer3,
     schemaErrors: report.schemaErrors || [],
+    internalLinkErrors: report.internalLinkErrors || [],
   };
   const rejectedDir = path.join(generatedDir, '.rejected');
   fs.mkdirSync(rejectedDir, { recursive: true });
@@ -354,6 +366,7 @@ export async function main({
   topicsPath = TOPICS_PATH,
   reportPath = REPORT_PATH,
   citationHostLogPath = CITATION_HOST_LOG_PATH,
+  blogArticlesPath, // passed through to getKnownRoutes; undefined = its own real blog-articles.json default
   exec, // passed through to getOpenPrAttemptedTopics; undefined = its own real execSync default
 } = {}) {
   if (!apiKey) {
@@ -404,8 +417,17 @@ export async function main({
 
   const systemPrompt = loadSystemPrompt();
 
+  // knownRoutes (Batch B, Part 3, 2026-08-08): built once per run, used
+  // twice -- injected into the draft prompt (so the model can only choose
+  // real URLs) and read again after generation by the internal-link gate
+  // (so a hallucinated URL can never reach the site even if the prompt
+  // instruction isn't followed). Same list both times, by construction --
+  // never re-derived a second way that could disagree with itself.
+  const knownRoutes = getKnownRoutes({ blogArticlesPath });
+  const knownRoutesText = formatKnownRoutesForPrompt(knownRoutes);
+
   console.log('[generate] pass 1/2: draft...');
-  const draft = await generateDraft({ apiKey, topic, systemPrompt });
+  const draft = await generateDraft({ apiKey, topic, systemPrompt, knownRoutesText });
 
   console.log('[generate] pass 2/2: self-review...');
   const reviewed = await selfReview({ apiKey, draft, systemPrompt });
@@ -549,6 +571,29 @@ export async function main({
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;
+  }
+
+  // Internal-link gate (Batch B, Part 3, 2026-08-08) — every internal href
+  // in content_html must match the same knownRoutes list injected into the
+  // draft prompt above. Runs after schema validation, same discard path as
+  // a schema-invalid draft (handleTrippedGate below) -- a hallucinated
+  // internal URL is exactly the same class of problem as a malformed
+  // article: never written, never published, always leaves a rejected-
+  // attempt marker so the topic isn't silently lost.
+  const linkCheck = validateInternalLinks(article.content_html, knownRoutes);
+  if (!linkCheck.valid) {
+    report.outcome = 'internal_link_invalid';
+    report.internalLinkErrors = linkCheck.invalidLinks;
+    console.error('[generate] article passed schema validation but contains invented/unknown internal link(s):');
+    linkCheck.invalidLinks.forEach((l) => console.error(`    - ${l}`));
+    const { markerPath } = handleTrippedGate(report, { generatedDir });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    writeReport(report, reportPath);
+    process.exitCode = 1;
+    return;
+  }
+  if (linkCheck.checkedCount > 0) {
+    console.log(`[generate] internal-link gate: ${linkCheck.checkedCount} internal link(s), all valid.`);
   }
 
   fs.mkdirSync(generatedDir, { recursive: true });
