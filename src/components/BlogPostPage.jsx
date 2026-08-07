@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import RelatedArticles from './RelatedArticles';
 import articles from '@/data/blog-articles.json';
 import { formatArticleDate, addLazyLoading, toJsonLdScript } from '@/lib/blog';
 
@@ -93,6 +94,8 @@ export default function BlogPostPage() {
           )}
 
           <div className="blog-prose" dangerouslySetInnerHTML={{ __html: contentHtml }} />
+
+          <RelatedArticles currentSlug={article.slug} />
         </article>
       </main>
       <Footer />

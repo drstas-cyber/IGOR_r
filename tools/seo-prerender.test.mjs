@@ -1,6 +1,17 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWebPageJsonLd, patchNoscriptH1, HOMEPAGE_ITEMLIST_JSONLD, HOMEPAGE_SERVICE_JSONLD } from './seo-prerender.js';
+import { buildWebPageJsonLd, patchNoscriptH1, HOMEPAGE_ITEMLIST_JSONLD, HOMEPAGE_SERVICE_JSONLD, buildRelatedArticlesNoscriptHtml } from './seo-prerender.js';
+
+function article(overrides = {}) {
+  return {
+    slug: 'article-a',
+    title: 'Understanding HOA Fees',
+    meta_description: 'A clear explanation of HOA fees.',
+    keywords: ['hoa fees'],
+    created_at: '2026-08-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 // Batch A, AI SEO audit item 1 (2026-08-07): every route used to ship the
 // SAME hardcoded WebPage.@id/url, pointing at the homepage. buildWebPageJsonLd()
@@ -140,6 +151,48 @@ describe('regression: an unpatched shell H1 is identical on every route', () => 
 // === '/'` branch) rather than by these constants themselves — these tests
 // just confirm the constants that DO get scoped are still intact/valid
 // after being moved out of index.html verbatim.
+// Batch B, AI SEO audit RISK #3 (2026-08-08) — related-articles crawler
+// fallback. Selection itself is tested exhaustively in
+// src/lib/relatedArticles.test.mjs; these tests cover only the HTML-
+// building/injection layer specific to this file.
+describe('buildRelatedArticlesNoscriptHtml — crawler-visible related-articles fallback (2026-08-08)', () => {
+  const POOL = [
+    article({ slug: 'current', title: 'Understanding HOA Fees', keywords: ['hoa fees'] }),
+    article({ slug: 'related-1', title: 'HOA Fees Explained', keywords: ['hoa fees'], created_at: '2026-08-02T00:00:00.000Z' }),
+    article({ slug: 'related-2', title: 'Planned Community Guide', keywords: ['hoa fees'], created_at: '2026-08-03T00:00:00.000Z' }),
+  ];
+
+  test('renders an <a href> per related article, using SITE + /blog/<slug>/', () => {
+    const html = buildRelatedArticlesNoscriptHtml('current', POOL);
+    assert.match(html, /<a href="https:\/\/temeculavalleyhomes\.us\/blog\/related-1\/">/);
+    assert.match(html, /<a href="https:\/\/temeculavalleyhomes\.us\/blog\/related-2\/">/);
+  });
+
+  test('never links to the current article itself', () => {
+    const html = buildRelatedArticlesNoscriptHtml('current', POOL);
+    assert.doesNotMatch(html, /\/blog\/current\//);
+  });
+
+  test('wrapped in <noscript> — inert once React hydrates, matches buildTestimonialsNoscriptHtml\'s technique', () => {
+    const html = buildRelatedArticlesNoscriptHtml('current', POOL);
+    assert.match(html, /^<noscript>/);
+    assert.match(html, /<\/noscript>$/);
+  });
+
+  test('returns null (not empty string, not a broken block) when there are no other articles', () => {
+    const html = buildRelatedArticlesNoscriptHtml('current', [POOL[0]]);
+    assert.equal(html, null);
+  });
+
+  test('html-escapes article titles', () => {
+    const html = buildRelatedArticlesNoscriptHtml('current', [
+      POOL[0],
+      article({ slug: 'xss', title: 'Buyers & Sellers <script>', keywords: ['hoa fees'] }),
+    ]);
+    assert.match(html, /Buyers &amp; Sellers &lt;script&gt;/);
+  });
+});
+
 describe('HOMEPAGE_ITEMLIST_JSONLD / HOMEPAGE_SERVICE_JSONLD — moved verbatim from index.html (2026-08-07)', () => {
   test('ItemList has all 8 neighborhoods, unchanged', () => {
     assert.equal(HOMEPAGE_ITEMLIST_JSONLD['@type'], 'ItemList');

@@ -8,11 +8,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { toJsonLdScript } from '../src/lib/blog.js';
+import { toJsonLdScript, formatArticleDate } from '../src/lib/blog.js';
 import { buildHomepageFaqJsonLd } from '../src/data/homepage-faq.js';
 import { buildRussianFaqJsonLd } from '../src/data/russian-faq.js';
 import { TESTIMONIALS } from '../src/data/testimonials.js';
 import { GOOGLE_REVIEWS_URL } from '../src/lib/reviews.js';
+import { selectRelatedArticles } from '../src/lib/relatedArticles.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,7 +54,7 @@ const HERO_PRELOAD =
 // other per-route field already here) rather than inventing a second
 // hand-maintained copy — it just isn't literally auto-derived from JSX,
 // and is stated as such rather than silently implied otherwise.
-const ROUTES = [
+export const ROUTES = [
   { path: '/',                                  component: 'HomePage.jsx',           priority: 1.0, changefreq: 'weekly',  head: HERO_PRELOAD, h1: 'Your Temecula Valley Realtor — George Khazanovskiy' },
   { path: '/homes-for-sale-temecula/',          component: 'BuyerHomesPage.jsx',     priority: 0.9, changefreq: 'weekly',  h1: 'Homes For Sale in Temecula' },
   { path: '/russian-speaking-realtor-temecula/', component: 'RussianRealtorPage.jsx', priority: 0.9, changefreq: 'monthly', h1: 'Ваш надёжный риэлтор в Темекуле, Калифорния' },
@@ -203,6 +204,40 @@ function buildTestimonialsNoscriptHtml(testimonials, reviewsUrl) {
         <h2>What clients say</h2>
         ${cards}
         <p><a href="${htmlEscapeAttr(reviewsUrl)}">Read all reviews on Google</a></p>
+      </div>
+    </noscript>`;
+}
+
+// Related-articles crawler-visible fallback (Batch B, AI SEO audit RISK
+// #3, 2026-08-08) — article body content_html is CSR-only (see the
+// 2026-08-07 audit's finding: <div id="root"> is empty in every generated
+// blog file), so RelatedArticles.jsx's hydrated <Link> block is invisible
+// to a raw-HTML/non-JS reader without this. Same noscript-wrapping
+// technique as buildTestimonialsNoscriptHtml() immediately above: inert
+// once React hydrates for any real browser or JS-rendering crawler, never
+// visibly duplicated. Selection reuses selectRelatedArticles() directly
+// (src/lib/relatedArticles.js) — the exact same function
+// RelatedArticles.jsx calls client-side, so the raw-HTML fallback and the
+// hydrated result can never disagree about which articles are related.
+// Plain <a href> here is correct, not a mistake -- this markup only ever
+// exists in static/prerendered HTML (see the module header comment on
+// internal-link conventions); the hydrated component uses <Link>.
+export function buildRelatedArticlesNoscriptHtml(currentSlug, articles) {
+  const related = selectRelatedArticles({ currentSlug, articles, count: 3 });
+  if (related.length === 0) return null;
+
+  const cards = related.map((article) => {
+    const url = `${SITE}/blog/${article.slug}/`;
+    return `<div style="margin-bottom:16px;">
+          <a href="${htmlEscapeAttr(url)}"><strong>${htmlEscapeText(article.title)}</strong></a>
+          <div style="color:#888;font-size:13px;">${htmlEscapeText(formatArticleDate(article.created_at))}</div>
+        </div>`;
+  }).join('\n');
+
+  return `<noscript>
+      <div style="max-width:800px;margin:0 auto;padding:20px 20px 40px;font-family:sans-serif;">
+        <h2>Related articles</h2>
+        ${cards}
       </div>
     </noscript>`;
 }
@@ -371,6 +406,15 @@ function prerenderBlog(baseHtml, indexable) {
     if (blogHead) {
       patched = patched.replace('</head>', `  ${blogHead}\n</head>`);
     }
+
+    // Related articles (Batch B, item Part 1) — crawler-visible fallback,
+    // same technique as the homepage testimonials block. See
+    // buildRelatedArticlesNoscriptHtml()'s header comment above.
+    const relatedHtml = buildRelatedArticlesNoscriptHtml(article.slug, articles);
+    if (relatedHtml) {
+      patched = patched.replace('<div id="root"></div>', `<div id="root"></div>\n\n    ${relatedHtml}`);
+    }
+
     writeRouteHtml(routePath, patched);
     indexable.push({ path: routePath, priority: 0.6, changefreq: 'monthly' });
     console.log(`[seo-prerender] ${routePath}`);
