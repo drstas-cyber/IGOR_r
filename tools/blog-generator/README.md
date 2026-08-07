@@ -1126,3 +1126,28 @@ false negative on "was this clean," so the next run's silence (if any)
 needs a deliberate human look before it's trusted to gate unattended
 publishing again.
 
+## Internal linking + validated link gate — 2026-08-08 (Batch B, Part 3)
+
+From the 2026-08-07 AI SEO audit's RISK #3 (zero contextual internal
+links sitewide). `prompt.md` gained a new "Internal linking" section:
+articles SHOULD (not MUST) include 1–3 contextual internal links, chosen
+only from a "Known live routes" list injected into the per-run user
+message (`tools/blog-generator/knownRoutes.mjs` — built from
+`seo-prerender.js`'s `ROUTES` plus every published article in
+`blog-articles.json`, deliberately NOT from `slugs.js`'s
+`getKnownSlugs()`, which includes 28 retired BabyLoveGrowth slugs that
+aren't live under this pipeline). `internalLinkGate.mjs`'s
+`validateInternalLinks()` enforces this in code after generation, same
+"never trust the prompt instruction alone" discipline as the self-review
+fix immediately above — a hallucinated internal URL discards the run
+with the same `handleTrippedGate` mechanism a schema-invalid draft
+already used, new `failureClass: 'internal_link_invalid'`.
+
+**Acceptance check (standing rule invoked): the next article this
+pipeline generates gets a full human read regardless of what `allSilent`
+says** — both the prompt and generation/validation behavior changed.
+Confirm on that read: any internal links present are genuinely relevant
+(not forced in), every internal URL actually resolves live, no invented
+URL survived, and no unsupported claim was introduced in the sentence
+around a link.
+
