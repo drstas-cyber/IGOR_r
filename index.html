@@ -261,70 +261,37 @@
       }
     </script>
 
-    <!-- Schema.org Structured Data - Block 3: WebPage -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebPage",
-        "@id": "https://temeculavalleyhomes.us/#webpage",
-        "url": "https://temeculavalleyhomes.us",
-        "name": "Temecula Valley Homes For Sale | George Khazanovskiy Realtor® DRE #02034120",
-        "description": "Local expert George Khazanovskiy — an experienced Realtor, trilingual English/Russian/Ukrainian. Buyer-side specialist serving Temecula, Murrieta, Menifee. Free buyer consultations.",
-        "isPartOf": { "@id": "https://temeculavalleyhomes.us/#website" },
-        "about": { "@id": "https://temeculavalleyhomes.us/#agent" },
-        "datePublished": "2024-01-01",
-        "dateModified": "2026-03-27",
-        "speakable": {
-          "@type": "SpeakableSpecification",
-          "cssSelector": ["h1", ".font-serif", "meta[name='description']"]
-        },
-        "mainEntity": { "@id": "https://temeculavalleyhomes.us/#agent" }
-      }
-    </script>
+    <!--
+      Schema.org Structured Data - Blocks 3/4/6 (WebPage / ItemList /
+      Service) REMOVED from this static shell 2026-08-07 (Batch A, AI SEO
+      audit items 1 and 5).
 
-    <!-- Schema.org Structured Data - Block 4: ItemList (Neighborhoods with pricing) -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "ItemList",
-        "@id": "https://temeculavalleyhomes.us/#neighborhoods",
-        "name": "Temecula Valley Neighborhoods Guide",
-        "description": "Guide to Temecula Valley neighborhoods, curated by local Realtor George Khazanovskiy.",
-        "numberOfItems": 8,
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Wolf Creek, Temecula", "description": "Family-friendly master-planned community with community parks, pools, and well-regarded schools." },
-          { "@type": "ListItem", "position": 2, "name": "Wine Country, Temecula", "description": "Luxury estates near Temecula's wineries, with acreage, views, and horse properties." },
-          { "@type": "ListItem", "position": 3, "name": "Redhawk, Temecula", "description": "Established golf community with a golf course, community center, and walking trails." },
-          { "@type": "ListItem", "position": 4, "name": "Paloma Del Sol, Temecula", "description": "Large master-planned community with multiple parks, sports courts, and community pools." },
-          { "@type": "ListItem", "position": 5, "name": "Old Town, Temecula", "description": "Historic downtown with walkable restaurants, shops, character homes, and local culture." },
-          { "@type": "ListItem", "position": 6, "name": "Vail Ranch, Temecula", "description": "Newer development with modern homes, shopping, dining, and freeway access." },
-          { "@type": "ListItem", "position": 7, "name": "Morgan Hill, Temecula", "description": "Upscale gated community with larger lots, mountain views, and privacy." },
-          { "@type": "ListItem", "position": 8, "name": "Crown Hill, Temecula", "description": "Premium hilltop community with panoramic views, newer construction, and quality schools." }
-        ]
-      }
-    </script>
+      These three blocks used to be hardcoded here and shipped byte-
+      identical on every single route -- every non-homepage page's
+      WebPage.@id/url literally claimed to BE https://temeculavalleyhomes.us
+      (the homepage), and the Neighborhoods ItemList + generic Service
+      block appeared on /contact/, /sell-my-house/, every blog article, and
+      everywhere else with zero relevance to those pages. Root cause:
+      tools/seo-prerender.js patches title/meta/canonical/OG/robots per
+      route from a fixed regex whitelist, but never touched JSON-LD, so
+      whatever shipped here in the raw dist/index.html rode along unchanged
+      onto every prerendered route.
 
-    <!-- Schema.org Structured Data - Block 6: Service offerings -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "Service",
-        "@id": "https://temeculavalleyhomes.us/#service",
-        "name": "Temecula Valley Real Estate Services",
-        "provider": { "@id": "https://temeculavalleyhomes.us/#agent" },
-        "serviceType": "Real Estate Agent Services",
-        "areaServed": {
-          "@type": "Place",
-          "name": "Temecula Valley, California",
-          "geo": { "@type": "GeoCircle", "geoMidpoint": { "@type": "GeoCoordinates", "latitude": 33.4936, "longitude": -117.1484 }, "geoRadius": "25000" }
-        },
-        "availableLanguage": ["English", "Russian", "Ukrainian"],
-        "offers": [
-          { "@type": "Offer", "name": "Free Home Valuation", "price": "0", "priceCurrency": "USD", "description": "Complimentary CMA report delivered within 24 hours" },
-          { "@type": "Offer", "name": "Free Buyer Consultation", "price": "0", "priceCurrency": "USD", "description": "No-obligation consultation with full MLS access" }
-        ]
-      }
-    </script>
+      Fix: tools/seo-prerender.js now builds and injects a route-specific
+      WebPage block for every route (buildWebPageJsonLd(), reusing the same
+      seo.title/seo.description already driving <title>/<meta description>
+      -- single source, not hand-maintained twice), and injects the
+      ItemList + Service blocks (moved into seo-prerender.js as constants)
+      for the '/' route ONLY. Running `npm run dev` (no prerender step)
+      will not show WebPage/ItemList/Service JSON-LD at all -- expected,
+      matches how the homepage FAQPage/testimonials blocks already worked
+      before this change (prerender-only injection, see the FAQ/testimonials
+      comments in seo-prerender.js's main()).
+
+      Person / RealEstateAgent / LocalBusiness (Block 1, above) and WebSite
+      (Block 2, above) are NOT part of this change -- both stay here,
+      sitewide, unchanged, exactly as they always have.
+    -->
 
   </head>
   <body>

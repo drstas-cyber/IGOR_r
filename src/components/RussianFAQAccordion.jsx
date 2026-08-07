@@ -1,30 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { RUSSIAN_FAQ } from '@/data/russian-faq';
 
 export default function RussianFAQAccordion() {
-  const faqs = [
-    {
-      question: "Сколько стоят ваши услуги для покупателя?",
-      answer: "Для покупателей мои услуги абсолютно бесплатны. Комиссию риэлтору традиционно оплачивает продавец недвижимости."
-    },
-    {
-      question: "Как долго длится процесс покупки дома?",
-      answer: "В среднем, с момента нахождения идеального дома до закрытия сделки (Escrow) проходит от 30 до 45 дней, в зависимости от условий финансирования."
-    },
-    {
-      question: "Вы работаете только в Темекуле?",
-      answer: "Нет, я также активно работаю в Мурриете, Винной Стране (Wine Country), Фолбруке, Менифи и других прилегающих городах Южной Калифорнии."
-    },
-    {
-      question: "Нужно ли мне предварительное одобрение ипотеки?",
-      answer: "Да, предварительное одобрение (Pre-approval) критически важно. Это показывает продавцам серьезность ваших намерений и помогает нам понимать ваш точный бюджет."
-    },
-    {
-      question: "Могу ли я купить дом дистанционно?",
-      answer: "Абсолютно. Я регулярно провожу подробные видео-туры для своих клиентов, проверяю каждую деталь дома и помогаю с электронным оформлением всех документов."
-    }
-  ];
+  // Single source of truth (2026-08-07, Batch A) -- src/data/russian-faq.js
+  // also drives this page's FAQPage JSON-LD (tools/seo-prerender.js), so
+  // the visible questions here and the schema can never drift apart.
+  const faqs = RUSSIAN_FAQ;
 
   return (
     <motion.div 
