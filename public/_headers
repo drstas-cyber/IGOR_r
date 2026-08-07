@@ -84,6 +84,14 @@
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 /blog/california-seller-disclosure-requirements
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/how-to-prepare-a-home-for-sale-temecula/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/how-to-prepare-a-home-for-sale-temecula
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/best-time-to-sell-a-home-temecula/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/best-time-to-sell-a-home-temecula
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
