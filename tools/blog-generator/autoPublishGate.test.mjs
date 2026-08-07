@@ -10,7 +10,7 @@ function silentReport(overrides = {}) {
     layer1: { tripped: false, findings: [], uncitedClaimCandidates: [] },
     layer2: { tripped: false, checklist: {} },
     layer3: { tripped: false, failed: [], unsupported: [], inconclusive: [], resolved: [] },
-    selfReview: { violationsFound: [] },
+    selfReview: { draftWasClean: true, violationsFound: [] },
     ...overrides,
   };
 }
@@ -99,13 +99,55 @@ describe('computeAllSilent — the perfectly-silent auto-publish gate (2026-08-0
   });
 
   test('HOLD: any self-review violation, however described, disqualifies silence', () => {
-    const report = silentReport({ selfReview: { violationsFound: ['fixed a minor formatting issue in the closing paragraph'] } });
+    const report = silentReport({ selfReview: { draftWasClean: false, violationsFound: ['fixed a minor formatting issue in the closing paragraph'] } });
     assert.equal(computeAllSilent(report), false);
   });
 
   test('fails closed: a malformed report (missing arrays) is not silent, never silent-by-default', () => {
     assert.equal(computeAllSilent({ outcome: 'generated', layer1: {}, layer2: {}, layer3: {}, selfReview: {} }), false);
     assert.equal(computeAllSilent({ outcome: 'generated' }), false);
+  });
+
+  // Self-review reporting fix (owner decision, 2026-08-07) -- the three
+  // cases from the pipeline-stall diagnosis that motivated it. See
+  // tools/blog-generator/selfReviewSchema.mjs for the underlying
+  // draft_was_clean/violations_found consistency check; this suite tests
+  // that computeAllSilent reads BOTH fields correctly, not just that the
+  // validator itself is correct in isolation.
+  describe('self-review: draftWasClean + violationsFound, both required for silence (2026-08-07)', () => {
+    test('clean draft: draftWasClean=true, empty array -- silent-eligible', () => {
+      const report = silentReport({ selfReview: { draftWasClean: true, violationsFound: [] } });
+      assert.equal(computeAllSilent(report), true);
+    });
+
+    // The exact PR #27 case: the model said draft_was_clean=true but also
+    // listed 1 item (narration, not a real correction). computeAllSilent
+    // must NOT be fooled by the boolean alone -- the non-empty array still
+    // holds the PR, same as it always would have for a real correction.
+    test('HOLD: narrated-clean (draftWasClean=true, 1 item) -- schema mismatch, still holds', () => {
+      const report = silentReport({
+        selfReview: { draftWasClean: true, violationsFound: ['draft was already clean, returned unchanged'] },
+      });
+      assert.equal(computeAllSilent(report), false);
+    });
+
+    // The exact PR #26 case: a real correction, self-consistently reported.
+    test('HOLD: real correction (draftWasClean=false, 1 item) -- holds, same as before this fix', () => {
+      const report = silentReport({
+        selfReview: { draftWasClean: false, violationsFound: ['removed a fabricated ratio'] },
+      });
+      assert.equal(computeAllSilent(report), false);
+    });
+
+    test('HOLD: draftWasClean=false with an empty array -- also not silent (draftWasClean must be exactly true)', () => {
+      const report = silentReport({ selfReview: { draftWasClean: false, violationsFound: [] } });
+      assert.equal(computeAllSilent(report), false);
+    });
+
+    test('HOLD: draftWasClean missing entirely -- fails closed, not silent', () => {
+      const report = silentReport({ selfReview: { violationsFound: [] } });
+      assert.equal(computeAllSilent(report), false);
+    });
   });
 });
 

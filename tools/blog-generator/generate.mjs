@@ -24,6 +24,7 @@ import { createMessage, extractToolInput } from './anthropicClient.mjs';
 import { verifyModel } from './modelVerify.mjs';
 import { runLlmClaimGate } from './llmClaimGate.mjs';
 import { validateArticleSchema } from './schema.js';
+import { validateSelfReview } from './selfReviewSchema.mjs';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
@@ -92,16 +93,33 @@ const DRAFT_TOOL = {
   input_schema: ARTICLE_TOOL_SCHEMA,
 };
 
+// Two-field self-review report (owner decision, 2026-08-07 -- "Self-review
+// reporting fix"). Previously violations_found alone, with only a
+// free-text instruction asking for an empty array on a clean draft -- see
+// selfReviewSchema.mjs's header comment for the exact PR #27 case that
+// showed the model doesn't always follow that instruction (a clean draft
+// narrated as a 1-item list instead of returning []). draft_was_clean is a
+// second, independent signal specifically so the two fields can be checked
+// against each other in code (validateSelfReview) rather than trusted on
+// their own -- structural, not another prompt instruction to hope holds.
 const REVIEW_TOOL = {
   name: 'submit_reviewed_article',
   description: 'Submit the self-reviewed, corrected article.',
   input_schema: {
     type: 'object',
     properties: {
-      violations_found: { type: 'array', items: { type: 'string' }, description: 'Plain-language description of each violation found and fixed. Empty array if the draft was already clean.' },
+      draft_was_clean: {
+        type: 'boolean',
+        description: 'true if the draft required zero corrections against the six hard rules; false if at least one real correction was made. Must agree with violations_found: true requires violations_found to be exactly []. A mismatch (true with a non-empty array) is treated as an inconsistent report and holds the PR for a human read regardless of what else is true.',
+      },
+      violations_found: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'One entry per ACTUAL CHANGE MADE to the draft -- never narration, never a confirmation that the draft was already clean. If draft_was_clean is true, this array MUST be empty ([]) -- do not describe "no violations found" as an entry here.',
+      },
       ...ARTICLE_TOOL_SCHEMA.properties,
     },
-    required: ['violations_found', ...ARTICLE_TOOL_SCHEMA.required],
+    required: ['draft_was_clean', 'violations_found', ...ARTICLE_TOOL_SCHEMA.required],
   },
 };
 
@@ -366,11 +384,21 @@ export async function main({
 
   console.log('[generate] pass 2/2: self-review...');
   const reviewed = await selfReview({ apiKey, draft, systemPrompt });
-  if (reviewed.violations_found?.length) {
+  const selfReviewCheck = validateSelfReview(reviewed);
+  if (!selfReviewCheck.valid) {
+    // Does NOT discard the run -- an inconsistent self-review report is not
+    // the same class of problem as a gate trip or a schema-invalid article;
+    // the draft itself may well be fine (PR #27, 2026-08-07, was). This
+    // only ever prevents report.allSilent from being wrongly true; the
+    // article still gets written and opens a normal PR for a human read,
+    // same as any other non-silent run. See selfReviewSchema.mjs.
+    console.error('[generate] self-review report is INTERNALLY INCONSISTENT (draft_was_clean/violations_found mismatch) -- holding for a human read regardless of gate results:');
+    selfReviewCheck.errors.forEach((e) => console.error(`    - ${e}`));
+  } else if (reviewed.violations_found?.length) {
     console.log(`[generate] self-review found and fixed ${reviewed.violations_found.length} violation(s):`);
     reviewed.violations_found.forEach((v) => console.log(`    - ${v}`));
   } else {
-    console.log('[generate] self-review: draft was already clean per the model.');
+    console.log('[generate] self-review: draft was already clean per the model (draft_was_clean=true, zero violations).');
   }
 
   const knownSlugs = getKnownSlugs({ generatedDir });
@@ -425,7 +453,17 @@ export async function main({
     // and so computeAllSilent() (the auto-publish gate) has it without a
     // second parameter thread. Present on every outcome, not just
     // 'generated' — a tripped run's self-review pass still ran.
-    selfReview: { violationsFound: reviewed.violations_found || [] },
+    // draftWasClean/valid/errors (2026-08-07): the self-review reporting
+    // fix — see selfReviewSchema.mjs and autoPublishGate.mjs. valid=false
+    // means draft_was_clean and violations_found disagreed; render-report-
+    // md.mjs surfaces that explicitly rather than rendering the mismatch
+    // as an ordinary-looking correction list.
+    selfReview: {
+      draftWasClean: reviewed.draft_was_clean,
+      violationsFound: reviewed.violations_found || [],
+      valid: selfReviewCheck.valid,
+      errors: selfReviewCheck.errors,
+    },
     outcome: null,
   };
 

@@ -188,6 +188,7 @@ function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses 
     }
     if (toolName === 'submit_reviewed_article') {
       return jsonResponse(200, toolUseBody('submit_reviewed_article', {
+        draft_was_clean: true,
         violations_found: [],
         title: 'Understanding HOA Fees',
         slug_suggestion: 'understanding-hoa-fees',

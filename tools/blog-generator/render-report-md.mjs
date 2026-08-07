@@ -57,11 +57,26 @@ if (report.layer1.uncitedClaimCandidates?.length) {
 lines.push('');
 if (report.selfReview) {
   lines.push('### Self-review (writer model, second pass)');
-  if (report.selfReview.violationsFound?.length) {
+  // valid === false (2026-08-07 fix): draft_was_clean and violations_found
+  // disagreed -- e.g. draft_was_clean=true alongside a non-empty array
+  // whose text is narration, not a real correction (the exact PR #27
+  // case). Rendered as its own distinct, flagged state so a human reading
+  // this PR sees immediately that the list below may not describe real
+  // changes -- never silently folded into the ordinary "N correction(s)"
+  // rendering, which would look identical to a genuine finding.
+  if (report.selfReview.valid === false) {
+    lines.push('**SELF-REVIEW SCHEMA MISMATCH** — `draft_was_clean` and `violations_found` disagree with each other. Treat the entries below as unverified, possibly-narration text, not confirmed corrections — read the actual `content_html` directly rather than trusting this field:');
+    for (const e of report.selfReview.errors || []) lines.push(`- ${e}`);
+    if (report.selfReview.violationsFound?.length) {
+      lines.push('');
+      lines.push('Reported entries (unverified):');
+      for (const v of report.selfReview.violationsFound) lines.push(`- ${v}`);
+    }
+  } else if (report.selfReview.violationsFound?.length) {
     lines.push(`${report.selfReview.violationsFound.length} correction(s) found and fixed:`);
     for (const v of report.selfReview.violationsFound) lines.push(`- ${v}`);
   } else {
-    lines.push('_None — the draft was already clean per the model._');
+    lines.push('_None — the draft was already clean per the model (`draft_was_clean: true`, zero violations)._');
   }
   lines.push('');
 }

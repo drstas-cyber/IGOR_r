@@ -1037,3 +1037,92 @@ error, no annotation) by the Monday-morning signal table in the
    it's been sitting in the annotations of every single run this whole
    project.
 
+## Pipeline stall diagnosis + self-review reporting fix — 2026-08-07
+
+The two scheduled runs after the 2026-08-03 closing entry above (Aug 5,
+Aug 7 — both fired, delayed by GitHub's own scheduler jitter, not skipped)
+each generated a genuinely clean article and correctly held for a human
+read. Diagnosis, verdict, and delegated-read authorization all happened in
+one session; recorded here rather than editing the 2026-08-03 entry above,
+which stays as the snapshot it was at the time.
+
+**Verdict: working as designed, not a bug.** Every merged article PR back
+to #8 was merged by `drstas-cyber` (human), zero by `github-actions[bot]`
+— the auto-merge path has never executed in production, not once since it
+shipped. Root cause traced to source, not assumed: `computeAllSilent()`
+requires `selfReview.violationsFound.length === 0`, and the self-review
+model doesn't reliably return `[]` on a clean draft — PR #27 (2026-08-07)
+shows a genuinely clean draft reported back as a 1-item
+`violations_found` array whose text was narration ("draft was already
+clean, returned unchanged"), not a real correction. Indistinguishable
+from a real 1-item correction by length alone, so `computeAllSilent`
+correctly-by-construction still held the PR — for the wrong apparent
+reason, forcing a human to read the actual content to tell the two cases
+apart.
+
+**Both held PRs read and merged.** PR #26 ("Preparing Your Temecula Home
+for Sale," `how-to-prepare-a-home-for-sale-temecula`) — self-review's 5
+claimed corrections independently re-verified as actually landed in
+`content_html`, not just trusted; citations independently re-checked
+against the correct Civil Code sections (1102.6 for the TDS form itself,
+not the bare scope-only 1102 that tripped article 8). PR #27 ("Timing the
+Sale of Your Home," `best-time-to-sell-a-home-temecula`) — the "clean"
+narration confirmed true by reading the actual content, not by trusting
+the mislabeled count. Both PASS, no content edits needed. Merged, published
+(`setPublished.mjs` + `headersCacheEntry.mjs`), live-swept via the actual
+deployed bundle and `_headers` response, not just source review. Now
+**10** articles live, **80**/100 `_headers` rules used.
+
+### The fix — structural, not another prompt instruction
+
+`REVIEW_TOOL`'s schema (`generate.mjs`) now has two required fields
+instead of one:
+
+- `draft_was_clean` (boolean) — the model's explicit clean/not-clean
+  verdict.
+- `violations_found` (array) — unchanged in shape, but its description now
+  demands "one entry per ACTUAL CHANGE MADE... never narration, never
+  confirmations of cleanliness."
+
+`selfReviewSchema.mjs`'s `validateSelfReview()` enforces the one rule this
+whole fix exists for, in code, not in a prompt instruction hoped to hold:
+`draft_was_clean: true` REQUIRES `violations_found` to be exactly `[]`.
+Any mismatch is flagged as an explicit inconsistency (`report.selfReview.valid
+=== false`) — this does **not** discard the run the way a gate trip or a
+schema-invalid article does; the article still gets written and opens a
+normal PR (a self-review reporting glitch says nothing about whether the
+draft itself is fine — PR #27's wasn't). It only ever keeps
+`computeAllSilent()` (`autoPublishGate.mjs`, updated to read
+`draftWasClean === true` AND an empty array, both — "never guess which
+field to believe") from misreading an inconsistent report as silent.
+`render-report-md.mjs` renders the mismatch as its own distinct,
+impossible-to-miss state in the PR body, instead of looking identical to
+an ordinary correction list the way it did for PR #27.
+
+**Proved red first, per the discipline this fix itself asked for:**
+`selfReviewSchema.test.mjs` (new, 9 tests) and the "self-review:
+draftWasClean + violationsFound" block added to `autoPublishGate.test.mjs`
+cover exactly the three cases from the diagnosis — clean (`true` + `[]`) →
+silent-eligible; narrated-clean (`true` + 1 item, the PR #27 shape) →
+flagged mismatch, held; real correction (`false` + 1 item, the PR #26
+shape) → held, same as always. Each file also keeps its "prove it red"
+regression block: a naive `violations_found.length`-only check cannot
+tell the narrated-clean case apart from a real correction — both just
+look like "1 item" — demonstrating why `draft_was_clean` is a necessary
+second field, not a redundant one. Full repo test suite (same scope as
+the 2026-08-03 closing entry's "342/342" figure): **362/362** passing,
+verified by actually running `node --test` against every `*.test.mjs` in
+the repo, not assumed from the individual files run in isolation.
+`npm run build` verified clean locally too.
+
+**Acceptance check (standing rule invoked): the next article this
+pipeline generates gets a full human read regardless of what `allSilent`
+says** — same discipline as the `competitor_mention` scope fix above,
+applied here because this changes self-review/generation behavior. The
+auto-merge control-flow code was already correct by construction before
+this fix (a genuinely silent run still required zero findings); what
+changes is the self-review model's ability to accidentally report a
+false negative on "was this clean," so the next run's silence (if any)
+needs a deliberate human look before it's trusted to gate unattended
+publishing again.
+

@@ -26,19 +26,26 @@
 //   bad citation -- see citationResolver.mjs) but it IS a signal worth a
 //   human's attention, so it disqualifies auto-silent even though it
 //   doesn't disqualify generation itself.
-// - Self-review: zero violations found. The pipeline has no structured
-//   way to tell "formatting-only" fixes apart from substantive ones --
-//   violations_found is a free-text description array (see generate.mjs's
-//   REVIEW_TOOL schema), and guessing at that distinction with a keyword
-//   match would be exactly the kind of fragile text-parsing this design
-//   is supposed to avoid ("don't parse logs" applies just as much to
-//   parsing a model's own free-text self-description). Until the
-//   self-review tool schema grows an actual structured formatting-vs-
-//   substantive classification, ANY self-review correction holds the PR
-//   for a human read -- stricter than "no real corrections beyond
-//   formatting" reads on its face, but the safe, honest interpretation
-//   given what the pipeline can actually verify today. Documented as a
-//   deliberate decision in README.md, not silently narrower than asked.
+// - Self-review: draft_was_clean === true AND zero violations found, BOTH
+//   (owner decision, 2026-08-07 -- "Self-review reporting fix", see
+//   README.md). Previously this checked violations_found.length === 0
+//   alone, on the theory that the model's own "empty array if the draft
+//   was already clean" instruction (generate.mjs's REVIEW_TOOL schema)
+//   would hold. It didn't always: PR #27 (2026-08-07) shows a genuinely
+//   clean draft reported back as a 1-item violations_found array whose
+//   text was narration ("draft was already clean, returned unchanged"),
+//   not a real correction -- indistinguishable from a real 1-item
+//   correction by length alone. Structural fix, not another prompt
+//   instruction to hope the model follows: draft_was_clean is a second,
+//   independent field the model must also set, and
+//   tools/blog-generator/selfReviewSchema.mjs's validateSelfReview()
+//   flags any draft_was_clean=true + non-empty violations_found pairing
+//   as an explicit inconsistency in report.selfReview.valid before this
+//   function ever runs. Reading both fields here (not just trusting
+//   report.selfReview.valid alone) is deliberate belt-and-suspenders --
+//   this function must independently agree that draft_was_clean is
+//   exactly true and the array is exactly empty, never inferring silence
+//   from validity alone.
 //
 // Fails closed: any of the expected arrays/booleans being missing or the
 // wrong shape defaults to "not silent," never to "silent." A malformed
@@ -58,8 +65,12 @@ export function computeAllSilent(report) {
     Array.isArray(layer3?.unsupported) && layer3.unsupported.length === 0 &&
     Array.isArray(layer3?.inconclusive) && layer3.inconclusive.length === 0;
 
-  const violationsFound = report.selfReview?.violationsFound;
-  const selfReviewSilent = Array.isArray(violationsFound) && violationsFound.length === 0;
+  const selfReview = report.selfReview;
+  const violationsFound = selfReview?.violationsFound;
+  const selfReviewSilent =
+    selfReview?.draftWasClean === true &&
+    Array.isArray(violationsFound) &&
+    violationsFound.length === 0;
 
   return layer1FindingsSilent && layer1UncitedSilent && layer2Silent && layer3Silent && selfReviewSilent;
 }
