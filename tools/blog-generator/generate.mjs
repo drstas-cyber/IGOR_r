@@ -165,16 +165,41 @@ async function selfReview({ apiKey, draft, systemPrompt }) {
   return extractToolInput(response, REVIEW_TOOL.name);
 }
 
-function buildJsonLd({ title, metaDescription, canonicalUrl, createdAt }) {
-  return {
+// Completed 2026-08-07 (Batch A, AI SEO audit item 4) — added
+// dateModified, publisher, and mainEntityOfPage; image is included only
+// when heroImageUrl is truthy (every article today has hero_image_url:
+// null, per assembleArticle() below, so image is correctly omitted on all
+// current output — never fabricated).
+//
+// dateModified defaults to createdAt (datePublished) when not passed,
+// matching the rule that a freshly-generated article's dateModified starts
+// equal to its datePublished; a future content-edit workflow that actually
+// changes an article after publish would need to pass a real, later
+// dateModified explicitly — nothing here does that yet.
+//
+// publisher references the sitewide #agent entity by @id (the same
+// RealEstateAgent/LocalBusiness block in index.html) rather than
+// duplicating name/logo/etc. here a second time.
+//
+// mainEntityOfPage links to this article's own WebPage entity
+// (`${canonicalUrl}#webpage`) — the per-route WebPage tools/seo-
+// prerender.js now builds for every route (see buildWebPageJsonLd() and
+// item 1 of this same batch), not an invented, disconnected reference.
+export function buildJsonLd({ title, metaDescription, canonicalUrl, createdAt, dateModified, heroImageUrl }) {
+  const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: title,
     description: metaDescription,
     url: canonicalUrl,
     datePublished: createdAt,
+    dateModified: dateModified || createdAt,
     author: { '@type': 'Person', name: 'George Khazanovskiy' },
+    publisher: { '@id': `${SITE}/#agent` },
+    mainEntityOfPage: { '@id': `${canonicalUrl}#webpage` },
   };
+  if (heroImageUrl) jsonLd.image = heroImageUrl;
+  return jsonLd;
 }
 
 function buildFaqJsonLd(faqItems) {
@@ -211,7 +236,7 @@ export function assembleArticle(reviewed, knownSlugs, sourceTopic) {
     content_html: reviewed.content_html,
     meta_description: reviewed.meta_description,
     hero_image_url: null,
-    jsonLd: buildJsonLd({ title: reviewed.title, metaDescription: reviewed.meta_description, canonicalUrl, createdAt }),
+    jsonLd: buildJsonLd({ title: reviewed.title, metaDescription: reviewed.meta_description, canonicalUrl, createdAt, heroImageUrl: null }),
     faqJsonLd: buildFaqJsonLd(reviewed.faq_items),
     created_at: createdAt,
     keywords: reviewed.keywords,

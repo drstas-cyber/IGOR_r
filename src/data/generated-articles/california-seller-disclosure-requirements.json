@@ -15,6 +15,13 @@
     "author": {
       "@type": "Person",
       "name": "George Khazanovskiy"
+    },
+    "dateModified": "2026-08-03T17:23:22.459Z",
+    "publisher": {
+      "@id": "https://temeculavalleyhomes.us/#agent"
+    },
+    "mainEntityOfPage": {
+      "@id": "https://temeculavalleyhomes.us/blog/california-seller-disclosure-requirements/#webpage"
     }
   },
   "faqJsonLd": null,

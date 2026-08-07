@@ -15,6 +15,13 @@
     "author": {
       "@type": "Person",
       "name": "George Khazanovskiy"
+    },
+    "dateModified": "2026-08-03T17:20:25.744Z",
+    "publisher": {
+      "@id": "https://temeculavalleyhomes.us/#agent"
+    },
+    "mainEntityOfPage": {
+      "@id": "https://temeculavalleyhomes.us/blog/home-staging-tips-for-sellers/#webpage"
     }
   },
   "faqJsonLd": null,

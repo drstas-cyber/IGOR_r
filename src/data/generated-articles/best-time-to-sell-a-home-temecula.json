@@ -15,6 +15,13 @@
     "author": {
       "@type": "Person",
       "name": "George Khazanovskiy"
+    },
+    "dateModified": "2026-08-07T14:48:57.679Z",
+    "publisher": {
+      "@id": "https://temeculavalleyhomes.us/#agent"
+    },
+    "mainEntityOfPage": {
+      "@id": "https://temeculavalleyhomes.us/blog/best-time-to-sell-a-home-temecula/#webpage"
     }
   },
   "faqJsonLd": null,

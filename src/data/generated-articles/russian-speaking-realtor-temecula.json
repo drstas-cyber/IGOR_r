@@ -15,6 +15,13 @@
     "author": {
       "@type": "Person",
       "name": "George Khazanovskiy"
+    },
+    "dateModified": "2026-07-27T18:43:35.921Z",
+    "publisher": {
+      "@id": "https://temeculavalleyhomes.us/#agent"
+    },
+    "mainEntityOfPage": {
+      "@id": "https://temeculavalleyhomes.us/blog/russian-speaking-realtor-temecula/#webpage"
     }
   },
   "faqJsonLd": null,

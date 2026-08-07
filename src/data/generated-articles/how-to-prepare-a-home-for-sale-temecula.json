@@ -15,6 +15,13 @@
     "author": {
       "@type": "Person",
       "name": "George Khazanovskiy"
+    },
+    "dateModified": "2026-08-05T15:58:49.954Z",
+    "publisher": {
+      "@id": "https://temeculavalleyhomes.us/#agent"
+    },
+    "mainEntityOfPage": {
+      "@id": "https://temeculavalleyhomes.us/blog/how-to-prepare-a-home-for-sale-temecula/#webpage"
     }
   },
   "faqJsonLd": null,

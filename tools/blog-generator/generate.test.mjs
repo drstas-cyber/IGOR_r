@@ -8,11 +8,80 @@ import {
   main,
   WRITER_MODEL,
   REVIEWER_MODEL,
+  buildJsonLd,
 } from './generate.mjs';
 
 function isolatedDir(prefix = 'generate-test-') {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
+
+// ---------------------------------------------------------------------------
+// buildJsonLd — Article schema completion (Batch A, AI SEO audit item 4,
+// 2026-08-07). Root-cause note: the 2026-08-07 audit report initially
+// claimed live output only had headline/author/datePublished, missing
+// description/url too -- that was wrong, a gap in the audit's own
+// verification script (it simply didn't print those two fields), not a
+// real bug in this function, which already emitted them. Corrected here:
+// these tests cover the fields that genuinely WERE missing before this
+// batch -- dateModified, publisher, mainEntityOfPage -- plus the
+// image-omitted-when-null rule.
+describe('buildJsonLd — Article schema (2026-08-07)', () => {
+  function baseArgs(overrides = {}) {
+    return {
+      title: 'Understanding HOA Fees',
+      metaDescription: 'A clear explanation of HOA fees for California homebuyers.',
+      canonicalUrl: 'https://temeculavalleyhomes.us/blog/understanding-hoa-fees/',
+      createdAt: '2026-08-07T12:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  test('always includes the previously-existing fields: headline, description, url, datePublished, author', () => {
+    const ld = buildJsonLd(baseArgs());
+    assert.equal(ld.headline, 'Understanding HOA Fees');
+    assert.equal(ld.description, 'A clear explanation of HOA fees for California homebuyers.');
+    assert.equal(ld.url, 'https://temeculavalleyhomes.us/blog/understanding-hoa-fees/');
+    assert.equal(ld.datePublished, '2026-08-07T12:00:00.000Z');
+    assert.deepEqual(ld.author, { '@type': 'Person', name: 'George Khazanovskiy' });
+  });
+
+  test('dateModified defaults to createdAt (datePublished) when not passed', () => {
+    const ld = buildJsonLd(baseArgs());
+    assert.equal(ld.dateModified, ld.datePublished);
+  });
+
+  test('dateModified uses an explicitly passed value when given (future content-edit path)', () => {
+    const ld = buildJsonLd(baseArgs({ dateModified: '2026-09-01T00:00:00.000Z' }));
+    assert.equal(ld.dateModified, '2026-09-01T00:00:00.000Z');
+    assert.notEqual(ld.dateModified, ld.datePublished);
+  });
+
+  test('publisher references the sitewide #agent entity by @id', () => {
+    const ld = buildJsonLd(baseArgs());
+    assert.deepEqual(ld.publisher, { '@id': 'https://temeculavalleyhomes.us/#agent' });
+  });
+
+  test('mainEntityOfPage references this article\'s own WebPage entity (canonicalUrl + #webpage)', () => {
+    const ld = buildJsonLd(baseArgs());
+    assert.deepEqual(ld.mainEntityOfPage, { '@id': 'https://temeculavalleyhomes.us/blog/understanding-hoa-fees/#webpage' });
+  });
+
+  test('image is OMITTED when heroImageUrl is null/undefined -- never fabricated', () => {
+    const ld = buildJsonLd(baseArgs({ heroImageUrl: null }));
+    assert.equal('image' in ld, false);
+    const ld2 = buildJsonLd(baseArgs());
+    assert.equal('image' in ld2, false);
+  });
+
+  test('image IS included when heroImageUrl is truthy', () => {
+    const ld = buildJsonLd(baseArgs({ heroImageUrl: 'https://temeculavalleyhomes.us/images/hoa-hero.jpg' }));
+    assert.equal(ld.image, 'https://temeculavalleyhomes.us/images/hoa-hero.jpg');
+  });
+
+  test('parses cleanly through JSON.stringify/parse', () => {
+    assert.doesNotThrow(() => JSON.parse(JSON.stringify(buildJsonLd(baseArgs()))));
+  });
+});
 
 // ---------------------------------------------------------------------------
 // handleTrippedGate — the rejected-attempt marker writer.
