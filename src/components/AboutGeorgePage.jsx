@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import StickyNavigation from '@/components/StickyNavigation';
 import AgentBioSection from '@/components/AgentBioSection';
 import GoogleReviews from '@/components/GoogleReviews';
@@ -104,6 +105,17 @@ export default function AboutGeorgePage() {
           <h1 className="font-serif text-[34px] sm:text-[44px] lg:text-[52px] text-white font-bold leading-tight max-w-3xl mx-auto">
             Meet George Khazanovskiy — Temecula Valley Realtor
           </h1>
+          {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08).
+              AgentBioSection below is shared with BuyerHomesPage.jsx, so
+              the "existing bio paragraph" this link was drafted for isn't
+              unique to this page -- weaving it there would leak the link
+              onto the buyer page too. Placed here instead, in the one
+              section unique to About. */}
+          <p className="font-sans text-[15px] text-gray-300 mt-4 max-w-2xl mx-auto">
+            George specializes in{' '}
+            <Link to="/homes-for-sale-temecula/" className="underline hover:text-white transition-colors">helping buyers find a home</Link>{' '}
+            across Temecula Valley.
+          </p>
         </section>
         <AgentBioSection />
         <GoogleReviews />
@@ -111,6 +123,10 @@ export default function AboutGeorgePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ContactForm />
         </div>
+        {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+        <p className="text-center text-sm text-gray-500 pb-10 px-4">
+          <Link to="/blog/" className="underline hover:text-[#C8920A] transition-colors">Read more on the blog</Link>.
+        </p>
         </main>
         <Footer />
         <MobileBottomBar />

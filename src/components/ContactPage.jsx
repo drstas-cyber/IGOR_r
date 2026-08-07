@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import { resetFormTimer } from '@/lib/antispam';
@@ -175,6 +176,13 @@ export default function ContactPage() {
         {/* BELOW THE FOLD — Trust + Areas */}
         <section className="max-w-xl mx-auto px-4 pb-12">
           <h2 className="text-xl font-serif font-bold text-white mb-4 text-center">Why George?</h2>
+          {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+          <p className="text-center text-sm text-gray-400 mb-4">
+            <Link to="/homes-for-sale-temecula/" className="underline hover:text-[#C8920A] transition-colors">If you're buying</Link>
+            {' '}or{' '}
+            <Link to="/sell-my-house/" className="underline hover:text-[#C8920A] transition-colors">if you're selling</Link>,
+            George can help either way.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               ['Buyer-Side Specialist', 'George primarily represents buyers across Temecula Valley.'],
@@ -214,6 +222,14 @@ export default function ContactPage() {
               askgeorgek@gmail.com
             </a>
           </div>
+
+          {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+          <p className="text-center text-gray-500 text-xs mt-6">
+            Or read about{' '}
+            <Link to="/russian-speaking-realtor-temecula/" className="underline hover:text-[#C8920A] transition-colors">
+              working with a Russian-speaking agent
+            </Link>.
+          </p>
         </section>
       </main>
       <Footer />

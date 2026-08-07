@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import RussianHeader from './RussianHeader';
@@ -69,7 +70,8 @@ export default function RussianRealtorPage() {
               Ваш надёжный риэлтор в Темекуле, Калифорния
             </h1>
             <p className="font-sans text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              Русскоязычный риэлтор в долине Темекула. Я помогу вам купить дом мечты или выгодно продать вашу недвижимость без языковых барьеров.
+              Русскоязычный риэлтор в долине Темекула. Я помогу вам купить дом мечты или выгодно продать вашу недвижимость без языковых барьеров. Узнайте{' '}
+              <Link to="/homes-for-sale-temecula/" className="underline hover:text-[#12202A] transition-colors">как я работаю с покупателями</Link>.
             </p>
             <Button 
               onClick={handleCall}
@@ -252,6 +254,13 @@ export default function RussianRealtorPage() {
             <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-white font-bold">Ответы на ваши вопросы</h2>
           </div>
           <RussianFAQAccordion />
+          {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+          <p className="font-sans text-[14px] text-gray-400 text-center mt-8">
+            Читайте также:{' '}
+            <Link to="/blog/russian-speaking-realtor-temecula/" className="underline hover:text-[#C8920A] transition-colors">
+              почему стоит выбрать русскоязычного риэлтора
+            </Link>
+          </p>
         </div>
       </section>
 

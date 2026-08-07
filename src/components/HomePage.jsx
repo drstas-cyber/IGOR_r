@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import ScrollingTicker from '@/components/ScrollingTicker';
 import StickyNavigation from '@/components/StickyNavigation';
 import HeroSection from '@/components/HeroSection';
@@ -103,6 +104,11 @@ export default function HomePage() {
         {/* 9. FAQ — visible text and FAQPage JSON-LD both generated from
             src/data/homepage-faq.js; see that file's header comment. */}
         <HomepageFAQSection />
+
+        {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+        <p className="text-center text-sm text-gray-500 pb-10 px-4">
+          <Link to="/blog/" className="underline hover:text-[#C8920A] transition-colors">Read our latest buying and selling guides</Link>.
+        </p>
         </main>
 
         <Footer />

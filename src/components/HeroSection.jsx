@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import BuyForm from './BuyForm';
 import SellForm from './SellForm';
@@ -51,7 +52,9 @@ export default function HeroSection() {
             Your Temecula Valley Realtor — George Khazanovskiy
           </h1>
           <p className="font-sans text-[16px] text-gray-200 leading-[1.6] max-w-lg font-light drop-shadow mb-8">
-            George Khazanovskiy — an experienced, licensed Realtor and Temecula's Russian & Ukrainian speaking agent.
+            George Khazanovskiy — an experienced, licensed Realtor and Temecula's Russian & Ukrainian speaking agent.{' '}
+            <Link to="/homes-for-sale-temecula/" className="underline hover:text-white transition-colors">Browse homes for sale in Temecula</Link>, or{' '}
+            <Link to="/sell-my-house/" className="underline hover:text-white transition-colors">thinking about selling</Link>?
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-4">
             <a

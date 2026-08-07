@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import StickyNavigation from '@/components/StickyNavigation';
 import StatsBar from '@/components/StatsBar';
@@ -76,7 +77,8 @@ export default function BuyerHomesPage() {
               Homes For Sale in Temecula
             </h1>
             <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto mt-5">
-              Explore Temecula Valley neighborhoods — Wolf Creek, Redhawk, Wine Country, Old Town and more — with George Khazanovskiy, your local buyer's agent.
+              Explore Temecula Valley neighborhoods — Wolf Creek, Redhawk, Wine Country, Old Town and more — with George Khazanovskiy, your local buyer's agent.{' '}
+              <Link to="/sell-my-house/" className="underline hover:text-white transition-colors">Ready to sell instead?</Link>
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <a
@@ -138,6 +140,14 @@ export default function BuyerHomesPage() {
 
         {/* 9. BILINGUAL BAND */}
         <BilingualBand />
+
+        {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08) */}
+        <p className="text-center text-sm text-gray-500 py-6 px-4">
+          Already have a home to sell?{' '}
+          <Link to="/blog/how-to-prepare-a-home-for-sale-temecula/" className="underline hover:text-[#C8920A] transition-colors">
+            Read our seller's checklist
+          </Link>.
+        </p>
 
         <Footer />
         <MobileBottomBar />

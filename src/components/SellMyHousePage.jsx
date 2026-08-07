@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import { resetFormTimer } from '@/lib/antispam';
@@ -84,7 +85,8 @@ export default function SellMyHousePage() {
             Sell Your Temecula Home<br className="hidden sm:block" /> for Top Dollar
           </h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-md mx-auto mb-4">
-            George Khazanovskiy — an experienced Temecula Realtor. <span className="text-[#C8920A] font-semibold">Free, expert-backed valuation</span> from a local agent.
+            George Khazanovskiy — an experienced Temecula Realtor. <span className="text-[#C8920A] font-semibold">Free, expert-backed valuation</span> from a local agent. Also{' '}
+            <Link to="/homes-for-sale-temecula/" className="underline hover:text-white transition-colors">browsing homes for sale</Link>?
           </p>
 
           {/* Quick stats row */}
@@ -214,6 +216,17 @@ export default function SellMyHousePage() {
           <div className="mt-8">
             <p className="text-gray-500 text-xs">Serving: Temecula · Murrieta · Menifee · Wildomar · Lake Elsinore · Fallbrook · Winchester · Redhawk · Wine Country · Old Town</p>
           </div>
+
+          {/* Internal link — AI SEO audit Batch B Part 2 (2026-08-08).
+              Anchor corrected per approval: the linked article is
+              buyer-oriented, not seller-closing-specific, so the anchor
+              must not promise seller-closing detail it doesn't deliver. */}
+          <p className="text-gray-500 text-xs mt-4">
+            Curious about{' '}
+            <Link to="/blog/temecula-property-taxes-explained/" className="underline hover:text-[#C8920A] transition-colors">
+              how property taxes work in Temecula
+            </Link>?
+          </p>
         </section>
       </main>
       <Footer />
