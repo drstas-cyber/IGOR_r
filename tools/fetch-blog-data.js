@@ -29,12 +29,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanArticle, evaluateBatch, resolveEnforceMode } from './blog-compliance/scan.js';
+import { scanArticle, evaluateBatch, resolveEnforceMode, GENERATOR_LOG_ONLY_FINDING_KEYS } from './blog-compliance/scan.js';
 import { MAX_TRIP_RATE } from './blog-compliance/patterns.js';
 import { fetchAllSummaries, fetchFullDetailForAll } from './blog-compliance/babyLoveApi.js';
 import { readFixture } from './blog-compliance/fixture.js';
-import { loadGeneratedArticles, mergeArticleSources } from './blog-generator/loadGenerated.js';
+import { loadGeneratedArticles, mergeArticleSources, isGeneratedArticle } from './blog-generator/loadGenerated.js';
 import { renderAllFootnotes } from './blog-generator/renderCitations.mjs';
+import { assertNoGeneratedArticleSilentlyDropped } from './silentDropGuard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +74,7 @@ function buildAndWrite(babyLoveArticles) {
     err.renderCitationsFatal = true;
     throw err;
   }
+  assertNoGeneratedArticleSilentlyDropped(combined, rendered, path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH));
   writeArticles(rendered);
   console.log(`[fetch-blog-data] wrote ${rendered.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to src/data/blog-articles.json`);
 }
@@ -90,7 +92,24 @@ function runComplianceFilter(articles) {
   // results[i] corresponds to articles[i] — kept index-aligned throughout
   // rather than reconstructed by slug lookup, since slugs aren't guaranteed
   // unique/present and a lookup-based rebuild would be fragile.
-  const results = articles.map((a) => scanArticle(a));
+  //
+  // Demotion parity (2026-08-12): generator-sourced articles (isGeneratedArticle
+  // -- has sourceTopic) get the same exclusivity:only/superlative log-only
+  // demotion here that generate.mjs's own Layer 1 already applies at
+  // generation time (GENERATOR_LOG_ONLY_FINDING_KEYS, see scan.js) --
+  // previously this batch path called scanArticle with no options for
+  // EVERY article regardless of source, so a finding the generator's own
+  // PR report already showed as demoted (Layer 1 tripped: false) could
+  // still silently exclude the article here, at build time, with a
+  // published:true flag and a merged PR that never actually reach the
+  // live site. Scoped by isGeneratedArticle() -- a BabyLoveGrowth article
+  // (no sourceTopic) always gets scanArticle(a) with no options, byte-
+  // identical to before this change, same "unaffected by construction, not
+  // just by measurement" discipline scan.js's own GENERATOR_LOG_ONLY_
+  // FINDING_KEYS comment already documents for the demotion generally.
+  const results = articles.map((a) =>
+    scanArticle(a, isGeneratedArticle(a) ? { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS } : {})
+  );
   const tripped = results.filter((r) => r.tripped);
 
   console.log(

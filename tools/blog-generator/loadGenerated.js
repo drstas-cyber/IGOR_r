@@ -38,6 +38,21 @@ export function loadGeneratedArticles() {
 // never silently. A collision should be rare (slugs.js checks uniqueness
 // against BabyLoveGrowth's known 28 at generation time) but isn't
 // impossible if a new BabyLoveGrowth article appears after generation.
+// isGeneratedArticle (2026-08-12) — the single, canonical way to tell a
+// locally-generated article from a BabyLoveGrowth one. Generated articles
+// always carry sourceTopic (schema.js requires it; generate.mjs's
+// assembleArticle() always sets it, see that file's own header comment);
+// BabyLoveGrowth articles never have this field at all. Used by
+// fetch-blog-data.js's compliance filter to decide, per article, whether
+// to apply the generator's own Layer-1 demotion
+// (GENERATOR_LOG_ONLY_FINDING_KEYS) -- the BabyLoveGrowth path must stay
+// unaffected by construction, not just by measurement, same discipline
+// scan.js's own header comment already documents for the demotion
+// generally.
+export function isGeneratedArticle(article) {
+  return typeof article?.sourceTopic === 'string' && article.sourceTopic.length > 0;
+}
+
 export function mergeArticleSources(babyLoveArticles, generatedArticles) {
   const babyLoveSlugs = new Set(babyLoveArticles.map((a) => a.slug).filter(Boolean));
   const merged = [...babyLoveArticles];

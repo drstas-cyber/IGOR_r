@@ -509,6 +509,94 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
   });
 });
 
+// ---------------------------------------------------------------------------
+// Self-review internal-link validation (2026-08-12). Real incident: two
+// real runs (PRs #28, #29, 2026-08-09/11) each stripped every internal
+// link from the draft during self-review because selfReview() never
+// received knownRoutesText at all -- the self-review model had no list to
+// check the draft's links against, so it defensively removed all of them.
+// The internalLinkGate (tested immediately above) was always a correct
+// fail-closed backstop; this fix is about the self-review pass actually
+// doing its job (keep valid links, strip only invalid ones) instead of
+// the gate being the only thing standing between a draft and zero
+// internal links ever surviving.
+// ---------------------------------------------------------------------------
+
+describe('self-review — internal-link validation (2026-08-12)', () => {
+  test('the self-review API call includes the same Known live routes list the draft pass received', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    let selfReviewUserMessage = null;
+    let draftUserMessage = null;
+    globalThis.fetch = async (url, init = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/v1/models')) return jsonResponse(200, { data: [{ id: WRITER_MODEL }, { id: REVIEWER_MODEL }] });
+      if (!urlStr.includes('api.anthropic.com')) return { status: 200, text: async () => '' };
+      const body = JSON.parse(init.body);
+      const toolName = body.tool_choice?.name;
+      const baseArticle = {
+        title: 'Understanding HOA Fees',
+        slug_suggestion: 'understanding-hoa-fees',
+        meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
+        content_html: '<p>HOA fees fund shared community amenities and routine maintenance.</p>',
+        keywords: ['hoa fees'],
+        citations: [],
+        faq_items: [],
+      };
+      if (toolName === 'submit_article_draft') {
+        draftUserMessage = body.messages[0].content;
+        return jsonResponse(200, toolUseBody('submit_article_draft', baseArticle));
+      }
+      if (toolName === 'submit_reviewed_article') {
+        selfReviewUserMessage = body.messages[0].content;
+        return jsonResponse(200, toolUseBody('submit_reviewed_article', { draft_was_clean: true, violations_found: [], ...baseArticle }));
+      }
+      if (toolName === 'report_compliance_check') return jsonResponse(200, toolUseBody('report_compliance_check', CLEAN_CHECKLIST));
+      throw new Error(`test router: unexpected tool_choice "${toolName}"`);
+    };
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined);
+    assert.ok(draftUserMessage, 'the draft pass must have been called');
+    assert.ok(selfReviewUserMessage, 'the self-review pass must have been called');
+    assert.match(draftUserMessage, /Known live routes/, 'sanity check: the draft pass has always received this list');
+    assert.match(selfReviewUserMessage, /Known live routes/, 'the self-review pass must now receive the same list -- this is the actual fix');
+    assert.match(selfReviewUserMessage, /temeculavalleyhomes\.us\//, 'real route URLs, not just the section label, must be present');
+  });
+
+  test('two internal links matching known routes survive self-review intact -- the run generates normally with both links in content_html', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    // Real, stable static routes from tools/seo-prerender.js's ROUTES.
+    const LINK_1 = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
+    const LINK_2 = 'https://temeculavalleyhomes.us/sell-my-house/';
+
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      citations: [],
+      // mockAnthropicRouter shares one contentHtml between the draft and
+      // self-review mock responses (see its own header comment) -- for
+      // this test that's the right shape anyway: it simulates self-review
+      // correctly leaving two already-valid links untouched rather than
+      // stripping them, which is exactly the behavior this fix restores.
+      extraContentHtml: ` <a href="${LINK_1}">homes for sale in Temecula</a> <a href="${LINK_2}">how to sell your home</a>`,
+    });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined, 'two valid internal links must not discard the run');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+
+    const articleFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    assert.equal(articleFiles.length, 1);
+    const article = JSON.parse(fs.readFileSync(path.join(generatedDir, articleFiles[0]), 'utf8'));
+    assert.match(article.content_html, new RegExp(LINK_1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'the first valid link must survive into the written article');
+    assert.match(article.content_html, new RegExp(LINK_2.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'the second valid link must survive into the written article');
+  });
+});
+
 describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', () => {
   // A real approved host (tier 1, statute-permitted) -- schema.js's host
   // policy (added 2026-07-26) now rejects any host not on its allowlist,

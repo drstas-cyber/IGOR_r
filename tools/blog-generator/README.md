@@ -1151,3 +1151,148 @@ Confirm on that read: any internal links present are genuinely relevant
 URL survived, and no unsupported claim was introduced in the sentence
 around a link.
 
+## Self-review never validated internal links — fixed 2026-08-12
+
+Real incident, both real runs since internal linking shipped: PR #28
+(2026-08-09) and PR #29 (2026-08-11) each stripped every internal link the
+draft pass had added, self-review reporting things like *"no known live
+routes were provided for this run to validate against"* — which was true
+from the self-review call's own point of view, but not because the list
+didn't exist. Root cause traced to source: `selfReview()` in `generate.mjs`
+never received `knownRoutesText` at all — only the draft pass
+(`generateDraft()`) did. The self-review model had no list to check the
+draft's links against, so the safe, defensible thing it could do was strip
+all of them. The internal-link gate (`internalLinkGate.mjs`) never
+malfunctioned — it's a fail-closed backstop for a hallucinated URL, not
+meant to be the only thing standing between a draft and zero links ever
+surviving, and until this fix it was carrying that job by accident.
+
+**Fix:** `selfReview()` now takes `knownRoutesText` (already computed once
+per run, same value injected into the draft pass) and appends the same
+"Known live routes" list to its own user message. `prompt.md`'s self-review
+pass instructions gained a new paragraph: keep a link verbatim only if its
+URL is an exact match for an entry on the list; strip any that aren't
+(replacing the link markup with its plain anchor text, never deleting the
+surrounding sentence); report each stripped link as a `violations_found`
+entry. Explicitly told not to strip out of caution or "clean up" a link
+that already matches. (Also fixed in the same edit: the self-review call's
+hardcoded instruction referenced "the six hard rules" — stale, prompt.md
+has had ten since rule 8 and rule 9 were added; corrected to "ten" while
+already touching that line.)
+
+**What proves this, and what doesn't.** No live `ANTHROPIC_API_KEY` was
+available to re-run the actual model against the fixed prompt and confirm
+its real link-keeping judgment — same limit this file already states for
+every other prompt/self-review change (see "Why seven layers," Layer 2,
+and the `competitor_mention` fix above). What's proven instead: the
+self-review API call now genuinely includes the list (a plumbing test
+asserting the request body contains `Known live routes` and a real route
+URL, which would have failed against the pre-fix code — it didn't exist to
+send), and that when self-review's output already contains links matching
+known routes, they survive intact into the written article
+(`generate.test.mjs`, "self-review — internal-link validation"). The
+internal-link gate's own existing tests (immediately above this in the
+test file) already covered the fail-closed backstop for an invented link
+making it through regardless of what self-review does with it — unchanged
+by this fix.
+
+**Acceptance check (standing rule invoked): the next article this pipeline
+generates gets a full human read regardless of what `allSilent` says** —
+self-review's actual behavior on internal links changed. Confirm on that
+read: any links self-review kept are genuine exact matches to real known
+routes (not something that merely looks close), and no link that should
+have survived was stripped anyway.
+
+## Batch-build compliance filter didn't know about the generator's own demotion — fixed 2026-08-12
+
+Real incident, discovered mid-publish while clearing the 2026-08-09/11
+generator queue: "seller-closing-costs-explained" (PR #28) had a clean
+Layer 1 report at generation time (`tripped: false`) because
+`exclusivity:superlative` is demoted to log-only for this generator's own
+articles (see "Layer 1's real-world hit rate," above) — the sentence *"this
+is best done with input from your agent and escrow officer"* matched
+`SUPERLATIVE_TRIGGER_PATTERN` ("best" within the context window of
+"agent"), same idiom-shape gap as the already-documented "best interest"
+false positive, just a sentence the narrow idiom exclusion didn't cover.
+The article was merged and `published: true` on the strength of that clean
+report. But `tools/fetch-blog-data.js`'s `runComplianceFilter()` — the
+separate batch-build filter that actually decides what ends up in
+`blog-articles.json` — called `scanArticle(a)` with **no options** for
+every article regardless of source, so the same finding full-enforce-
+tripped there and silently excluded the article from every build. The only
+visible trace was one `console.log` line ("EXCLUDED: ...") indistinguishable
+from every other routine finding log line in the same run — `published:
+true`, a merged PR, and the article never actually live, with nothing
+anywhere loud enough to say so.
+
+**Fix, two parts, both required — a filter fix alone would have left the
+same class of bug possible under a different disguise:**
+
+1. **Demotion parity.** `runComplianceFilter()` now scopes
+   `GENERATOR_LOG_ONLY_FINDING_KEYS` per article via a new
+   `isGeneratedArticle()` predicate (`loadGenerated.js` — an article "is
+   generated" if it carries a non-empty `sourceTopic`, the same field
+   `schema.js` already requires on every article `generate.mjs` produces
+   and BabyLoveGrowth articles never have). A generated article gets
+   `scanArticle(a, { logOnlyFindingKeys: GENERATOR_LOG_ONLY_FINDING_KEYS })`
+   — the exact same call generate.mjs's own `runGates()` already makes at
+   generation time; a BabyLoveGrowth article always gets `scanArticle(a)`
+   with no options, byte-identical to every build before this change —
+   "unaffected by construction, not just by measurement," same discipline
+   `GENERATOR_LOG_ONLY_FINDING_KEYS`'s own header comment already states
+   for the demotion generally. **Proven, not assumed:** re-run against the
+   real, gitignored 28-article frozen BabyLoveGrowth fixture
+   (`.articles-cache.json`, the same one this file's prior
+   "reverifications" entries used) — all 28 confirmed true BLG shape (no
+   `sourceTopic`), 27/28 tripped both before and after this change, zero
+   delta. Not committed as an automated test (the fixture itself is
+   deliberately gitignored — see `fixture.js`'s header comment — so a
+   permanent test depending on it would throw for anyone, including CI,
+   without that exact local file); recorded here per this project's
+   existing "reverifications" convention instead. Portable, permanent
+   regression coverage for the same guarantee lives in
+   `fetch-blog-data.test.mjs`'s "demotion parity" describe block, using
+   the real seller-closing-costs-explained sentence directly.
+
+2. **The invariant that makes this class of bug impossible to reintroduce
+   silently**, because a filter fix only closes the one gap found today —
+   `assertNoGeneratedArticleSilentlyDropped()` (new file,
+   `tools/silentDropGuard.mjs`, matching `checkRejectedMarker.mjs` /
+   `checkAllSilent.mjs` / `internalLinkGate.mjs`'s pattern: single-purpose,
+   pure, unit-tested in isolation). Called from `buildAndWrite()` right
+   before `writeArticles()`: every generated article that survived
+   `mergeArticleSources()` (i.e., wasn't already dropped by a legitimate,
+   already-loudly-logged slug collision) must be present in the final
+   written array, by slug — if not, **the build fails loudly**
+   (`blogComplianceFatal`, same mechanism the trip-rate-exceeded guard
+   already uses), naming every missing article by title and slug, before
+   `writeArticles()` is ever called (so the previous good
+   `blog-articles.json` is left on disk untouched, not overwritten with a
+   silently-incomplete one). **Proven RED first**, per this project's own
+   discipline: the exact new integration test
+   (`fetch-blog-data.test.mjs`, "silent-drop guard, full pipeline") was run
+   against the code with the guard's call site commented out — it failed
+   (`exit 0`, no FATAL, the drop genuinely silent), confirming the test
+   actually catches the bug rather than trivially passing; re-enabled, the
+   same test is green. That integration test spawns the real script
+   against the real repo with one synthetic published-but-tripping article
+   temporarily written into the real `generated-articles/` directory
+   (cleaned up in a `finally`, verified gone by a following test) — the
+   same "never mocked, prove the actual default path in this actual repo"
+   discipline this file's existing tests already use.
+
+Both fixes shipped together, same commit discipline as the
+`competitor_mention` fix and the internal-linking fix above: a filter
+change and a control-flow invariant are two different classes of risk, and
+landing them separately would have left a window where the invariant
+didn't exist yet to catch a *different* silent-drop cause.
+
+**Acceptance check:** no prompt or generation-time behavior changed here —
+this is entirely inside the build-time batch filter, downstream of
+`generate.mjs`. The existing "next article gets a full human read" standing
+rule from the two entries above already covers the next real run; this fix
+doesn't independently trigger a new one. `seller-closing-costs-explained`
+itself was already fixed and re-verified live the same day (reworded "best
+done" → "most accurately done," no claim changed) — see the live-sweep
+record for 2026-08-12 for the deploy details.
+

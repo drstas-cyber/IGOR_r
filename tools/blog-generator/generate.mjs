@@ -156,7 +156,14 @@ async function generateDraft({ apiKey, topic, systemPrompt, knownRoutesText }) {
   return extractToolInput(response, DRAFT_TOOL.name);
 }
 
-async function selfReview({ apiKey, draft, systemPrompt }) {
+// knownRoutesText is now passed into the self-review call too (fixed
+// 2026-08-12) -- previously only the draft pass received it, so the
+// self-review model had no list to validate the draft's internal links
+// against and defensively stripped every one it found, on both real runs
+// since internal linking shipped (PRs #28, #29, 2026-08-09/11). See
+// prompt.md's "Validate internal links against the list" paragraph for the
+// instructions this list is now checked against.
+async function selfReview({ apiKey, draft, systemPrompt, knownRoutesText }) {
   const response = await createMessage({
     apiKey,
     model: WRITER_MODEL,
@@ -164,7 +171,7 @@ async function selfReview({ apiKey, draft, systemPrompt }) {
     messages: [
       {
         role: 'user',
-        content: `Review this draft against the six hard rules and the self-review pass instructions, then submit the corrected version:\n\n${JSON.stringify(draft, null, 2)}`,
+        content: `Review this draft against the ten hard rules and the self-review pass instructions, then submit the corrected version:\n\n${JSON.stringify(draft, null, 2)}\n\nKnown live routes (validate every internal link already in the draft above against this list -- keep a link only if its URL is an exact match, strip any that aren't, per the self-review pass instructions' internal-linking paragraph):\n${knownRoutesText}`,
       },
     ],
     tools: [REVIEW_TOOL],
@@ -430,7 +437,7 @@ export async function main({
   const draft = await generateDraft({ apiKey, topic, systemPrompt, knownRoutesText });
 
   console.log('[generate] pass 2/2: self-review...');
-  const reviewed = await selfReview({ apiKey, draft, systemPrompt });
+  const reviewed = await selfReview({ apiKey, draft, systemPrompt, knownRoutesText });
   const selfReviewCheck = validateSelfReview(reviewed);
   if (!selfReviewCheck.valid) {
     // Does NOT discard the run -- an inconsistent self-review report is not
