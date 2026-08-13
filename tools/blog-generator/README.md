@@ -658,6 +658,20 @@ content and its full gate/audit history stay in git history either way,
 matching this pipeline's existing "never delete, always record" pattern
 for rejected-attempt markers.
 
+**Routine-proofing (2026-08-13):** the Aug-13 half-sequence incident (a
+scheduled routine merged an article PR at `09a80ca` but skipped the
+flip/`_headers`/rebuild remainder, left silently incomplete until a human
+noticed by hand) is exactly the failure mode "merge ≠ publish" above warns
+about. `tools/blog-generator/publishStatusReport.mjs --slug=<slug>` is the
+one-command check for it — given a slug, reports whether all four steps of
+the publish sequence actually landed: `published:true`, the `_headers`
+cache pair, presence in the built `blog-articles.json`, and (best-effort,
+network) that the article serves live. Exits non-zero on anything
+incomplete. Read-only — never writes, safe to run repeatedly or from a
+routine as a post-merge sanity check. `--skip-live` skips the network
+check (CI/sandboxed runs without outbound access) and reports local-only
+completeness.
+
 ### 5. Topic runway
 
 Restocked `topics.json` from 20 to **40** entries, 2026-08-03, same rules
