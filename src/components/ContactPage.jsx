@@ -55,6 +55,7 @@ export default function ContactPage() {
       <Helmet>
         <title>Contact George Khazanovskiy | Temecula Realtor</title>
         <meta name="description" content="Contact George Khazanovskiy — experienced Temecula Valley Realtor. Free buyer consultation. Call (619) 277-2766." />
+        <link rel="canonical" href="https://temeculavalleyhomes.us/contact/" />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />

@@ -7,6 +7,23 @@
 > for the ad-copy history and substantiation reasoning, not as a description of the
 > current site.
 
+> **Supersession note — dated 2026-08-13.** The "resurrect verbatim" guidance below
+> ("When to use this copy" and "Reference IDs (for resurrection)") for this ad
+> family — 805651137818 / 805972345804 / 806107473080, and by extension the
+> byte-identical live converter 807456288145 — is **DEAD**. Any future revival,
+> including recreating this copy for the planned Russian-Speaking Realtor ad group,
+> must go through a full compliance rewrite against the FALSE/PARTIAL/TRUE
+> substantiation buckets in "Site Substantiation" below, not a verbatim reuse.
+> Several headlines in this family (e.g. "100.1% Sale-to-List Ratio", "Homes Sell in
+> 25 Days Average", "Five-Star Reviewed Realtor") are market/rating stats that the
+> Substantiation section already flags as needing periodic verification or
+> platform-agnostic rephrasing — verbatim resurrection would ship them unchecked.
+> Reference: the Stage-1 (audit) / Stage-2 (draft) ads-fix session, cleanup-batch
+> Part 4, 2026-08-13. This does **not** change the "sacred — verbatim" note on the
+> live, currently-converting 807456288145 in the roster below — that protects a
+> performing ad from being edited *while it's live*, a separate concern from
+> resurrecting the family fresh elsewhere.
+
 **Status:** Three Temecula Buyers ad-group RSAs paused 2026-05-04, kept paused 2026-05-06 to avoid Frankenstein-ing onto `/homes-for-sale-temecula/` (different intent than copy). Total accumulated cost across the three: ~$398.35 over 90 days, **0 conversions** when serving against `/contact/`.
 
 **Intent:** Preserve the creative work for a future dedicated **Russian-Speaking Realtor ad group** (the planned 4-ad-group restructure — see project memory). Same copy, paired with Russian-search keywords and `/russian-speaking-realtor-temecula/` as the destination, may convert. The copy is "Russian-speaking realtor" positioning regardless of search intent — it landed on the wrong combination of (English buyer keywords) × (`/contact/` LP) and produced 0 conversions, but that does not mean the copy is dead.

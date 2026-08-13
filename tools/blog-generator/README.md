@@ -630,6 +630,16 @@ entire sweep removing when it's *not* backed by a real, checkable source;
 the difference here is it genuinely is checkable, so the audit is "does
 this still match," not "is this real."
 
+**Checklist line item added 2026-08-13:** the same 5.0/17 figure lives in
+**two** places now, not one — the site badge above, and the live Google
+Ads account callout asset "5.0★ · 17 Google Reviews." Both are hardcoded,
+both drift independently, and a mismatch between them (or between either
+one and the live listing) is invisible unless both are checked in the
+same pass. The weekly retrospective audit must verify **both** the site
+badge and the Ads callout against George's live Google Business listing —
+checking only `src/lib/reviews.js` and assuming the Ads account matches is
+not sufficient.
+
 **Rollback — the one-commit unpublish line**, for an article that fails
 retrospectively:
 

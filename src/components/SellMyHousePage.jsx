@@ -54,6 +54,7 @@ export default function SellMyHousePage() {
       <Helmet>
         <title>Sell Your Temecula Home for Top Dollar</title>
         <meta name="description" content="Free home valuation from George Khazanovskiy, an experienced Temecula Realtor. No-obligation seller consultation." />
+        <link rel="canonical" href="https://temeculavalleyhomes.us/sell-my-house/" />
         <meta name="robots" content="noindex" />
       </Helmet>
       <Navigation />

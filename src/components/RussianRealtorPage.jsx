@@ -16,14 +16,6 @@ export default function RussianRealtorPage() {
   // src/components/ScrollToTop.jsx (audit item 4) -- removed here to
   // avoid the redundant/inconsistent per-component pattern.
 
-  const handleCall = () => {
-    window.location.href = "tel:+16192772766";
-  };
-
-  const handleEmail = () => {
-    window.location.href = "mailto:askgeorgek@gmail.com";
-  };
-
   const whyGeorgeFeatures = [
     { icon: "📍", title: "Местный эксперт", description: "Русскоязычный риэлтор в долине Темекула с глубоким знанием местного рынка." },
     { icon: "🏡", title: "Бесплатная оценка", description: "Бесплатная, необязательная оценка стоимости вашего дома на основе анализа сравнимых продаж." },
@@ -73,11 +65,11 @@ export default function RussianRealtorPage() {
               Русскоязычный риэлтор в долине Темекула. Я помогу вам купить дом мечты или выгодно продать вашу недвижимость без языковых барьеров. Узнайте{' '}
               <Link to="/homes-for-sale-temecula/" className="underline hover:text-[#12202A] transition-colors">как я работаю с покупателями</Link>.
             </p>
-            <Button 
-              onClick={handleCall}
+            <Button
+              asChild
               className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] text-lg font-bold px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all"
             >
-              📞 Позвонить Джорджу — 619-277-2766
+              <a href="tel:+16192772766">📞 Позвонить Джорджу — 619-277-2766</a>
             </Button>
           </motion.div>
         </div>
@@ -276,17 +268,17 @@ export default function RussianRealtorPage() {
           <p className="font-sans text-[16px] text-gray-600 mb-10">Позвоните Джорджу для бесплатной консультации</p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
-            <Button 
-              onClick={handleCall}
+            <Button
+              asChild
               className="bg-[#C8920A] hover:bg-[#B38209] text-[#12202A] font-bold text-lg px-8 py-6 rounded-lg shadow-md"
             >
-              📞 Позвонить — 619-277-2766
+              <a href="tel:+16192772766">📞 Позвонить — 619-277-2766</a>
             </Button>
-            <Button 
-              onClick={handleEmail}
+            <Button
+              asChild
               className="bg-[#8B3018] hover:bg-[#702613] text-white font-bold text-lg px-8 py-6 rounded-lg shadow-md"
             >
-              💬 Написать письмо
+              <a href="mailto:askgeorgek@gmail.com">💬 Написать письмо</a>
             </Button>
           </div>
           <p className="font-sans text-[14px] text-gray-500">
