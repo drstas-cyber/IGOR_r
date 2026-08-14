@@ -3,15 +3,18 @@ import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 
 /**
- * Catch-all route for unmatched URLs (e.g. the phantom landing-page paths from
- * the stale Ads plan, or any typo'd URL). Without this, react-router rendered
- * nothing and Cloudflare's SPA fallback soft-200'd a blank homepage shell.
+ * Catch-all route for unmatched URLs, for the one case a real HTTP 404
+ * can't cover: client-side navigation to a bad path (e.g. a broken
+ * internal <Link>) inside an already-mounted SPA session, where the
+ * browser never makes a fresh top-level request Cloudflare could 404.
  *
- * `robots: noindex` keeps these soft-404s out of the index. Note: this is a
- * SOFT 404 (HTTP 200 + noindex) — a true 404 status would require editing
- * public/_redirects (`/* /index.html 200`), which is the load-bearing
- * trailing-slash routing surface and must not change. noindex is Google's
- * endorsed pattern for SPA not-found pages.
+ * A fresh request to an unknown path (typo'd URL, phantom landing-page
+ * path, dead slug) now gets a REAL HTTP 404 before React ever loads --
+ * public/404.html, served natively by Cloudflare Pages once the SPA
+ * catch-all (`/* /index.html 200`) was removed from public/_redirects
+ * 2026-08-13 (see the 404-task cleanup-batch commit). `robots: noindex`
+ * here is belt-and-suspenders for the in-session case above, not the
+ * primary 404 mechanism anymore.
  */
 export default function NotFound() {
   useEffect(() => {
