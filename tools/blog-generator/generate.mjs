@@ -27,6 +27,7 @@ import { validateArticleSchema } from './schema.js';
 import { validateSelfReview } from './selfReviewSchema.mjs';
 import { getKnownRoutes, formatKnownRoutesForPrompt } from './knownRoutes.mjs';
 import { validateInternalLinks } from './internalLinkGate.mjs';
+import { restoreStrippedInternalLinks } from './internalLinkRestore.mjs';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
 import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
@@ -453,6 +454,26 @@ export async function main({
     reviewed.violations_found.forEach((v) => console.log(`    - ${v}`));
   } else {
     console.log('[generate] self-review: draft was already clean per the model (draft_was_clean=true, zero violations).');
+  }
+
+  // Deterministic link-restore backstop (2026-08-19) — self-review's own
+  // link-validation judgment (prompt.md, fixed 2026-08-12) still
+  // occasionally mis-judges an exact-match URL as non-matching and strips
+  // a genuinely valid link to plain text (observed live, PR #32,
+  // 2026-08-17 — see internalLinkRestore.mjs's header comment for the
+  // full incident). Runs here, between self-review and assembleArticle,
+  // so the restored content_html is what schema validation, the
+  // internal-link gate, and the written article all see — never a
+  // separate, second copy of the truth.
+  const linkRestore = restoreStrippedInternalLinks(draft.content_html, reviewed.content_html, knownRoutes);
+  reviewed.content_html = linkRestore.html;
+  if (linkRestore.restored.length > 0) {
+    console.log(`[generate] link-restore: self-review wrongly stripped ${linkRestore.restored.length} valid link(s) -- restored:`);
+    linkRestore.restored.forEach((r) => console.log(`    - ${r.href} ("${r.text}")`));
+  }
+  if (linkRestore.skipped.length > 0) {
+    console.log(`[generate] link-restore: ${linkRestore.skipped.length} stripped known-route link(s) could not be safely restored (left as plain text):`);
+    linkRestore.skipped.forEach((s) => console.log(`    - ${s.href} ("${s.text}") — ${s.reason}`));
   }
 
   const knownSlugs = getKnownSlugs({ generatedDir });

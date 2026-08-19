@@ -41,7 +41,11 @@ export function extractInternalHrefs(contentHtml) {
   return hrefs;
 }
 
-function normalize(url) {
+// Exported (2026-08-19) so internalLinkRestore.mjs shares this exact
+// definition instead of a second, independently-written copy that could
+// drift out of sync with this one -- the class of bug this whole area is
+// prone to (see internalLinkRestore.mjs's header comment).
+export function normalize(url) {
   // Strip any hash fragment/query string, then ensure exactly one
   // trailing slash — matches every knownRoutes URL's own shape
   // (SITE + route.path, and route.path always ends in '/').

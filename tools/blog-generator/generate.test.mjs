@@ -597,6 +597,81 @@ describe('self-review — internal-link validation (2026-08-12)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Deterministic link-restore backstop (2026-08-19). The 2026-08-12 fix
+// above (self-review receives the Known live routes list) closed most of
+// the gap, but self-review's link-URL-matching is still an LLM judgment
+// call, not a deterministic one -- observed live on PR #32 (Paloma Del
+// Sol, 2026-08-17): it stripped six links whose URLs were verbatim
+// matches to entries on the list it was given. This describe block proves
+// the backstop (internalLinkRestore.mjs, wired into main() right after
+// self-review) actually fires end-to-end through the real pipeline, not
+// just in the module's own isolated unit tests.
+// ---------------------------------------------------------------------------
+describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (2026-08-19)', () => {
+  test('self-review wrongly strips a valid known-route link (real router, draft and reviewed responses differ) -- main() restores it before writing the article', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    // Static route from seo-prerender.js's ROUTES -- always in knownRoutes
+    // regardless of blog-articles.json's current content, same choice the
+    // existing test above makes for the same reason.
+    const LINK = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
+    const draftHtml = `<p>You can start by browsing <a href="${LINK}">homes for sale in Temecula</a> today.</p>`;
+    // Self-review's real, observed failure mode on PR #32: strips the <a>,
+    // keeps the anchor text verbatim as plain text.
+    const reviewedHtml = `<p>You can start by browsing homes for sale in Temecula today.</p>`;
+
+    globalThis.fetch = async (url, init = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/v1/models')) return jsonResponse(200, { data: [{ id: WRITER_MODEL }, { id: REVIEWER_MODEL }] });
+      if (!urlStr.includes('api.anthropic.com')) return { status: 200, text: async () => '' };
+      const body = JSON.parse(init.body);
+      const toolName = body.tool_choice?.name;
+      if (toolName === 'submit_article_draft') {
+        return jsonResponse(200, toolUseBody('submit_article_draft', {
+          title: 'Homes For Sale in Temecula: A Buyer’s Overview',
+          slug_suggestion: 'temecula-buyer-overview',
+          meta_description: 'An overview for buyers exploring homes for sale in Temecula Valley and nearby areas.',
+          content_html: draftHtml,
+          keywords: ['temecula homes'],
+          citations: [],
+          faq_items: [],
+        }));
+      }
+      if (toolName === 'submit_reviewed_article') {
+        return jsonResponse(200, toolUseBody('submit_reviewed_article', {
+          draft_was_clean: true,
+          violations_found: [],
+          title: 'Homes For Sale in Temecula: A Buyer’s Overview',
+          slug_suggestion: 'temecula-buyer-overview',
+          meta_description: 'An overview for buyers exploring homes for sale in Temecula Valley and nearby areas.',
+          content_html: reviewedHtml,
+          keywords: ['temecula homes'],
+          citations: [],
+          faq_items: [],
+        }));
+      }
+      if (toolName === 'report_compliance_check') return jsonResponse(200, toolUseBody('report_compliance_check', CLEAN_CHECKLIST));
+      throw new Error(`test router: unexpected tool_choice "${toolName}"`);
+    };
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined, 'a restored valid link must not discard the run');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+
+    const articleFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    assert.equal(articleFiles.length, 1);
+    const article = JSON.parse(fs.readFileSync(path.join(generatedDir, articleFiles[0]), 'utf8'));
+    assert.match(
+      article.content_html,
+      new RegExp(`<a href="${LINK.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">homes for sale in Temecula</a>`),
+      'the link self-review stripped must be restored, verbatim, in the final written article'
+    );
+  });
+});
+
 describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', () => {
   // A real approved host (tier 1, statute-permitted) -- schema.js's host
   // policy (added 2026-07-26) now rejects any host not on its allowlist,

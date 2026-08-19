@@ -1227,6 +1227,67 @@ read: any links self-review kept are genuine exact matches to real known
 routes (not something that merely looks close), and no link that should
 have survived was stripped anyway.
 
+## The 2026-08-12 fix above wasn't enough — self-review still over-strips, fixed deterministically 2026-08-19
+
+**Real incident, live production:** PR #32 (Paloma Del Sol, 2026-08-17) —
+the first real run after the 2026-08-12 fix above shipped — still stripped
+six internal links, including two to real, live articles (`redhawk-...`
+and `wolf-creek-...`), each citing "did not exactly match a Known live
+route (extra trailing slash / mismatch)" as the reason. Verified directly
+against the actual `Known live routes` text that run received: both the
+draft's link and the corresponding list entry were byte-identical, trailing
+slash and all. The 2026-08-12 fix correctly closed "the model had no list"
+— but link-URL matching was, and still is, an LLM judgment call under that
+fix, not a deterministic one, and the model can misjudge an exact match
+even with the list sitting right in front of it. Caught during a
+supervised read (this run wasn't perfectly silent — 10 self-review
+corrections — so it held for one regardless); the article itself was fine
+and got published as-is with the links manually understood to be lost, not
+restored at the time.
+
+**Fix:** link-URL validation no longer depends on the self-review model
+getting a string-comparison right. `internalLinkRestore.mjs` (new,
+pure, matching this directory's existing gate/helper pattern) runs
+deterministically in `generate.mjs`, between `selfReview()` and
+`assembleArticle()`: for every anchor in the *draft* whose href is an
+exact match (via `internalLinkGate.mjs`'s own `normalize()`, now exported
+so both files share one definition) to a known route, if that anchor is
+missing from self-review's output, restore it — but only when unambiguous
+(the anchor's exact text survives as a single, not-already-anchored
+occurrence in the reviewed HTML). Anything ambiguous — text reworded away,
+text appearing more than once, an already-different anchor sitting where
+the old one was — is left alone and logged, never guessed at.
+`internalLinkGate.mjs`'s fail-closed gate is unchanged and still runs
+after this: this fix only ever adds back a link the draft already had and
+the known-routes list already vouches for, never keeps something invalid.
+
+**Deliberately narrow, by design:** this does NOT change what happens when
+self-review correctly strips a genuinely invalid link (an invented slug,
+a wrong domain) — those still get stripped and stay stripped. It only
+recovers the "good link, wrongly removed" case the 2026-08-17 incident
+actually was.
+
+**What proves this:** 12 unit tests (`internalLinkRestore.test.mjs`)
+covering the restore case (including the real redhawk/wolf-creek shape),
+the correct-strip-stays-stripped case, the already-intact no-op case, root-
+relative hrefs, and three distinct "don't guess" cases (ambiguous duplicate
+text, reworded-away text, text already re-anchored to something else) —
+each proven red first (module didn't exist) before the implementation
+existed to make them pass. Plus one full-pipeline test in `generate.test.mjs`
+("link-restore backstop — the real PR #32 bug, reproduced end-to-end")
+using a real router with genuinely different draft/self-review mock
+responses (unlike `mockAnthropicRouter`, which shares one `contentHtml`
+between both passes) — proves the wiring actually fires inside `main()`,
+not just the module in isolation. 31/31 `generate.test.mjs` tests passing
+(up from 30), full blog-generator suite green, full build verified.
+
+**Acceptance check:** same standing rule as 2026-08-12 — the next article
+this pipeline generates gets a full human read regardless of `allSilent`,
+specifically checking that any restored link is genuinely correct (points
+at the right, relevant route) and that the restore log (printed by
+`generate.mjs`, not currently surfaced in the PR body) doesn't show any
+`skipped` entries that should have been restorable.
+
 ## Batch-build compliance filter didn't know about the generator's own demotion — fixed 2026-08-12
 
 Real incident, discovered mid-publish while clearing the 2026-08-09/11
