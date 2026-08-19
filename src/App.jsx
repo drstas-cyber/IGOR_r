@@ -12,6 +12,7 @@ import BlogIndexPage from '@/components/BlogIndexPage';
 import BlogPostPage from '@/components/BlogPostPage';
 import NotFound from '@/components/NotFound';
 import ScrollToTop from '@/components/ScrollToTop';
+import HashSectionRedirect from '@/components/HashSectionRedirect';
 import { captureFirstTouch } from '@/lib/attribution';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
 
       <Router>
         <ScrollToTop />
+        <HashSectionRedirect />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/russian-speaking-realtor-temecula" element={<RussianRealtorPage />} />

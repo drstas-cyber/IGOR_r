@@ -1,25 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Phone } from 'lucide-react';
 import { trackSearchHomesClick } from '@/lib/tracking';
-import { apexAdvancedSearchUrl } from '@/lib/apexSearch';
-
-// Outbound MLS search (ApexIDX). New tab; rel="noopener noreferrer" — the site's
-// Referrer-Policy (strict-origin-when-cross-origin) already caps any cross-origin
-// referrer to the bare origin, so dropping the path/query via noreferrer loses no
-// attribution ApexIDX didn't already lack; utm_content on the URL is the real signal.
-const APEX_SEARCH_NAV_URL = apexAdvancedSearchUrl('nav');
+import { homeHashHref } from '@/lib/homeSectionScroll';
+import { STICKY_NAV_ITEMS } from '@/lib/navItems';
 
 export default function StickyNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
-  // #home-value only exists on the homepage (HomeValueForm isn't rendered on
-  // every page). On the homepage, plain "#home-value" scrolls in place. On
-  // any other page, "/#home-value" is a full <a> page navigation that lands
-  // on the homepage with the hash already set; HomePage's own effect handles
-  // the actual scroll once React has rendered the target (see HomePage.jsx).
-  const homeValueHref = location.pathname === '/' ? '#home-value' : '/#home-value';
+  const homeValueHref = homeHashHref('home-value', location.pathname);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,16 +19,34 @@ export default function StickyNavigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks = [
-    { label: 'Search Homes', href: APEX_SEARCH_NAV_URL, external: true },
-    { label: 'Home Value', href: homeValueHref },
-    { label: 'About George', href: '#about-george' },
-    { label: 'Blog', href: '/blog/' },
-    { label: 'Contact', href: '#contact' }
-  ];
-
   const linkClass =
     'text-[14px] text-foreground font-medium hover:text-accent relative after:absolute after:bottom-[-4px] after:left-0 after:w-full after:h-[2px] after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left transition-colors';
+
+  // renderNavItem — one render function shared by the desktop and mobile
+  // blocks below (previously two independently-hand-maintained <a> lists
+  // rendering the same navLinks array — now genuinely one code path).
+  function renderNavItem(item, className) {
+    if (item.external) {
+      return (
+        <a
+          key={item.label}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackSearchHomesClick('nav')}
+          className={className}
+        >
+          {item.label} ↗
+        </a>
+      );
+    }
+    const to = item.to ?? homeHashHref(item.sectionId, location.pathname);
+    return (
+      <Link key={item.label} to={to} className={className}>
+        {item.label}
+      </Link>
+    );
+  }
 
   return (
     <nav
@@ -59,36 +67,15 @@ export default function StickyNavigation() {
           </div>
 
           <div className="flex items-center gap-6">
-            {navLinks.map((link) => (
-              link.external ? (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => trackSearchHomesClick('nav')}
-                  className={linkClass}
-                >
-                  {link.label} ↗
-                </a>
-              ) : (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className={linkClass}
-                >
-                  {link.label}
-                </a>
-              )
-            ))}
+            {STICKY_NAV_ITEMS.map((item) => renderNavItem(item, linkClass))}
           </div>
 
           <div className="flex items-center gap-5">
-            <a href={homeValueHref}>
+            <Link to={homeValueHref}>
               <Button className="bg-accent hover:bg-accent/90 text-white rounded text-[14px] px-5 py-2 h-auto transition-transform hover:scale-105">
                 Free Home Value
               </Button>
-            </a>
+            </Link>
             <a
               href="tel:+16192772766"
               className="flex items-center gap-2 text-[#12202A] hover:text-accent font-semibold text-[14px] transition-colors"
@@ -102,28 +89,7 @@ export default function StickyNavigation() {
 
         {/* Mobile: compact, always-visible primary links */}
         <div className="flex md:hidden items-center justify-between gap-2 overflow-x-auto">
-          {navLinks.map((link) => (
-            link.external ? (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackSearchHomesClick('nav')}
-                className="text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent"
-              >
-                {link.label} ↗
-              </a>
-            ) : (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent"
-              >
-                {link.label}
-              </a>
-            )
-          ))}
+          {STICKY_NAV_ITEMS.map((item) => renderNavItem(item, 'text-[13px] whitespace-nowrap text-foreground font-medium hover:text-accent'))}
         </div>
       </div>
     </nav>

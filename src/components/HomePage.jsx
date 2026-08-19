@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import ScrollingTicker from '@/components/ScrollingTicker';
 import StickyNavigation from '@/components/StickyNavigation';
 import HeroSection from '@/components/HeroSection';
@@ -17,35 +17,84 @@ import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
 import { buildHomepageFaqJsonLd } from '@/data/homepage-faq';
 import { toJsonLdScript } from '@/lib/blog';
+import { isKnownHomeSectionHash } from '@/lib/homeSectionScroll';
 
 export default function HomePage() {
   const { toast } = useToast();
   const faqJsonLd = toJsonLdScript(buildHomepageFaqJsonLd());
+  const { hash } = useLocation();
 
-  // Cross-page "/#home-value" links (StickyNavigation, on pages other than
-  // "/") land here via a full page load, which the browser tries to
-  // hash-scroll before React has mounted anything — too early, since this is
-  // a client-rendered SPA. Retry once React has actually rendered the target.
+  // isInitialRenderRef (2026-08-19 nav-hash audit): distinguishes "this
+  // hash was already present when HomePage mounted" (cold load, or an SPA
+  // <Link> landing here from another route) from "the hash just changed
+  // while HomePage was already sitting on screen" (a same-page nav click).
+  // Only the first case needs the instant-jump workaround below — the
+  // second is exactly the ORIGINAL in-page click behavior (a plain
+  // <a href="#id">, animated by index.css's sitewide `scroll-behavior:
+  // smooth`) that the audit's fix must leave untouched. Flipped to false
+  // by the second effect below, which runs once, after the very first
+  // paint, regardless of whether a hash was present — so it's already
+  // false by the time any later, user-triggered hash change reaches the
+  // first effect, even if the initial load had no hash at all.
+  const isInitialRenderRef = useRef(true);
+
+  // Cross-page "/#<section>" links (StickyNavigation/Navigation, on pages
+  // other than "/", plus HashSectionRedirect's cold-load redirect) land
+  // here — either via a full page load (browser tries to hash-scroll
+  // before React has mounted anything, too early for a client-rendered
+  // SPA) or an SPA <Link> transition (no hash-scroll attempt at all,
+  // since react-router's history.pushState doesn't trigger the browser's
+  // native anchor-scroll the way a real navigation does). Either way,
+  // this effect owns the actual scroll once React has rendered the
+  // target, retrying if it hasn't yet.
+  //
+  // Generalized 2026-08-19 (nav-hash audit) — previously hardcoded to
+  // '#home-value' only; every other known section (about-george, contact,
+  // listing-alerts) had no retry-scroll at all, so a cross-page link to
+  // any of them landed on the homepage but never actually scrolled.
+  // Re-runs on `hash` change too (not just on mount), so a same-page nav
+  // click from elsewhere on the homepage itself (hash changes without an
+  // unmount/remount) still scrolls — but see isInitialRenderRef above:
+  // that same-page case must animate smoothly, not jump, so it branches.
   useEffect(() => {
-    if (window.location.hash !== '#home-value') return;
-    const scrollToHomeValue = () => {
-      const el = document.getElementById('home-value');
+    if (!isKnownHomeSectionHash(hash)) return;
+    const id = hash.slice(1);
+    const instantJump = isInitialRenderRef.current;
+    const scrollToSection = () => {
+      const el = document.getElementById(id);
       if (!el) return false;
-      // index.css sets `html { scroll-behavior: smooth }` sitewide. scrollIntoView's
-      // `behavior` option defers to that CSS property, so this became an
-      // rAF-driven animation that never got a frame this early in a cold SPA
-      // load. Override inline (wins over the stylesheet rule) for one
-      // synchronous jump, then restore normal smooth-scroll for everything else.
-      const prevBehavior = document.documentElement.style.scrollBehavior;
-      document.documentElement.style.scrollBehavior = 'auto';
-      el.scrollIntoView();
-      document.documentElement.style.scrollBehavior = prevBehavior;
+      if (instantJump) {
+        // index.css sets `html { scroll-behavior: smooth }` sitewide. scrollIntoView's
+        // `behavior` option defers to that CSS property, so this became an
+        // rAF-driven animation that never got a frame this early in a cold SPA
+        // load. Override inline (wins over the stylesheet rule) for one
+        // synchronous jump, then restore normal smooth-scroll for everything else.
+        const prevBehavior = document.documentElement.style.scrollBehavior;
+        document.documentElement.style.scrollBehavior = 'auto';
+        el.scrollIntoView();
+        document.documentElement.style.scrollBehavior = prevBehavior;
+      } else {
+        // Already mounted, hash changed from a same-page click — this is
+        // React already past its first paint, so the CSS transition has a
+        // frame to animate on; no override needed, matches the original
+        // plain-anchor behavior exactly.
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
       return true;
     };
-    if (!scrollToHomeValue()) {
-      const timer = setTimeout(scrollToHomeValue, 150);
+    if (!scrollToSection()) {
+      const timer = setTimeout(scrollToSection, 150);
       return () => clearTimeout(timer);
     }
+  }, [hash]);
+
+  // Runs once, after the first paint, unconditionally — flips
+  // isInitialRenderRef regardless of whether the initial load had a hash,
+  // so a hash that only appears later (a genuine same-page click) is
+  // never mistaken for the initial-load case. Declared after the effect
+  // above so React runs them in that order within the same commit.
+  useEffect(() => {
+    isInitialRenderRef.current = false;
   }, []);
 
   return (
