@@ -2,17 +2,10 @@ import React from 'react';
 import { Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { trackSearchHomesClick } from '@/lib/tracking';
+import { SUBPAGE_NAV_ITEMS } from '@/lib/navItems';
 
 export default function Navigation() {
-  const scrollToSection = (id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      window.location.hash = id;
-    }
-  };
-
   const ruLinkStyles = {
     backgroundColor: '#3A5420',
     color: 'white',
@@ -26,13 +19,35 @@ export default function Navigation() {
     transition: 'opacity 0.2s ease',
   };
 
-  const navLinks = [
-    { label: 'Search', id: 'search' },
-    { label: 'Home Value', id: 'homevalue' },
-    { label: 'About', id: 'about' },
-    { label: 'Contact', id: 'contact', href: '/contact/' },
-    { label: 'Alerts', id: 'alerts' }
-  ];
+  const linkClass =
+    'text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left';
+
+  // Every SUBPAGE_NAV_ITEMS `sectionId` item resolves unconditionally to
+  // "/#id" — this component is never rendered on the homepage itself (see
+  // navItems.js's header comment), so there's no in-page/cross-page branch
+  // to make, unlike StickyNavigation.
+  function renderNavItem(item) {
+    if (item.external) {
+      return (
+        <a
+          key={item.label}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackSearchHomesClick('nav_subpage')}
+          className={linkClass}
+        >
+          {item.label} ↗
+        </a>
+      );
+    }
+    const to = item.to ?? `/#${item.sectionId}`;
+    return (
+      <Link key={item.label} to={to} className={linkClass}>
+        {item.label}
+      </Link>
+    );
+  }
 
   return (
     <nav className="sticky top-0 z-50 bg-secondary/95 backdrop-blur-md shadow-md border-b border-accent/20 transition-all duration-300">
@@ -44,25 +59,7 @@ export default function Navigation() {
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((item) => (
-              item.href ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className="text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <button
-                  key={item.label}
-                  onClick={() => scrollToSection(item.id)}
-                  className="text-sm font-medium text-secondary-foreground hover:text-accent transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:origin-left"
-                >
-                  {item.label}
-                </button>
-              )
-            ))}
+            {SUBPAGE_NAV_ITEMS.map((item) => renderNavItem(item))}
           </div>
           
           <div className="flex items-center gap-3">

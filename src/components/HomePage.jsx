@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import ScrollingTicker from '@/components/ScrollingTicker';
 import StickyNavigation from '@/components/StickyNavigation';
 import HeroSection from '@/components/HeroSection';
@@ -17,19 +17,35 @@ import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
 import { buildHomepageFaqJsonLd } from '@/data/homepage-faq';
 import { toJsonLdScript } from '@/lib/blog';
+import { isKnownHomeSectionHash } from '@/lib/homeSectionScroll';
 
 export default function HomePage() {
   const { toast } = useToast();
   const faqJsonLd = toJsonLdScript(buildHomepageFaqJsonLd());
+  const { hash } = useLocation();
 
-  // Cross-page "/#home-value" links (StickyNavigation, on pages other than
-  // "/") land here via a full page load, which the browser tries to
-  // hash-scroll before React has mounted anything — too early, since this is
-  // a client-rendered SPA. Retry once React has actually rendered the target.
+  // Cross-page "/#<section>" links (StickyNavigation/Navigation, on pages
+  // other than "/", plus HashSectionRedirect's cold-load redirect) land
+  // here — either via a full page load (browser tries to hash-scroll
+  // before React has mounted anything, too early for a client-rendered
+  // SPA) or an SPA <Link> transition (no hash-scroll attempt at all,
+  // since react-router's history.pushState doesn't trigger the browser's
+  // native anchor-scroll the way a real navigation does). Either way,
+  // this effect owns the actual scroll once React has rendered the
+  // target, retrying if it hasn't yet.
+  //
+  // Generalized 2026-08-19 (nav-hash audit) — previously hardcoded to
+  // '#home-value' only; every other known section (about-george, contact,
+  // listing-alerts) had no retry-scroll at all, so a cross-page link to
+  // any of them landed on the homepage but never actually scrolled.
+  // Re-runs on `hash` change too (not just on mount), so a same-page nav
+  // click from elsewhere on the homepage itself (hash changes without an
+  // unmount/remount) still scrolls.
   useEffect(() => {
-    if (window.location.hash !== '#home-value') return;
-    const scrollToHomeValue = () => {
-      const el = document.getElementById('home-value');
+    if (!isKnownHomeSectionHash(hash)) return;
+    const id = hash.slice(1);
+    const scrollToSection = () => {
+      const el = document.getElementById(id);
       if (!el) return false;
       // index.css sets `html { scroll-behavior: smooth }` sitewide. scrollIntoView's
       // `behavior` option defers to that CSS property, so this became an
@@ -42,11 +58,11 @@ export default function HomePage() {
       document.documentElement.style.scrollBehavior = prevBehavior;
       return true;
     };
-    if (!scrollToHomeValue()) {
-      const timer = setTimeout(scrollToHomeValue, 150);
+    if (!scrollToSection()) {
+      const timer = setTimeout(scrollToSection, 150);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [hash]);
 
   return (
     <>

@@ -30,4 +30,15 @@ describe('shouldScrollToTop -- audit item 4 branch logic', () => {
   test('POP, with hash -> false (POP wins regardless of hash -- browser scroll restoration is never overridden)', () => {
     assert.equal(shouldScrollToTop({ navigationType: 'POP', hash: '#home-value' }), false);
   });
+
+  // 2026-08-19 nav-hash audit: StickyNavigation/Navigation's "Contact" item,
+  // clicked from a blog article (or any non-home route), is now
+  // <Link to="/#contact">, a PUSH navigation carrying a hash. Explicit
+  // regression coverage for exactly that flow -- logically the same branch
+  // the '#home-value' PUSH case above already proves, but named for this
+  // specific real flow per the audit's own test-matrix requirement, so a
+  // future reader doesn't have to infer that the general rule covers it.
+  test('article -> Link to "/#contact" (PUSH, hash present) -> false -- HomePage\'s hash-scroll effect owns the scroll, ScrollToTop must not race it back to (0,0)', () => {
+    assert.equal(shouldScrollToTop({ navigationType: 'PUSH', hash: '#contact' }), false);
+  });
 });

@@ -149,7 +149,12 @@ export default function RussianRealtorPage() {
       </section>
 
       {/* SECTION 7 (AGENT BIO) */}
-      <section className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
+      {/* id="about-george" (2026-08-19 nav-hash audit): RussianHeader's "О
+          Джордже" button calls scrollTo('about-george') with no fallback --
+          this section had no id at all, so the button silently did nothing.
+          Matches AgentBioSection.jsx's own id convention (the English
+          homepage's equivalent section). */}
+      <section id="about-george" className="bg-[#FAF6EF] py-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-serif text-[32px] sm:text-[40px] lg:text-[48px] text-[#12202A] font-bold">Местный эксперт. Ваш язык. Ваш успех.</h2>
