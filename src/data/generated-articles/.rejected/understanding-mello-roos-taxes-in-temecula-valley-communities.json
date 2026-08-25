@@ -1,0 +1,81 @@
+{
+  "sourceTopic": "Understanding Mello-Roos Taxes in Temecula Valley Communities",
+  "rejectedAt": "2026-08-25T16:44:05.586Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "year",
+        "matchedText": "1982",
+        "sentence": "name comes from the Mello-Roos Community Facilities Act of 1982, the California law that created this financing tool. <"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": true,
+      "tenure_evidence": "George Khazanovskiy, a Temecula Valley real estate agent, can help you pull the specific tax history and CFD documentation for any property you're considering",
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "the Mello-Roos Community Facilities Act of 1982",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": true,
+      "legal_duty_evidence": "\"California's real estate disclosure process generally calls for sellers to disclose known special assessments affecting a property\" — the article uses \"calls for\" (soft language suggesting recommendation/practice), but the citations array contains a Constitution source (Prop. 13) and a county tax bill source, neither of which would establish a legal disclosure mandate. The article does not cite the actual source of this disclosure requirement, making it impossible to verify whether the article's phrasing accurately reflects the legal standard."
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=SEC.%201.&lawCode=CONS&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder — Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=SEC.%201.&lawCode=CONS&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder — Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
