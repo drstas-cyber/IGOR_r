@@ -1568,3 +1568,128 @@ firing. The first real scheduled (or manually dispatched) run is that
 proof, same as every other gate in this pipeline before its own first
 live run.
 
+## Publish-on-merge — 2026-08-25 (hardening batch, item 3/3)
+
+Before this, merging a held (non-silent) generator PR only did half the
+job — the article landed on `main`, still `published: false`, and a human
+had to remember to run the rest of the sequence by hand afterward in a
+separate terminal session (`setPublished.mjs`, `headersCacheEntry.mjs`,
+`fetch-blog-data.js`, commit, push — exactly what happened for PR #34/#35
+earlier the same day this item was built). `.github/workflows/
+publish-on-merge.yml` closes that gap: **the merge itself** now triggers
+the full sequence automatically, whoever merges it and from wherever
+(explicitly including the GitHub mobile app, which can't run a terminal).
+
+### Scope and trigger
+
+`pull_request: types: [closed]`, gated `if: github.event.pull_request.merged
+== true && startsWith(github.event.pull_request.head.ref,
+'blog-generator/auto-')` — real-article PRs only, never a
+`blog-generator/rejected-*` marker PR (nothing to publish there). Fires for
+a perfectly-silent PR too (the event doesn't distinguish who/what merged
+it), which is exactly what the idempotency guarantee below exists for.
+
+### The sequence — `tools/blog-generator/publishOnMerge.mjs`
+
+1. **Determine the slug** from the merge commit itself
+   (`getMergedArticleSlug()` — `git diff --name-only --diff-filter=A
+   <sha>~1 <sha> -- src/data/generated-articles/`, excluding `.rejected/`)
+   rather than trusting the PR title/body — ground truth from the actual
+   diff, same "derive, don't trust a stored label" discipline as
+   `topicAvailability.mjs`. Fail-closed on 0 or >1 added article files;
+   never guesses. (`~1`, not `^`, for the parent ref — `^` is a cmd.exe
+   escape character and gets mangled by `execSync`'s default shell on
+   Windows even though the real runtime is `ubuntu-latest`; found by
+   actually running this against real merge commits during development,
+   not assumed.)
+2. **IDEMPOTENT by construction, not a special-cased flag**:
+   `evaluatePublishStatus()` (`publishStatusReport.mjs`, already built for
+   exactly this) checks real repo state first. Already fully published
+   (e.g. the perfectly-silent auto-publish path already handled this exact
+   PR) → clean no-op, nothing written, nothing committed. Every write this
+   script can make already goes through a function that's itself a no-op
+   at the target state (`setPublishedInJson`'s `changed` flag,
+   `insertCacheEntry`'s `inserted` flag) — re-running this workflow twice
+   for the same PR is always safe.
+3. **`published: true`** — `setPublishedInJson()` (reused directly,
+   unmodified, from `setPublished.mjs`).
+4. **`_headers` cache pair** — `insertCacheEntry()` (reused directly from
+   `headersCacheEntry.mjs`). **CAP-GUARD**: already throws, unmodified, at
+   the 100-rule limit — this script does NOT catch that. It propagates to
+   a non-zero exit, which fails the workflow step before any commit/push
+   (bash's default `-e`), leaving the article merged on `main` but
+   `published: false` — a safe, visibly-incomplete state requiring a human
+   to notice the red run and finish by hand, the exact same documented
+   failure mode the silent auto-publish path already has (§3, above).
+5. **Regenerate `blog-articles.json`** — `node tools/fetch-blog-data.js`,
+   a separate workflow step gated on `already_complete == 'false'`. (The
+   perfectly-silent auto-publish path, notably, does NOT do this step —
+   it's not strictly required for the live site, since Cloudflare Pages'
+   own build re-runs `fetch-blog-data.js` fresh on every deploy anyway,
+   but it's the established human-publish-sequence convention this
+   workflow is explicitly automating, per instruction: "flip + _headers +
+   regenerate + push.")
+6. **One atomic commit, push** — same reasoning the silent path's own
+   commit message already states: the merge itself is the human decision,
+   there's no separate judgment call to represent as two commits.
+
+### GITHUB_TOKEN cascade note
+
+This push uses the default `GITHUB_TOKEN`. GitHub does not trigger OTHER
+workflows' `push:` triggers from a `GITHUB_TOKEN`-authored push
+(loop-prevention, by design) — so this commit does **not** automatically
+re-run `build-check.yml` the way a normal human push would. The site still
+updates correctly (Cloudflare Pages' GitHub App integration is a separate
+mechanism, not a `GITHUB_TOKEN`-triggered workflow, and deploys regardless)
+— what's missing is the automatic post-publish build confirmation a human
+push gets for free. Residual risk is low (`blog-articles.json`'s
+regeneration is deterministic, already covered by
+`fetch-blog-data.test.mjs`, and the cap-guard above is the one way this
+write path is known to fail) but not zero. If this ever needs closing, the
+fix is a PAT-backed push instead of `GITHUB_TOKEN` — not something to
+silently assume is already covered.
+
+### PR body: preview link + gate summary at top
+
+A separate, small piece, wired into `generate-article.yml` itself (not
+`publish-on-merge.yml`) — added specifically so a human deciding whether
+to merge from the GitHub mobile app doesn't have to scroll a long report
+first. Right after PR creation, a new step polls the commit's "Cloudflare
+Pages" check-run (`updatePrPreviewLink.mjs`'s `pollForCheckRunSummary()`,
+up to 5 minutes) and, once it completes, extracts the **Branch Preview
+URL** from its HTML summary (`previewUrlExtract.mjs` —
+`extractBranchPreviewUrl()`, built against a real captured summary from
+PR #35's own check-run, not guessed from Cloudflare's docs; the branch URL
+is stable across every push to the same branch, unlike the per-commit hash
+URL, which would go stale on the next review-and-edit commit). Prepends
+that link plus a one-line gate summary
+(`gateSummaryLine.mjs` — "Perfectly silent" or "Layer 1: clean · Layer 2:
+clean · Layer 3: TRIPPED · Self-review: 2 correction(s)") inside a marked
+HTML-comment block (`buildUpdatedPrBody()`) — idempotent, replacing rather
+than stacking a second block if the PR gets edited and this ever ran
+twice.
+
+No GitHub Deployments API entry exists for Cloudflare's integration on
+this repo (checked directly: `repos/{owner}/{repo}/deployments` returns
+`[]`), so the check-run's own HTML output is the only reachable source for
+this URL — there's no structured API field to read instead.
+
+**Deliberately never a gate**: `continue-on-error: true` on the calling
+workflow step, and the script itself catches its own top-level errors and
+exits 0 either way (see `updatePrPreviewLink.mjs`'s header comment). A
+network hiccup or a future change to Cloudflare's summary HTML shape costs
+a human the top-of-body convenience, never the underlying report — the
+full detailed gate report is always still the rest of the body underneath.
+
+### First live test
+
+Not yet exercised against a real merge — the next held PR merged (from the
+GitHub mobile app, per the instruction that specifically asked for this)
+is the first real end-to-end proof, same disclosed-limit pattern as items
+1 and 2 above. Proven so far: `getMergedArticleSlug()` and
+`pollForCheckRunSummary()`/`extractBranchPreviewUrl()` were run for real
+against this repo's actual merge commits and actual Cloudflare Pages
+check-runs during development (not mocked), and the full orchestration
+(`runPublishOnMerge()`) is unit-tested including the idempotent-no-op path
+verified against this session's own already-published articles.
+

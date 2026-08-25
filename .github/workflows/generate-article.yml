@@ -182,6 +182,35 @@ jobs:
           # can fail PR creation on some action versions. Create the labels
           # first if you want them, then re-add this block; don't guess.
 
+      # "PR body carries preview link + gate summary at top" (hardening
+      # batch item 3, 2026-08-25) — a real-article PR's body is a long,
+      # detailed gate report, easy to read on a desktop, painful to scroll
+      # on a phone. This prepends a short marked block (the Cloudflare
+      # Pages branch preview link + a one-line gate summary) so a human
+      # deciding whether to merge from the GitHub mobile app sees the
+      # essentials first. Polls for the Cloudflare Pages check itself
+      # (up to 5 minutes) rather than trusting `gh pr checks --watch`,
+      # which would also wait on build-check and could be blocked by an
+      # unrelated failure there — this only needs Cloudflare's own check.
+      #
+      # continue-on-error: true -- this is a convenience feature, never a
+      # gate. If it fails or times out (network hiccup, Cloudflare's check
+      # summary shape changes), the PR still has its full, real report as
+      # the body; a human just loses the top-of-body convenience, not any
+      # actual information. See updatePrPreviewLink.mjs's own header
+      # comment for the same non-fatal-by-design reasoning at the script
+      # level -- this is the second, independent layer of that guarantee.
+      - name: Update PR body with preview link + gate summary at top
+        if: success() && steps.check.outputs.has_new_article == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node tools/blog-generator/updatePrPreviewLink.mjs \
+            --pr="${{ steps.open_pr.outputs.pull-request-number }}" \
+            --sha="${{ steps.open_pr.outputs.pull-request-head-sha }}"
+
       # Records a gate trip as ground truth instead of leaving no trace
       # anywhere — a discarded run used to just vanish, which meant a
       # repeatedly-failing topic silently blocked the whole queue forever

@@ -1,0 +1,111 @@
+name: publish-on-merge
+
+# Hardening batch item 3, 2026-08-25 — the standing spec: when a human
+# merges a `blog-generator/auto-*` PR (a real-article generator PR, never
+# a `blog-generator/rejected-*` marker PR), that merge itself triggers the
+# full publish sequence a human previously had to run by hand afterward in
+# a separate terminal session (published:true flip, _headers cache pair,
+# regenerate blog-articles.json, commit, push) — see
+# tools/blog-generator/publishOnMerge.mjs for the actual logic and
+# tools/blog-generator/README.md's "Publish-on-merge" entry for the full
+# design record. First live test: the next held PR merged from the GitHub
+# mobile app, per the instruction that asked for this.
+#
+# Deliberately scoped to `blog-generator/auto-*` only — a
+# `blog-generator/rejected-*` marker PR has no article to publish, and a
+# perfectly-silent PR the generate-article.yml workflow already auto-
+# merged and auto-published itself; this workflow still fires for that
+# case too (the `pull_request: closed` event doesn't distinguish who
+# merged it), but publishOnMerge.mjs's own idempotency check
+# (evaluatePublishStatus) makes that a clean, silent no-op rather than a
+# double-publish.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-on-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the merged article
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'blog-generator/auto-')
+    steps:
+      # Checks out main fresh rather than trusting the pull_request event's
+      # own ref -- same reasoning generate-article.yml's existing
+      # auto-publish step already documents: never assume what state a
+      # merge-event checkout leaves the workspace in.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Idempotent by construction (see publishOnMerge.mjs's header
+      # comment) -- an already-fully-published article (e.g. the
+      # perfectly-silent auto-publish path already handled this exact PR)
+      # is a clean no-op here, not a double-publish. CAP-GUARD: a _headers
+      # 100-rule breach throws here and this step fails BEFORE any commit
+      # -- the article stays merged on main but published:false, a safe,
+      # visibly-incomplete state (see publishOnMerge.mjs's header comment
+      # for the full failure-mode reasoning, same as the silent path's own
+      # documented failure mode in README.md).
+      - name: Flip published:true and add the _headers cache pair
+        id: publish
+        run: node tools/blog-generator/publishOnMerge.mjs --merge-sha="${{ github.event.pull_request.merge_commit_sha }}"
+
+      - name: Regenerate blog-articles.json
+        if: steps.publish.outputs.already_complete == 'false'
+        run: node tools/fetch-blog-data.js
+
+      # GITHUB_TOKEN CASCADE NOTE (explicitly requested, recorded here):
+      # this push uses the default GITHUB_TOKEN. GitHub does not trigger
+      # OTHER workflows' `push:` triggers from a push made with
+      # GITHUB_TOKEN (loop-prevention, by design) -- meaning THIS commit
+      # does NOT automatically re-run build-check.yml the way a normal
+      # human push (using a personal token) would. The commit still lands
+      # on main and Cloudflare Pages' own separate GitHub App integration
+      # deploys it regardless (that integration is not a GITHUB_TOKEN-
+      # triggered workflow and is unaffected by this limitation) -- so the
+      # SITE still updates correctly. What's missing is the automatic
+      # post-publish build-check confirmation a human push gets for free.
+      # Residual risk is low (blog-articles.json's regeneration is
+      # deterministic and already covered by fetch-blog-data.test.mjs, and
+      # the cap-guard above already catches the one way this write path is
+      # known to fail) but not zero -- if this ever needs closing, the fix
+      # is a PAT-backed push instead of GITHUB_TOKEN, not something to
+      # silently assume is already covered.
+      - name: Commit and push
+        if: steps.publish.outputs.already_complete == 'false'
+        run: |
+          SLUG="${{ steps.publish.outputs.slug }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "src/data/generated-articles/${SLUG}.json" public/_headers src/data/blog-articles.json
+          git commit -m "blog: publish \"$SLUG\" (auto, publish-on-merge — PR #${{ github.event.pull_request.number }})
+
+          Merge + published:true flip + _headers cache entry +
+          blog-articles.json regenerate, done automatically by
+          publish-on-merge.yml immediately after a human merged this PR
+          (${{ github.event.pull_request.html_url }}). See
+          tools/blog-generator/README.md, \"Publish-on-merge,\" for the
+          full design record.
+
+          Co-Authored-By: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          git push origin main
+
+      - name: No-op (already fully published)
+        if: steps.publish.outputs.already_complete == 'true'
+        run: echo "\"${{ steps.publish.outputs.slug }}\" was already fully published (e.g. the perfectly-silent auto-publish path already handled it) -- nothing to do."
