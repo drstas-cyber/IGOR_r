@@ -334,14 +334,18 @@ function findWrongIdentity(text) {
 // the reference number as a contiguous substring -- tolerant of any
 // formatting (dashes, dots, parens, spaces, a tel: URI's "+1" prefix)
 // without a second phone-format pattern list to keep in sync with
-// PHONE_PATTERN. DRE matching reuses the "#? optional" shape DRE_PATTERN
-// already established (see its own comment) so "DRE 02034120" without the #
-// symbol -- an accepted real form, see the temecula-wine-country-homes-guide
-// publish commit -- still counts as present.
+// PHONE_PATTERN. DRE matching tolerates "#", ":", or nothing between "DRE"
+// and the number -- "DRE #02034120", "DRE: 02034120", and "DRE 02034120"
+// are all real forms actually used across this pipeline's own published
+// corpus (verified by grepping every live article for the literal number,
+// 2026-08-25, during the weekly-retro backfill -- ":" was found live on
+// two already-published articles and was NOT yet tolerated, a real false
+// positive this exact grep caught and fixed before the backfill report was
+// written, not a hypothetical).
 export function findIdentityCompletenessErrors(article) {
   const html = String(article?.content_html || '');
   const errors = [];
-  if (!new RegExp(`\\bDRE\\s*#?\\s*${REFERENCE.dre}\\b`, 'i').test(html)) {
+  if (!new RegExp(`\\bDRE\\s*[:#]?\\s*${REFERENCE.dre}\\b`, 'i').test(html)) {
     errors.push(`identity block: DRE number (${REFERENCE.dre}) not found anywhere in content_html`);
   }
   if (!html.toLowerCase().includes(REFERENCE.brokerage.toLowerCase())) {

@@ -798,6 +798,19 @@ describe('findIdentityCompletenessErrors — catches an OMITTED identity block, 
     assert.deepEqual(errors, []);
   });
 
+  // REGRESSION (2026-08-25, found by the weekly-retro backfill against real
+  // live content, not hypothetical): "DRE: 02034120" -- a colon, not a "#"
+  // or bare space -- appears on two already-published articles
+  // (best-time-to-sell-a-home-temecula, home-inspection-guide-first-time-
+  // buyers-temecula) and was a false-positive REJECT under the original
+  // "#? optional" regex before this fix.
+  test('DRE number with a colon separator ("DRE: 02034120") still counts as present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, a Temecula Valley real estate agent.</p><p>DRE: 02034120 | Allison James Estates &amp; Homes | Phone: 619-277-2766 | Email: askgeorgek@gmail.com</p>',
+    }));
+    assert.deepEqual(errors, []);
+  });
+
   test('phone number in any formatting (dashes, dots, parens, spaces) still counts as present', () => {
     for (const phone of ['619-277-2766', '(619) 277-2766', '619.277.2766', '619 277 2766', '6192772766']) {
       const errors = findIdentityCompletenessErrors(article({
