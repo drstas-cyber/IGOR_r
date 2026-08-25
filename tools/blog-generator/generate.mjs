@@ -27,6 +27,7 @@ import { validateArticleSchema } from './schema.js';
 import { validateSelfReview } from './selfReviewSchema.mjs';
 import { getKnownRoutes, formatKnownRoutesForPrompt } from './knownRoutes.mjs';
 import { validateInternalLinks } from './internalLinkGate.mjs';
+import { validateIdentityCompleteness } from './identityCompletenessGate.mjs';
 import { restoreStrippedInternalLinks } from './internalLinkRestore.mjs';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
@@ -349,7 +350,7 @@ function writeReport(report, reportPath = REPORT_PATH) {
 // checking will always see. That guarantee now holds for a schema-invalid
 // discard exactly as it always has for a gate trip.
 export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {}) {
-  const FAILURE_CLASSES = new Set(['schema_invalid', 'internal_link_invalid']);
+  const FAILURE_CLASSES = new Set(['schema_invalid', 'internal_link_invalid', 'identity_incomplete']);
   const marker = {
     sourceTopic: report.topic.topic,
     rejectedAt: new Date().toISOString(),
@@ -359,6 +360,7 @@ export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {})
     layer3: report.layer3,
     schemaErrors: report.schemaErrors || [],
     internalLinkErrors: report.internalLinkErrors || [],
+    identityErrors: report.identityErrors || [],
   };
   const rejectedDir = path.join(generatedDir, '.rejected');
   fs.mkdirSync(rejectedDir, { recursive: true });
@@ -622,6 +624,32 @@ export async function main({
   }
   if (linkCheck.checkedCount > 0) {
     console.log(`[generate] internal-link gate: ${linkCheck.checkedCount} internal link(s), all valid.`);
+  }
+
+  // Identity COMPLETENESS gate (hardening batch, 2026-08-25) — every
+  // generated article's content_html must carry the full fixed identity
+  // block (DRE #02034120, "Allison James," the reference phone number in
+  // any formatting, askgeorgek@gmail.com). Same discard path as a schema-
+  // invalid or internal-link-invalid draft, same reasoning: PR #35
+  // ("Vail Ranch," 2026-08-23) shipped a closing paragraph that named
+  // George but omitted the rest of the block entirely, caught only by the
+  // supervised human PR read — neither compliance gate above was ever
+  // designed to catch an OMITTED identity block, only a WRONG one (see
+  // tools/blog-compliance/scan.js's findIdentityCompletenessErrors() header
+  // comment). Structural now: a draft missing any of the four elements
+  // never reaches outcome: 'generated' at all, exactly like a schema-
+  // invalid or internal-link-invalid one.
+  const identityCheck = validateIdentityCompleteness(article);
+  if (!identityCheck.valid) {
+    report.outcome = 'identity_incomplete';
+    report.identityErrors = identityCheck.errors;
+    console.error('[generate] article passed schema and internal-link validation but is missing required identity block element(s):');
+    identityCheck.errors.forEach((e) => console.error(`    - ${e}`));
+    const { markerPath } = handleTrippedGate(report, { generatedDir });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    writeReport(report, reportPath);
+    process.exitCode = 1;
+    return;
   }
 
   fs.mkdirSync(generatedDir, { recursive: true });

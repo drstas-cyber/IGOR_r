@@ -1381,3 +1381,79 @@ itself was already fixed and re-verified live the same day (reworded "best
 done" → "most accurately done," no claim changed) — see the live-sweep
 record for 2026-08-12 for the deploy details.
 
+## Identity completeness gate — 2026-08-25 (hardening batch, after PR #35)
+
+**Second real identity-block incident, this one an omission rather than a
+wrong value.** PR #35 ("Living in Vail Ranch," 2026-08-23) shipped a closing
+paragraph that named George and linked to `/contact/` but dropped
+DRE#/brokerage/phone/email entirely — every other published article closes
+with the full block. Both compliance gates came back clean (`tripped:
+false`); neither was ever designed to catch this, because
+`findWrongIdentity()` (`tools/blog-compliance/scan.js`) only ever compares a
+*present* DRE/brokerage/phone/email against the reference and flags a
+mismatch — it was never asked "is the block there at all." Caught only by
+the supervised human PR read (see the Aug 21/23 held-PR read record), fixed
+on the PR branch before merge, not waved through. Two real occurrences of
+an identity-block gap now (the first being wrong-not-missing, the
+motivating case for `findWrongIdentity()` itself) is a pattern, not a
+one-off — made structural rather than relying on a third human catch.
+
+**What shipped:**
+
+- `findIdentityCompletenessErrors(article)` (`tools/blog-compliance/scan.js`,
+  colocated with `REFERENCE` and `findWrongIdentity()` so there is exactly
+  one source of truth for what "correct identity" means) — checks
+  `content_html` for all four reference elements independently and returns
+  one error string per missing one. Checked against **raw** `content_html`,
+  not `htmlToText()`'s stripped output, so a phone/email present only inside
+  an `href` (`tel:`/`mailto:`) still counts; phone matching strips every
+  digit out of the whole document and checks for the reference number as a
+  contiguous substring, tolerant of any formatting without a second phone
+  pattern list to keep in sync with `PHONE_PATTERN`.
+- Deliberately **not** folded into `scanArticle()`'s own findings/tripped —
+  "a genuinely clean article" (`scan.test.mjs`) has zero identity mentions
+  at all and must keep passing unchanged; a BabyLoveGrowth-shaped article is
+  never contractually required to carry this exact block. Opt-in only, by
+  construction, same discipline `GENERATOR_LOG_ONLY_FINDING_KEYS` already
+  established for the exclusivity demotion.
+- `tools/blog-generator/identityCompletenessGate.mjs` — the generator-
+  specific caller, mirroring `internalLinkGate.mjs`'s exact shape
+  (`{valid, errors}`) and placement in the pipeline. Wired into
+  `generate.mjs` immediately after the internal-link gate, before the
+  article is ever written to disk, with its own `failureClass`
+  (`identity_incomplete`) alongside `schema_invalid` and
+  `internal_link_invalid` in `handleTrippedGate()`'s `FAILURE_CLASSES` set —
+  same fail-closed discard/hold path as every other structural gate: a
+  draft missing any of the four elements never reaches `outcome:
+  'generated'`, writes a rejected-attempt marker (now carrying
+  `identityErrors` alongside `schemaErrors`/`internalLinkErrors`), and opens
+  the standard rejected-attempt PR.
+- **Not** folded into `validateArticleSchema()` (`schema.js`) directly —
+  considered and rejected: `schema.test.mjs`'s `validArticle()` fixture and
+  roughly twenty per-test `content_html` overrides exist to test citation
+  shape/host-policy/marker-consistency, none of them about identity: folding
+  the check in there would have forced every one of those tests to start
+  carrying identity-block filler text with zero connection to what they
+  actually verify. A standalone gate module keeps that blast radius at
+  zero — the same reason `internalLinkGate.mjs` isn't inside `schema.js`
+  either.
+- **Red-first, verified:** `scan.test.mjs` and
+  `identityCompletenessGate.test.mjs` were written and confirmed failing
+  (the function didn't exist yet) before implementation; both include a
+  regression fixture reproducing PR #35's exact real omission verbatim in
+  shape (names George, links to `/contact/`, carries none of the four
+  elements) and assert it flags all four. `generate.test.mjs` gained a full
+  `main()`-level "identity-incomplete discard" describe block mirroring the
+  existing schema-invalid/internal-link-invalid ones exactly (both a
+  discard case and a passes-cleanly case). Full repo suite green after:
+  **451/451** (`node --test` across every `*.test.mjs` under `tools/`).
+
+**Acceptance check:** no prompt or generation behavior changed beyond adding
+this fourth structural gate — the standing "next article gets a full human
+read" discipline from earlier entries isn't independently re-triggered by
+this change alone, since it doesn't touch the writer prompt or either
+compliance gate's judgment. Not yet exercised against a live model call
+(no `ANTHROPIC_API_KEY` in this session) — proven by test, same disclosed
+limit this file's own "Why seven layers" section already states about any
+gate before its first real run.
+

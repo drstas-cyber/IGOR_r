@@ -123,20 +123,20 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     assert.ok(fs.existsSync(markerPath));
   });
 
-  test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors, internalLinkErrors — no title/slug/content_html', () => {
+  test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors, internalLinkErrors, identityErrors — no title/slug/content_html', () => {
     const dir = isolatedDir();
     const { markerPath } = handleTrippedGate(sampleReport(), { generatedDir: dir });
     const written = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
     assert.deepEqual(
       new Set(Object.keys(written)),
-      new Set(['sourceTopic', 'rejectedAt', 'failureClass', 'layer1', 'layer2', 'layer3', 'schemaErrors', 'internalLinkErrors'])
+      new Set(['sourceTopic', 'rejectedAt', 'failureClass', 'layer1', 'layer2', 'layer3', 'schemaErrors', 'internalLinkErrors', 'identityErrors'])
     );
     assert.equal('title' in written, false);
     assert.equal('slug' in written, false);
     assert.equal('content_html' in written, false);
   });
 
-  test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid", "internal_link_invalid" for outcome "internal_link_invalid"', () => {
+  test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid", "internal_link_invalid" for outcome "internal_link_invalid", "identity_incomplete" for outcome "identity_incomplete"', () => {
     const dir = isolatedDir();
     const gateTrip = handleTrippedGate(sampleReport({ outcome: 'skipped' }), { generatedDir: dir });
     assert.equal(gateTrip.marker.failureClass, 'gate_trip');
@@ -152,6 +152,12 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     );
     assert.equal(linkInvalid.marker.failureClass, 'internal_link_invalid');
     assert.deepEqual(linkInvalid.marker.internalLinkErrors, ['https://temeculavalleyhomes.us/blog/invented-slug/']);
+    const identityIncomplete = handleTrippedGate(
+      sampleReport({ outcome: 'identity_incomplete', identityErrors: ['identity block: DRE number (02034120) not found anywhere in content_html'] }),
+      { generatedDir: dir }
+    );
+    assert.equal(identityIncomplete.marker.failureClass, 'identity_incomplete');
+    assert.deepEqual(identityIncomplete.marker.identityErrors, ['identity block: DRE number (02034120) not found anywhere in content_html']);
   });
 
   test('schemaErrors defaults to an empty array when not on the report (the normal gate-trip case)', () => {
@@ -229,7 +235,16 @@ function toolUseBody(toolName, input) {
 // citationFetchStatuses maps a citation URL -> HTTP status for the Layer 3
 // resolver's own GET request, which shares the same globalThis.fetch mock
 // (routed here by NOT being an api.anthropic.com URL).
-function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {}, citationFetchBodies = {}, extraContentHtml = '' }) {
+// Shared fixture text for the identity-completeness gate (hardening batch,
+// 2026-08-25) -- appended to every mocked draft/self-review content_html
+// below so tests exercising unrelated pipeline behavior (internal links,
+// citations, self-review) don't spuriously trip the new gate. Tests that
+// specifically exercise identity-completeness build their own content_html
+// without this constant -- see identityCompletenessGate.test.mjs and
+// generate.test.mjs's own "identity-incomplete discard" describe block.
+const IDENTITY_BLOCK_HTML = '<h2>About George Khazanovskiy</h2><p>George Khazanovskiy is a Temecula Valley real estate agent (DRE #02034120) with Allison James Estates &amp; Homes. Reach George at 619-277-2766 or askgeorgek@gmail.com.</p>';
+
+function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses = {}, citationFetchBodies = {}, extraContentHtml = '', includeIdentityBlock = true }) {
   globalThis.fetch = async (url, init = {}) => {
     const urlStr = String(url);
     if (urlStr.includes('/v1/models')) {
@@ -249,7 +264,7 @@ function mockAnthropicRouter({ checklist, citations = [], citationFetchStatuses 
     // validation on an orphaned citation, not on whatever the test is
     // actually trying to exercise.
     const markers = citations.map((c) => `<sup class="citation" data-cite="${c.id}">[${c.id}]</sup>`).join('');
-    const contentHtml = `<p>HOA fees fund shared community amenities and routine maintenance for planned developments.${markers}${extraContentHtml}</p>`;
+    const contentHtml = `<p>HOA fees fund shared community amenities and routine maintenance for planned developments.${markers}${extraContentHtml}</p>${includeIdentityBlock ? IDENTITY_BLOCK_HTML : ''}`;
     if (toolName === 'submit_article_draft') {
       return jsonResponse(200, toolUseBody('submit_article_draft', {
         title: 'Understanding HOA Fees',
@@ -510,6 +525,72 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
 });
 
 // ---------------------------------------------------------------------------
+// Identity-completeness gate — full path (hardening batch, 2026-08-25).
+// Mirrors the schema-invalid and internal-link-invalid discard tests above
+// exactly: both compliance gates pass, schema validation passes, the
+// internal-link gate passes, but content_html is missing the fixed identity
+// block -- must discard via the same handleTrippedGate path, exactly the
+// real gap PR #35 ("Vail Ranch," 2026-08-23) fell through, now closed.
+// ---------------------------------------------------------------------------
+
+describe('main() — identity-incomplete discard, full path (2026-08-25)', () => {
+  test('a draft missing the identity block discards the run: exits non-zero, writes no real article, DOES write a rejected marker with failureClass identity_incomplete', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: false });
+    process.exitCode = undefined;
+
+    await main({
+      apiKey: 'test-key',
+      repo: 'owner/repo',
+      generatedDir,
+      topicsPath,
+      reportPath,
+      exec: noOpenPrsExec,
+    });
+
+    assert.equal(process.exitCode, 1, 'an identity-incomplete run must exit non-zero, same as any other structural discard');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir)
+      ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected')
+      : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file should be written');
+
+    const rejectedDir = path.join(generatedDir, '.rejected');
+    assert.ok(fs.existsSync(rejectedDir), 'a rejected-attempt marker must be written');
+    const markerFiles = fs.readdirSync(rejectedDir);
+    assert.equal(markerFiles.length, 1);
+    const marker = JSON.parse(fs.readFileSync(path.join(rejectedDir, markerFiles[0]), 'utf8'));
+    assert.equal(marker.failureClass, 'identity_incomplete');
+    assert.equal(marker.identityErrors.length, 4, `expected all four identity elements flagged, got: ${JSON.stringify(marker.identityErrors)}`);
+    assert.equal('title' in marker, false, 'never the discarded draft\'s identity');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'identity_incomplete');
+    assert.equal('article' in report, false);
+  });
+
+  test('a draft carrying the full identity block passes the gate and the run completes normally', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: true });
+    process.exitCode = undefined;
+
+    await main({
+      apiKey: 'test-key',
+      repo: 'owner/repo',
+      generatedDir,
+      topicsPath,
+      reportPath,
+      exec: noOpenPrsExec,
+    });
+
+    assert.equal(process.exitCode, undefined, 'a complete identity block must not discard the run');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Self-review internal-link validation (2026-08-12). Real incident: two
 // real runs (PRs #28, #29, 2026-08-09/11) each stripped every internal
 // link from the draft during self-review because selfReview() never
@@ -537,7 +618,7 @@ describe('self-review — internal-link validation (2026-08-12)', () => {
         title: 'Understanding HOA Fees',
         slug_suggestion: 'understanding-hoa-fees',
         meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
-        content_html: '<p>HOA fees fund shared community amenities and routine maintenance.</p>',
+        content_html: `<p>HOA fees fund shared community amenities and routine maintenance.</p>${IDENTITY_BLOCK_HTML}`,
         keywords: ['hoa fees'],
         citations: [],
         faq_items: [],
@@ -615,10 +696,10 @@ describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (
     // regardless of blog-articles.json's current content, same choice the
     // existing test above makes for the same reason.
     const LINK = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
-    const draftHtml = `<p>You can start by browsing <a href="${LINK}">homes for sale in Temecula</a> today.</p>`;
+    const draftHtml = `<p>You can start by browsing <a href="${LINK}">homes for sale in Temecula</a> today.</p>${IDENTITY_BLOCK_HTML}`;
     // Self-review's real, observed failure mode on PR #32: strips the <a>,
     // keeps the anchor text verbatim as plain text.
-    const reviewedHtml = `<p>You can start by browsing homes for sale in Temecula today.</p>`;
+    const reviewedHtml = `<p>You can start by browsing homes for sale in Temecula today.</p>${IDENTITY_BLOCK_HTML}`;
 
     globalThis.fetch = async (url, init = {}) => {
       const urlStr = String(url);

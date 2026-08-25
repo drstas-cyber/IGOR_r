@@ -3,7 +3,7 @@
 //   node --test tools/blog-compliance/scan.test.mjs
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from './scan.js';
+import { scanArticle, htmlToText, evaluateBatch, scanAllArticles, resolveEnforceMode, isReferenceDomain, findUncitedClaims, findIdentityCompletenessErrors, GENERATOR_LOG_ONLY_FINDING_KEYS } from './scan.js';
 
 function article({ slug = 'test-article', title = 'Test Article', html = '' } = {}) {
   return { slug, title, content_html: html };
@@ -766,5 +766,112 @@ describe('findUncitedClaims — LOG-ONLY, not wired into tripped (2026-07-26)', 
       citations: [],
     });
     assert.equal(r.tripped, false, 'findUncitedClaims must never affect scanArticle()\'s own trip decision -- it is a separate, unwired function');
+  });
+});
+
+// Identity COMPLETENESS gate (added 2026-08-25, hardening batch after PR #35
+// "Vail Ranch" shipped a closing paragraph that named George but omitted
+// DRE#/brokerage/phone/email entirely — caught only by the supervised human
+// read, not either automated gate. findWrongIdentity() above (the
+// wrong-dre/wrong-brokerage/wrong-phone/wrong-email categories) only ever
+// catches a WRONG detail; it was never designed to catch a MISSING one — "a
+// genuinely clean article" above deliberately has no identity block at all
+// and must NOT trip, proving these are two different questions on purpose.
+// findIdentityCompletenessErrors() is that second question, kept as its own
+// standalone function (NOT folded into scanArticle()'s findings/tripped) so
+// every existing scanArticle consumer, including that clean-article test,
+// stays byte-identical — this is opt-in, called explicitly by schema.js
+// (generation time) and the build-time identity guard (see
+// identityCompletenessGuard.mjs), never implicitly.
+describe('findIdentityCompletenessErrors — catches an OMITTED identity block, not just a wrong one', () => {
+  test('all four elements present -> zero errors', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<h2>About George Khazanovskiy</h2><p>George Khazanovskiy is a Temecula Valley real estate agent (DRE #02034120) with Allison James Estates &amp; Homes. Reach George at 619-277-2766 or askgeorgek@gmail.com.</p>',
+    }));
+    assert.deepEqual(errors, []);
+  });
+
+  test('DRE number without the # symbol still counts as present (cosmetic-only variant, already accepted elsewhere in this pipeline)', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, DRE 02034120, Allison James Estates &amp; Homes. Call 619-277-2766 or email askgeorgek@gmail.com.</p>',
+    }));
+    assert.deepEqual(errors, []);
+  });
+
+  test('phone number in any formatting (dashes, dots, parens, spaces) still counts as present', () => {
+    for (const phone of ['619-277-2766', '(619) 277-2766', '619.277.2766', '619 277 2766', '6192772766']) {
+      const errors = findIdentityCompletenessErrors(article({
+        html: `<p>DRE #02034120, Allison James Estates &amp; Homes. Call ${phone} or email askgeorgek@gmail.com.</p>`,
+      }));
+      assert.deepEqual(errors, [], `phone form "${phone}" should count as present`);
+    }
+  });
+
+  test('phone number present only inside a tel: href still counts as present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>DRE #02034120, Allison James Estates &amp; Homes. <a href="tel:+16192772766">Call George</a> or email askgeorgek@gmail.com.</p>',
+    }));
+    assert.deepEqual(errors, []);
+  });
+
+  test('missing DRE number is flagged, others present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, Allison James Estates &amp; Homes. Call 619-277-2766 or email askgeorgek@gmail.com.</p>',
+    }));
+    assert.ok(errors.some((e) => /DRE/.test(e)), `expected a DRE error, got: ${JSON.stringify(errors)}`);
+    assert.equal(errors.length, 1, `expected exactly one error, got: ${JSON.stringify(errors)}`);
+  });
+
+  test('missing brokerage is flagged, others present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, DRE #02034120. Call 619-277-2766 or email askgeorgek@gmail.com.</p>',
+    }));
+    assert.ok(errors.some((e) => /Allison James/.test(e)), `expected a brokerage error, got: ${JSON.stringify(errors)}`);
+  });
+
+  test('missing phone is flagged, others present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, DRE #02034120, Allison James Estates &amp; Homes. Email askgeorgek@gmail.com.</p>',
+    }));
+    assert.ok(errors.some((e) => /phone/i.test(e)), `expected a phone error, got: ${JSON.stringify(errors)}`);
+  });
+
+  test('missing email is flagged, others present', () => {
+    const errors = findIdentityCompletenessErrors(article({
+      html: '<p>George Khazanovskiy, DRE #02034120, Allison James Estates &amp; Homes. Call 619-277-2766.</p>',
+    }));
+    assert.ok(errors.some((e) => /askgeorgek@gmail\.com/.test(e)), `expected an email error, got: ${JSON.stringify(errors)}`);
+  });
+
+  test('all four missing -> four errors', () => {
+    const errors = findIdentityCompletenessErrors(article({ html: '<p>Home prices vary by neighborhood and condition.</p>' }));
+    assert.equal(errors.length, 4, `expected all four to be flagged, got: ${JSON.stringify(errors)}`);
+  });
+
+  // REGRESSION FIXTURE — this is PR #35's exact real omission, reproduced
+  // verbatim in shape (not copy-pasted content, but the same structural gap):
+  // names George, calls him "a Temecula Valley real estate agent", links to
+  // /contact/, and stops there — no DRE#, no brokerage, no phone, no email
+  // anywhere in the article. This is exactly what shipped to review 2026-08-23
+  // and was caught only by the human PR read. Must fail loud, structurally,
+  // from now on.
+  test('REGRESSION (PR #35, 2026-08-23): closing paragraph names George and links to /contact/ but carries no DRE/brokerage/phone/email', () => {
+    const html = `
+      <h2>Buying a Home in Vail Ranch</h2>
+      <p>If you're comparing Vail Ranch to other established or master-planned communities in the area, it can help to look at a broader set of options side by side.</p>
+      <p>George Khazanovskiy, a Temecula Valley real estate agent, can help you evaluate specific listings in Vail Ranch, including HOA status, school assignment, and any special tax districts attached to a particular address. Reach out through the <a href="https://temeculavalleyhomes.us/contact/">contact page</a> to get started.</p>
+    `;
+    const errors = findIdentityCompletenessErrors(article({ html }));
+    assert.equal(errors.length, 4, `expected this exact real-world omission to flag all four, got: ${JSON.stringify(errors)}`);
+  });
+
+  test('does not throw on missing content_html', () => {
+    assert.doesNotThrow(() => findIdentityCompletenessErrors({ slug: 'x', title: 'x' }));
+    assert.equal(findIdentityCompletenessErrors({ slug: 'x', title: 'x' }).length, 4);
+  });
+
+  test('NOT wired into scanArticle() — a genuinely clean article with no identity block at all must still NOT trip via scanArticle()', () => {
+    const r = scanArticle(article({ html: '<p>Home prices vary by neighborhood and condition.</p>' }));
+    assert.equal(r.tripped, false, 'identity completeness is opt-in via a separate function, never implicitly part of scanArticle()');
   });
 });

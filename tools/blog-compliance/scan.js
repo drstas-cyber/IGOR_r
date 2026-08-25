@@ -305,6 +305,57 @@ function findWrongIdentity(text) {
   return findings;
 }
 
+// Identity COMPLETENESS gate (added 2026-08-25, hardening batch after PR #35
+// "Vail Ranch," 2026-08-23) -- findWrongIdentity() above only ever catches a
+// WRONG detail (a DRE/brokerage/phone/email that doesn't match REFERENCE);
+// it was never designed to catch an OMITTED one, because until PR #35 every
+// generated article's closing identity paragraph carried the full block by
+// construction. PR #35 shipped a closing paragraph that named George and
+// linked to /contact/ but dropped DRE#/brokerage/phone/email entirely --
+// caught only by the supervised human PR read, neither gate flagged it,
+// because neither gate ever asked "is the block THERE," only "if there IS
+// one, is it right." Second real identity-block incident in this pipeline
+// (the first, wrong-not-missing, is what findWrongIdentity() itself exists
+// to catch) -- structural now, not a third human catch relied on to hold.
+//
+// Deliberately NOT folded into scanArticle()'s findings/tripped -- "a
+// genuinely clean article" below has zero identity mentions at all and must
+// keep passing scanArticle() unchanged (a BabyLoveGrowth-shaped article, or
+// any other non-generator content, is never contractually required to carry
+// this exact block). This is a separate, opt-in function called explicitly
+// by schema.js at generation time and by the build-time identity guard (see
+// tools/blog-generator/identityCompletenessGuard.mjs) -- never implicitly
+// part of the regex scanner every caller already depends on staying stable.
+//
+// Checked against RAW content_html, not htmlToText()'s stripped output --
+// deliberately, so a phone/email present only inside an href (tel:/mailto:)
+// still counts as present even if the visible link text differs. Phone
+// matching strips every digit out of the ENTIRE content_html and checks for
+// the reference number as a contiguous substring -- tolerant of any
+// formatting (dashes, dots, parens, spaces, a tel: URI's "+1" prefix)
+// without a second phone-format pattern list to keep in sync with
+// PHONE_PATTERN. DRE matching reuses the "#? optional" shape DRE_PATTERN
+// already established (see its own comment) so "DRE 02034120" without the #
+// symbol -- an accepted real form, see the temecula-wine-country-homes-guide
+// publish commit -- still counts as present.
+export function findIdentityCompletenessErrors(article) {
+  const html = String(article?.content_html || '');
+  const errors = [];
+  if (!new RegExp(`\\bDRE\\s*#?\\s*${REFERENCE.dre}\\b`, 'i').test(html)) {
+    errors.push(`identity block: DRE number (${REFERENCE.dre}) not found anywhere in content_html`);
+  }
+  if (!html.toLowerCase().includes(REFERENCE.brokerage.toLowerCase())) {
+    errors.push(`identity block: brokerage name ("${REFERENCE.brokerage}") not found anywhere in content_html`);
+  }
+  if (!html.replace(/\D/g, '').includes(REFERENCE.phoneDigits)) {
+    errors.push(`identity block: phone number (${REFERENCE.phoneDigits}, any formatting) not found anywhere in content_html`);
+  }
+  if (!html.toLowerCase().includes(REFERENCE.email.toLowerCase())) {
+    errors.push(`identity block: email (${REFERENCE.email}) not found anywhere in content_html`);
+  }
+  return errors;
+}
+
 // Generator-article-specific demotion (2026-07-27): the article-3 bait run
 // tripped Layer 1 on four consecutive draws, five distinct false-positive
 // idiom shapes ("far more useful... than one who can only handle small
