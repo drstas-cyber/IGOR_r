@@ -1457,3 +1457,114 @@ compliance gate's judgment. Not yet exercised against a live model call
 limit this file's own "Why seven layers" section already states about any
 gate before its first real run.
 
+## Weekly retrospective, real — 2026-08-25 (hardening batch, item 2/3)
+
+The compensating control §4 of "Automated publishing" above has committed
+to since 2026-08-03 — a standing weekly six-category read of everything
+auto-published that week — had, per git history, **never actually run
+once** in the ~3 weeks since the decision. This entry closes that gap:
+real implementation, plus a one-time catch-up backfill covering everything
+currently live.
+
+### The ongoing job
+
+`.github/workflows/weekly-retro.yml` — Monday, 15:00 UTC / 8am Pacific
+(`workflow_dispatch` also available). Scope is **everything published in
+the prior 7 days**, determined from git ground truth
+(`tools/blog-generator/retroPublishLog.mjs`, parsing `blog: publish`/
+`blog: auto-publish` commit subjects on `main`) — deliberately **not**
+`jsonLd.datePublished`, which is generation time and can sit days before
+the actual publish flip on a held PR (exactly PR #34/#35's own shape:
+generated 2026-08-21/23, published 2026-08-25).
+
+Four of the six categories are fully deterministic, reusing existing,
+already-tested infrastructure rather than re-implementing a judgment call
+this pipeline already made once (`tools/blog-generator/retroAudit.mjs`):
+
+- **identity block** — `findIdentityCompletenessErrors()` (item 1, above)
+  plus `scanArticle()`'s wrong-dre/wrong-brokerage/wrong-phone/wrong-email
+  findings — catches both a missing block and a wrong one.
+- **prohibited claims** — `scanArticle()`, same generator demotion options
+  `generate.mjs`'s own Layer 1 already uses.
+- **stats-vs-citations** — `findUncitedClaims()` (log-only candidates) plus
+  a **live re-resolution of every citation URL**
+  (`citationResolver.mjs`) — a genuine re-check, not a replay: a citation
+  that resolved at generation time can rot (page moved, statute
+  renumbered) by the time the retro runs weeks later.
+- **quality/rendering** — `evaluatePublishStatus()`
+  (`publishStatusReport.mjs`, already built for exactly this) plus its own
+  live serve check.
+
+The remaining two need judgment a regex cannot supply:
+**fabricated speech** and **misattributed quotes** — a fresh, independent
+LLM call (`retroClaimGate.mjs`), same "different model, structured
+tool-use" discipline as Layer 2, asking a narrower pair of questions than
+Layer 2 ever did (Layer 2 runs pre-publish and never asked about fabricated
+speech at all). If `ANTHROPIC_API_KEY` is ever unset, this is **never**
+silently treated as clean — every article in scope gets an explicit
+`NEEDS-FIX` reason saying the check was skipped, so a missing secret shows
+up loud in the report, exactly the same "don't parse logs, don't guess"
+discipline this pipeline already applies everywhere else.
+
+Per-article verdict is `CLEAR` / `NEEDS-FIX` / `REJECT`
+(`computeArticleVerdict()`, pure, unit-tested independently of the I/O
+around it): `REJECT` is reserved for a genuine defect on a page real
+visitors are reading right now (missing/wrong identity, a real Layer-1
+trip, a dead/unsupported citation, fabricated speech, a misattributed
+quote, an incomplete publish sequence, or a failed live check);
+`NEEDS-FIX` is real signal at lower severity (a demoted finding, an
+uncited-claim candidate, an inconclusive/bot-blocked citation, or a check
+this environment couldn't run). The report — rendered by
+`renderRetroReport.mjs` — is **committed to `docs/retros/` regardless of
+outcome**, same "a gate trip is not silent" rule as the rejected-attempt
+marker mechanism: evidence must never disappear just because the run found
+something. The job itself goes red ("loud if it finds anything," per
+instruction) whenever any article has any finding at all, `NEEDS-FIX`
+included, not just on `REJECT`.
+
+### The backfill — 2026-08-03 → 2026-08-25
+
+`docs/retros/2026-08-03-to-2026-08-25-backfill.md` — the one-time catch-up
+for everything owed since the 2026-08-03 decision, covering all 17 live
+articles (not a 7-day window; the ongoing job is what's scoped that way
+going forward). Run for real against this repo, not a dry run:
+
+- **Found and fixed a real live defect**: `seller-closing-costs-explained`
+  (PR #28, published 2026-08-13) carried **zero** of DRE/brokerage/phone/
+  email anywhere in `content_html`, despite naming George twice — a
+  **third** real occurrence of the identity-omission gap item 1 above made
+  structural, this one already live before that gate existed. Fixed in the
+  same session: standard identity paragraph added, `dateModified` bumped,
+  rebuilt, re-verified, deployed.
+- **Found and fixed a false positive in item 1's own new gate**: two
+  already-published articles write the DRE number as `DRE: 02034120` (a
+  colon), a real live form the identity regex didn't yet tolerate (`#` or
+  nothing, not `:`) — caught by running the backfill against real content
+  instead of only synthetic fixtures, fixed with a widened regex and a
+  regression test using the real colon-separated shape.
+- **fabricated speech / misattributed quotes**: no `ANTHROPIC_API_KEY` in
+  this session, so the automated LLM check couldn't run across all 17 —
+  disclosed as its own finding per article, not silently skipped as clean.
+  3 of 17 spot-checked by hand instead (chosen for risk diversity: the
+  highest-citation-count article, a citation-free neighborhood guide, and
+  the article the automated pass had just flagged for a real defect) — all
+  three clear. The other 14 are not re-read blind; the backfill report
+  documents each one's original supervised or owner-delegated read record
+  (commit references) instead, per this project's own "owner-delegated
+  reads" precedent — re-reading 14 articles with no new signal to act on
+  would be busywork, not diligence, when the actual open gap (identity
+  completeness) was already checked directly against all 17.
+- **Final state**: 0 unresolved REJECTs, 1 disclosed standing gap (the
+  LLM check pending a live run with the real secret, which the ongoing
+  Monday job now provides automatically going forward).
+
+### Not yet exercised
+
+Same disclosed limit as item 1's own closing note: neither `retroClaimGate.mjs`
+nor the ongoing workflow has run yet against a live model call in
+production — proven by test and by the backfill's real (non-mocked)
+citation-resolution and live-serve checks, not yet by a real Monday
+firing. The first real scheduled (or manually dispatched) run is that
+proof, same as every other gate in this pipeline before its own first
+live run.
+

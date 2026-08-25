@@ -1,0 +1,101 @@
+name: weekly-retro
+
+# The real implementation of the compensating control README.md's
+# "Automated publishing" section has promised since 2026-08-03 (a standing
+# weekly six-category read of everything auto-published that week) and,
+# per git history, never actually ran even once in the ~3 weeks since.
+# See tools/blog-generator/retroAudit.mjs and its README.md entry
+# ("Identity completeness gate" section's sibling, "Weekly retrospective,
+# real") for the full design.
+#
+# Scope: everything published in the last 7 days (tools/blog-generator/
+# retroPublishLog.mjs, parsed from "blog: publish"/"blog: auto-publish"
+# commit subjects on main -- NOT jsonLd.datePublished, which is generation
+# time and can predate the actual publish flip by days on a held PR).
+#
+# Monday, 15:00 UTC / 8am Pacific -- a day after generate-article.yml's
+# own 14:00 UTC slot on the days it fires, so this always audits a full
+# settled week rather than racing a same-morning publish.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 15 * * 1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-retro
+  cancel-in-progress: false
+
+jobs:
+  retro:
+    name: Weekly retrospective audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Six-category audit: fabricated speech, misattributed quotes,
+      # prohibited claims, stats-vs-citations, identity block, quality/
+      # rendering. Four of six are deterministic (existing, already-tested
+      # gates re-run against live content); fabricated speech and
+      # misattributed quotes need ANTHROPIC_API_KEY -- if it's ever unset,
+      # this does NOT silently skip those two categories as clean: every
+      # article in scope gets an explicit NEEDS-FIX reason saying so (see
+      # retroAudit.mjs's auditArticle), so a missing secret shows up loud
+      # in the report, not as a false-clean pass.
+      #
+      # Always exits: `id` + `continue-on-error` so the commit step below
+      # still runs and the report still lands even on a red (findings-
+      # found) run -- "a gate trip is not silent" applies here exactly like
+      # everywhere else in this pipeline. The job's OWN final status is set
+      # explicitly by the last step, from this step's real exit code, so
+      # continue-on-error here never masks a genuine red run in the
+      # Actions UI.
+      - name: Run weekly retro audit
+        id: run_retro
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node tools/blog-generator/weeklyRetroCli.mjs
+
+      # Commits the report regardless of the audit's own pass/fail --
+      # evidence must never disappear just because the run found something
+      # (same "gate trip is not silent" rule the rejected-attempt-marker
+      # mechanism already applies on the generation side). GITHUB_TOKEN
+      # cascade note: this push uses the default GITHUB_TOKEN, which by
+      # GitHub's own design does not trigger OTHER workflows' `push:`
+      # triggers -- irrelevant here (a docs-only commit has nothing
+      # downstream that needs to fire), but recorded because item 3 of this
+      # same hardening batch (publish-on-merge) hits the same limitation
+      # where it DOES matter.
+      - name: Commit report to docs/retros/
+        if: always() && steps.run_retro.outcome != 'skipped'
+        run: |
+          if [ -n "$(git status --porcelain docs/retros/)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/retros/
+            git commit -m "retro: weekly audit report ($(date -u +%Y-%m-%d))"
+            git push origin main
+          else
+            echo "No report file written (audit likely failed before writing) -- nothing to commit."
+          fi
+
+      # Makes the job's final status match the audit's real outcome,
+      # explicitly -- continue-on-error above must never quietly turn a
+      # findings-found run green in the Actions list.
+      - name: Fail the job if the audit found anything
+        if: steps.run_retro.outcome == 'failure'
+        run: |
+          echo "Weekly retro audit found at least one finding -- see the committed report in docs/retros/ and the job log above."
+          exit 1
