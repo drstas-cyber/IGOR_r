@@ -1693,3 +1693,148 @@ check-runs during development (not mocked), and the full orchestration
 (`runPublishOnMerge()`) is unit-tested including the idempotent-no-op path
 verified against this session's own already-published articles.
 
+## Email notifications — 2026-08-25
+
+Four triggers across `generate-article.yml` and `publish-on-merge.yml`,
+each sending an HTML email via Gmail SMTP. **Non-gating everywhere**: every
+notify step sets `continue-on-error: true`, and the composite action
+itself (`.github/actions/notify-email/`) has its own internal guard as a
+second, independent layer — a missing secret or an SMTP failure can never
+fail or block the pipeline.
+
+### Setup — two secrets, set by the repo owner
+
+```
+gh secret set NOTIFY_SMTP_USERNAME --repo drstas-cyber/IGOR_r
+gh secret set NOTIFY_SMTP_PASSWORD --repo drstas-cyber/IGOR_r
+```
+
+Each prompts for the value interactively (safer than `--body "..."` on the
+command line, which leaves the value in shell history) — paste and press
+Enter/Ctrl-D. `NOTIFY_SMTP_USERNAME` is the sending Gmail address (also
+used as the `from:`). `NOTIFY_SMTP_PASSWORD` is a **Gmail App Password**
+(Google Account → Security → 2-Step Verification → App passwords) — not
+the regular account password; Gmail's SMTP no longer accepts a bare
+account password for third-party auth.
+
+**STOP-note, stated exactly as instructed:** until both secrets exist,
+every notify step no-ops cleanly — a log line
+(`[notify-email] NOTIFY_SMTP_USERNAME/NOTIFY_SMTP_PASSWORD not set --
+skipping...`), never a failure, never a red step. Nothing else in either
+workflow is affected either way.
+
+### Mechanism
+
+[`dawidd6/action-send-mail`](https://github.com/dawidd6/action-send-mail)
+— chosen because it's a maintained, widely-used thin SMTP wrapper
+purpose-built for exactly this (Actions has no built-in mail primitive),
+needs no extra runtime, and supports Gmail SMTP with an app password
+directly. `smtp.gmail.com:465`, `secure: true`.
+
+Wrapped in a local composite action, `.github/actions/notify-email/`,
+rather than repeating the same ~15 lines at all 8 call sites (4 triggers ×
+2 non-published-path workflows, plus the manual test workflow) — one
+place owns the "check secrets, no-op cleanly, else send" logic.
+
+### Recipient — one-line change to add George
+
+Single recipient today: `drstas@gmail.com`, the composite action's own
+`to:` input **default** (`.github/actions/notify-email/action.yml`). None
+of the 8 call sites pass `to:` explicitly — they all fall through to that
+one default — so adding George's address later really is a one-line
+change: edit that one `default:` value (e.g. to
+`drstas@gmail.com,george@...`), nowhere else.
+
+### The four triggers
+
+1. **Article PR opened** (`generate-article.yml`, held/non-silent runs
+   only — see below for why) — `📝 Новая статья ждёт проверки: <title>`.
+   Body: first paragraph of the article (`extractFirstParagraphText()`,
+   plain text, truncated at a word boundary), the Cloudflare Pages preview
+   link (reused directly from the "Update PR body" step's own already-
+   polled result — one poll, two consumers, not a second poll), the
+   one-line gate summary (`gateSummaryLine.mjs`, reused from item 3), and
+   the PR link (tap it to open the PR and merge from the phone).
+
+   **Deliberately gated on `all_silent != 'true'`** — a perfectly-silent
+   run's PR opens and auto-merges/auto-publishes within the same job run,
+   seconds apart. "A new article awaits your review" would be actively
+   misleading for something already being auto-published by the time the
+   email could be read. The silent path gets trigger 3 instead — every
+   real article still gets exactly one notification, never zero, never a
+   confusing two.
+
+2. **Rejected-attempt PR opened** (`generate-article.yml`) — `⛔ Статья
+   отклонена воротами: <topic>`. Body: the failure class
+   (`deriveFailureClassLabel()` — schema_invalid / internal_link_invalid /
+   identity_incomplete / gate_trip, mirroring `handleTrippedGate()`'s own
+   classification), a condensed findings summary
+   (`summarizeRejectionFindings()`, capped at 8 lines — non-demoted Layer 1
+   findings, every true Layer 2 checklist flag with its evidence, Layer 3
+   failed/unsupported citations, schema/internal-link/identity errors —
+   demoted/log-only Layer 1 findings deliberately excluded, since they
+   didn't cause the rejection), and the PR link.
+
+3. **Publish completed, BOTH paths** — `✅ Опубликовано: <title>`. Fires
+   from the silent auto-publish step in `generate-article.yml` AND from
+   `publish-on-merge.yml`'s own publish step (only when
+   `already_complete == 'false'` there — the idempotent no-op path sends
+   nothing, correctly, since nothing was actually published that run).
+   Body: the live URL and the `publishStatusReport` verdict
+   (`evaluatePublishStatus()`, reused directly — `--skip-live`
+   equivalent, i.e. the three LOCAL checks only, not a synchronous live
+   fetch immediately after a push that may not have propagated yet; the
+   live URL is included so Stan can tap through and check himself).
+
+4. **Red runs** — `🔴 Сбой генерации: <reason>`. Two independent call
+   sites: `generate-article.yml` (gated on `failure()` AND neither PR type
+   having opened — a gate trip/schema/link/identity discard already gets
+   its own trigger-2 email; this specifically covers the failure modes
+   that leave no PR at all, e.g. queue-exhausted, a missing
+   `ANTHROPIC_API_KEY`, an uncaught exception) and `publish-on-merge.yml`
+   (gated on `failure()` generally — most likely cause there is the
+   `_headers` 100-rule cap-guard). Body: a best-effort detail line (the
+   generic explanation when no structured report exists to be more
+   specific — `.last-run-report.json` genuinely doesn't exist for most
+   real trigger-4 cases, since every failure mode that DOES write one
+   already gets its own PR and its own trigger-2 email instead) and the
+   run link.
+
+### Content pipeline
+
+`tools/blog-generator/notificationEmail.mjs` — four pure, unit-tested
+builder functions (`buildArticlePrEmail`, `buildRejectedPrEmail`,
+`buildPublishedEmail`, `buildFailureEmail`), plus the two extraction/
+condensing helpers above. `buildNotificationEmailCli.mjs` is the thin,
+untested-by-design glue (matching this repo's "pure core, thin I/O shell"
+split everywhere else) — reads the relevant JSON/args per `--kind=`,
+calls the right builder, writes `subject`/`html_body` to `$GITHUB_OUTPUT`
+(the multiline body uses GitHub's own random-delimiter heredoc syntax, so
+the body text itself can never collide with and truncate the block). Never
+throws past its own top-level catch — a bug here costs a missing email,
+never a red pipeline, same guarantee `updatePrPreviewLink.mjs` (item 3)
+already established for the exact same class of convenience feature.
+
+### Test path
+
+`.github/workflows/test-email-notifications.yml` — `workflow_dispatch`
+only, with a `kind` input (`all` or one specific template). Writes
+synthetic report fixtures (one pointed at a real, already-published,
+never-modified article file for the article-pr template's first-paragraph
+extraction; a real already-published slug for the published template —
+read-only throughout, safe to run any time) and runs the exact same
+build-and-send path as production, with a `[ТЕСТ]` subject prefix so a
+real test email is never mistaken for a real pipeline notification. Proves
+two different things depending on whether the secrets exist yet: **before**
+they exist, it proves the no-op behavior (a clean log line, no failure);
+**after**, it proves the whole path end-to-end including real SMTP
+delivery — the templates were all rendered and verified locally against
+these exact fixtures during development (see the CLI's own stdout capture
+in this session's record), and this workflow is the same path, running in
+the real CI environment.
+
+**The real end-to-end (a genuine cron-triggered or merge-triggered email)
+waits for the two secrets plus the next real cron/merge event** — not yet
+exercised in production, same disclosed-limit pattern as items 1-3 of the
+prior hardening batch before their own first live runs.
+

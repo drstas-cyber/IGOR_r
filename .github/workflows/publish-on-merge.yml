@@ -109,3 +109,54 @@ jobs:
       - name: No-op (already fully published)
         if: steps.publish.outputs.already_complete == 'true'
         run: echo "\"${{ steps.publish.outputs.slug }}\" was already fully published (e.g. the perfectly-silent auto-publish path already handled it) -- nothing to do."
+
+      # ----------------------------------------------------------------
+      # Email notifications (added 2026-08-25) — non-gating everywhere,
+      # same discipline as generate-article.yml's own notify steps (see
+      # that workflow's comment block and tools/blog-generator/README.md,
+      # "Email notifications," for the full record).
+      # ----------------------------------------------------------------
+      - name: Build email content (published — publish-on-merge)
+        id: email_published
+        if: success() && steps.publish.outputs.already_complete == 'false'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=published \
+            --slug="${{ steps.publish.outputs.slug }}"
+
+      - name: Notify (email) — published (publish-on-merge)
+        if: success() && steps.publish.outputs.already_complete == 'false'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_published.outputs.subject }}
+          html_body: ${{ steps.email_published.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # Red-run notification -- most likely cause is the _headers cap-guard
+      # (publishOnMerge.mjs throwing at the 100-rule limit), leaving the
+      # article merged on main but published:false (see that file's header
+      # comment for the full failure-mode reasoning). `failure()` is
+      # deliberate and explicit -- this must only fire on a real red run.
+      - name: Build email content (red run — publish-on-merge failed)
+        id: email_failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="publish-on-merge (PR #${{ github.event.pull_request.number }})" \
+            --detail="Публикация после мержа PR #${{ github.event.pull_request.number }} завершилась с ошибкой — вероятно, превышен лимит _headers (100 правил Cloudflare Pages) или произошла инфраструктурная ошибка. Статья осталась смерженной в main, но published:false — безопасное, но незавершённое состояние, требует ручного завершения (см. tools/blog-generator/README.md, «Publish-on-merge»)." \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Notify (email) — red run
+        if: failure()
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_failure.outputs.subject }}
+          html_body: ${{ steps.email_failure.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}

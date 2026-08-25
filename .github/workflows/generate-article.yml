@@ -201,6 +201,7 @@ jobs:
       # comment for the same non-fatal-by-design reasoning at the script
       # level -- this is the second, independent layer of that guarantee.
       - name: Update PR body with preview link + gate summary at top
+        id: update_pr_body
         if: success() && steps.check.outputs.has_new_article == 'true'
         continue-on-error: true
         env:
@@ -210,6 +211,47 @@ jobs:
           node tools/blog-generator/updatePrPreviewLink.mjs \
             --pr="${{ steps.open_pr.outputs.pull-request-number }}" \
             --sha="${{ steps.open_pr.outputs.pull-request-head-sha }}"
+
+      # ----------------------------------------------------------------
+      # Email notifications (added 2026-08-25) — non-gating everywhere:
+      # every notify step below sets continue-on-error: true, and the
+      # notify-email composite action (.github/actions/notify-email) has
+      # its own internal catch (a missing NOTIFY_SMTP_USERNAME/PASSWORD
+      # cleanly no-ops with a log line, never a failure) as a second,
+      # independent layer of the same guarantee. See
+      # tools/blog-generator/README.md, "Email notifications," for the
+      # full trigger list, the exact `gh secret set` commands, and how to
+      # add a second recipient later.
+      #
+      # Deliberately gated on all_silent != 'true' — a perfectly-silent
+      # run's PR opens and auto-merges/auto-publishes within the same job
+      # run, seconds apart; "a new article awaits your review" would be
+      # actively misleading for a PR that's already being auto-published
+      # by the time the email could plausibly be read. The silent path
+      # gets its own "published" email below instead (same as the human-
+      # read path, just triggered differently) — every real article still
+      # gets exactly one notification, never zero, never a confusing two.
+      # ----------------------------------------------------------------
+      - name: Build email content (article PR opened, held for review)
+        id: email_article_pr
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent != 'true'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=article-pr \
+            --report=tools/blog-generator/.last-run-report.json \
+            --preview-url="${{ steps.update_pr_body.outputs.preview_url }}" \
+            --pr-url="${{ steps.open_pr.outputs.pull-request-url }}"
+
+      - name: Notify (email) — article PR opened, held for review
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent != 'true'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_article_pr.outputs.subject }}
+          html_body: ${{ steps.email_article_pr.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
 
       # Records a gate trip as ground truth instead of leaving no trace
       # anywhere — a discarded run used to just vanish, which meant a
@@ -240,6 +282,7 @@ jobs:
       # job is already red from the generate step -- a failure here adds a
       # second red mark, never turns a trip green.
       - name: Open PR for rejected attempt (marker only — no article content)
+        id: open_pr_rejected
         if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -251,6 +294,26 @@ jobs:
           add-paths: |
             src/data/generated-articles/.rejected/
             tools/blog-generator/citation-host-log.json
+
+      - name: Build email content (rejected-attempt PR opened)
+        id: email_rejected_pr
+        if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=rejected-pr \
+            --report=tools/blog-generator/.last-run-report.json \
+            --pr-url="${{ steps.open_pr_rejected.outputs.pull-request-url }}"
+
+      - name: Notify (email) — rejected-attempt PR opened
+        if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_rejected_pr.outputs.subject }}
+          html_body: ${{ steps.email_rejected_pr.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
 
       # ----------------------------------------------------------------
       # Automated publishing (owner decision, 2026-08-03) — see
@@ -328,3 +391,65 @@ jobs:
 
           Run: ${{ github.run_id }}"
           git push origin main
+
+      - name: Build email content (published — silent auto-publish)
+        id: email_published_silent
+        if: success() && steps.auto_merge.outcome == 'success'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=published \
+            --slug="${{ steps.check_silent.outputs.article_slug }}"
+
+      - name: Notify (email) — published (silent auto-publish)
+        if: success() && steps.auto_merge.outcome == 'success'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_published_silent.outputs.subject }}
+          html_body: ${{ steps.email_published_silent.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # ----------------------------------------------------------------
+      # Red-run notification (queue exhausted / generic failure). Fires
+      # ONLY when the job failed AND neither PR type opened — a gate trip
+      # or schema/link/identity discard already gets its own "rejected-
+      # attempt PR opened" email above; this is specifically for the
+      # failure modes that leave no PR at all (queue exhausted, a missing
+      # secret, a network/infrastructure error, an uncaught exception).
+      # `failure()` (not `always()`) is deliberate and explicit here —
+      # this step must only run on a real red run.
+      # ----------------------------------------------------------------
+      - name: Determine failure reason (best-effort, for the email only)
+        id: failure_reason
+        if: failure() && steps.check.outputs.has_new_article != 'true' && steps.check_rejected.outputs.has_rejected_marker != 'true'
+        run: |
+          if [ ! -f tools/blog-generator/.last-run-report.json ]; then
+            echo "reason=не удалось сгенерировать статью" >> "$GITHUB_OUTPUT"
+            echo "detail=Этап генерации завершился с ошибкой без структурированного отчёта — вероятно, исчерпана очередь тем (topics.json), отсутствует ANTHROPIC_API_KEY, либо сбой сети или инфраструктуры. Подробности — в логе прогона." >> "$GITHUB_OUTPUT"
+          else
+            echo "reason=сбой пайплайна после генерации" >> "$GITHUB_OUTPUT"
+            echo "detail=Генерация прошла успешно, но последующий шаг (открытие PR, авто-мерж или публикация) завершился с ошибкой. Подробности — в логе прогона." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build email content (red run)
+        id: email_failure
+        if: failure() && steps.check.outputs.has_new_article != 'true' && steps.check_rejected.outputs.has_rejected_marker != 'true'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="${{ steps.failure_reason.outputs.reason }}" \
+            --detail="${{ steps.failure_reason.outputs.detail }}" \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Notify (email) — red run
+        if: failure() && steps.check.outputs.has_new_article != 'true' && steps.check_rejected.outputs.has_rejected_marker != 'true'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_failure.outputs.subject }}
+          html_body: ${{ steps.email_failure.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}

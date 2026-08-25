@@ -1,0 +1,69 @@
+name: 'Notify via email (non-gating)'
+description: >-
+  Sends an HTML email via Gmail SMTP (dawidd6/action-send-mail — a
+  maintained, widely-used thin SMTP wrapper; chosen over hand-rolling SMTP
+  in a script because Actions has no built-in mail primitive and this one
+  needs no extra runtime beyond what it already bundles). Cleanly no-ops
+  with a log line, never a failure, if NOTIFY_SMTP_USERNAME/
+  NOTIFY_SMTP_PASSWORD aren't set. The CALLING step must still set
+  continue-on-error: true — that's the second, independent layer of the
+  "an email failure must never fail or block the pipeline" guarantee; this
+  action's own internal catch (below) is the first.
+inputs:
+  subject:
+    description: 'Email subject line.'
+    required: true
+  html_body:
+    description: 'Email body, HTML.'
+    required: true
+  smtp_username:
+    description: 'Gmail address to send from (also the auth username). Pass secrets.NOTIFY_SMTP_USERNAME.'
+    required: true
+  smtp_password:
+    description: 'Gmail app password. Pass secrets.NOTIFY_SMTP_PASSWORD.'
+    required: true
+  to:
+    description: >-
+      Recipient(s), comma-separated. Defaults to drstas@gmail.com. To add
+      George later: change the DEFAULT below in this one file (or pass
+      `to:` explicitly at a call site) — every one of the four
+      notification steps across both workflows reads this same default,
+      so it is genuinely a one-line change, not four.
+    required: false
+    default: 'drstas@gmail.com'
+runs:
+  using: 'composite'
+  steps:
+    - name: Check SMTP credentials are configured
+      id: check
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.smtp_username }}" ] || [ -z "${{ inputs.smtp_password }}" ]; then
+          echo "[notify-email] NOTIFY_SMTP_USERNAME/NOTIFY_SMTP_PASSWORD not set -- skipping email notification (clean no-op, not a failure). See tools/blog-generator/README.md, \"Email notifications,\" for the exact gh secret set commands."
+          echo "send=false" >> "$GITHUB_OUTPUT"
+        elif [ -z "${{ inputs.subject }}" ]; then
+          echo "[notify-email] no subject provided (the upstream email-content build step likely failed non-fatally) -- skipping, nothing to send."
+          echo "send=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "send=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # continue-on-error here too (belt-and-suspenders with the calling
+    # step's own continue-on-error) -- a real SMTP failure (bad creds,
+    # Gmail rate limit, transient network error) must never propagate past
+    # this composite action even if a future edit ever drops the outer
+    # continue-on-error by mistake.
+    - name: Send email
+      if: steps.check.outputs.send == 'true'
+      continue-on-error: true
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        secure: true
+        username: ${{ inputs.smtp_username }}
+        password: ${{ inputs.smtp_password }}
+        from: ${{ inputs.smtp_username }}
+        to: ${{ inputs.to }}
+        subject: ${{ inputs.subject }}
+        html_body: ${{ inputs.html_body }}

@@ -114,6 +114,17 @@ async function main({ repo = process.env.GITHUB_REPOSITORY, prNumber = process.a
   const updatedBody = buildUpdatedPrBody({ existingBody, previewUrl, gateSummaryLine });
   setPrBody({ repo, prNumber, body: updatedBody });
   console.log(`[updatePrPreviewLink] PR #${prNumber} body updated.`);
+
+  // Surfaced as a step output (added alongside the email-notifications
+  // batch, 2026-08-25) purely so the "article PR opened" email step can
+  // reuse the SAME already-polled preview URL instead of polling the
+  // Cloudflare Pages check a second time -- one poll, two consumers.
+  // Empty string (never a bare missing key) when unavailable, so the
+  // calling YAML's `steps.*.outputs.preview_url` always exists as a
+  // defined-but-possibly-empty string, never undefined.
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `preview_url=${previewUrl || ''}\n`);
+  }
 }
 
 const isMain = process.argv[1] && process.argv[1].endsWith('updatePrPreviewLink.mjs');

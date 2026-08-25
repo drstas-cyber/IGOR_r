@@ -1,0 +1,162 @@
+name: test-email-notifications
+
+# Manual test path for the email-notifications batch (2026-08-25) — proves
+# each of the four templates actually renders (subject + HTML body,
+# printed to the job log either way) AND, once the two SMTP secrets exist,
+# doubles as a genuine end-to-end SMTP test: real test emails land in the
+# real inbox with a "[ТЕСТ]" subject prefix so they're never mistaken for
+# a real pipeline notification. Before the secrets exist, this proves the
+# OTHER half of the contract instead — the clean no-op with a log line,
+# not a failure (see .github/actions/notify-email/action.yml).
+#
+# Uses synthetic fixture data (a fake report, a real-but-unmodified
+# existing article file for the article-pr template, a real-but-already-
+# published slug for the published template) — this workflow never writes
+# to generated-articles/, _headers, or blog-articles.json. Read-only,
+# safe to run any time. See tools/blog-generator/README.md, "Email
+# notifications," for the full record.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'Which template to test'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - article-pr
+          - rejected-pr
+          - published
+          - failure
+
+jobs:
+  test:
+    name: Build + send test email(s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # TWO synthetic reports, deliberately different shapes:
+      # test-report-article.json (outcome: 'generated', for the article-pr
+      # template -- outputPath points at a REAL, already-published article
+      # file so first-paragraph extraction exercises real content_html)
+      # and test-report-rejected.json (outcome: 'schema_invalid', for the
+      # rejected-pr template -- a real rejection outcome, not 'generated',
+      # so deriveFailureClassLabel() renders a real failure-class label
+      # instead of the wrong one a 'generated' outcome would produce).
+      - name: Write synthetic report fixtures
+        run: |
+          cat > /tmp/test-report-article.json <<'EOF'
+          {
+            "topic": { "topic": "[ТЕСТ] Пример темы" },
+            "outcome": "generated",
+            "allSilent": false,
+            "layer1": { "tripped": false, "findings": [] },
+            "layer2": { "tripped": false, "checklist": {} },
+            "layer3": { "tripped": false, "failed": [], "unsupported": [] },
+            "selfReview": { "violationsFound": ["[ТЕСТ] пример правки"] },
+            "article": { "title": "[ТЕСТ] Пример заголовка статьи", "slug": "test-fixture" },
+            "outputPath": "src/data/generated-articles/redhawk-temecula-neighborhood-guide.json"
+          }
+          EOF
+          cat > /tmp/test-report-rejected.json <<'EOF'
+          {
+            "topic": { "topic": "[ТЕСТ] Пример темы для проверки отклонённой попытки" },
+            "outcome": "schema_invalid",
+            "layer1": { "tripped": false, "findings": [] },
+            "layer2": { "tripped": false, "checklist": {} },
+            "layer3": { "tripped": false, "failed": [], "unsupported": [] },
+            "schemaErrors": ["[ТЕСТ] citations[]: пример ошибки схемы"]
+          }
+          EOF
+
+      - name: Build + send — article-pr
+        if: github.event.inputs.kind == 'article-pr' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: article_pr
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=article-pr \
+            --report=/tmp/test-report-article.json \
+            --preview-url=https://example.igor-r.pages.dev \
+            --pr-url=https://github.com/drstas-cyber/IGOR_r/pull/0
+      - name: Notify (email) — test article-pr
+        if: github.event.inputs.kind == 'article-pr' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.article_pr.outputs.subject }}"
+          html_body: ${{ steps.article_pr.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      - name: Build + send — rejected-pr
+        if: github.event.inputs.kind == 'rejected-pr' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: rejected_pr
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=rejected-pr \
+            --report=/tmp/test-report-rejected.json \
+            --pr-url=https://github.com/drstas-cyber/IGOR_r/pull/0
+      - name: Notify (email) — test rejected-pr
+        if: github.event.inputs.kind == 'rejected-pr' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.rejected_pr.outputs.subject }}"
+          html_body: ${{ steps.rejected_pr.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # Real, already-published slug -- read-only (evaluatePublishStatus
+      # only reads files, never writes), so this is safe to run any time
+      # and doubles as a real proof the "published" template correctly
+      # reads live repo state.
+      - name: Build + send — published
+        if: github.event.inputs.kind == 'published' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: published
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=published \
+            --slug=redhawk-temecula-neighborhood-guide
+      - name: Notify (email) — test published
+        if: github.event.inputs.kind == 'published' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.published.outputs.subject }}"
+          html_body: ${{ steps.published.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      - name: Build + send — failure
+        if: github.event.inputs.kind == 'failure' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: failure_kind
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="[ТЕСТ] пример причины сбоя" \
+            --detail="[ТЕСТ] Это тестовое письмо, отправленное вручную через workflow_dispatch, чтобы проверить рендеринг шаблона и (если секреты уже настроены) сквозную доставку по SMTP." \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify (email) — test failure
+        if: github.event.inputs.kind == 'failure' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.failure_kind.outputs.subject }}"
+          html_body: ${{ steps.failure_kind.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
