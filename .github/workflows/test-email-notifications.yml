@@ -29,6 +29,10 @@ on:
           - rejected-pr
           - published
           - failure
+          - checkgen-structured
+          - checkgen-log
+          - checkgen-log-ambiguous
+          - checkgen-neutral
 
 jobs:
   test:
@@ -158,5 +162,169 @@ jobs:
         with:
           subject: "[ТЕСТ] ${{ steps.failure_kind.outputs.subject }}"
           html_body: ${{ steps.failure_kind.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # ----------------------------------------------------------------
+      # checkGenerateFailureReason.mjs precedence-chain proof (2026-08-31,
+      # tactical item 3a of the manual-publish formalization) — dispatches
+      # all three precedence branches (structured / log-fallback / neutral)
+      # PLUS the "log exists but carries no recognized signal" case
+      # (log-ambiguous — proves the honest "cause could not be pinned down
+      # from the report" caveat fires instead of a guess) through the REAL
+      # email action: observed-in-inbox proof, not just a unit test's
+      # mocked assertion. Each branch is a three-step chain (checker ->
+      # build -> notify), matching the pattern above, with its own
+      # isolated fixture report/log path so none of the four interfere
+      # with each other or with a real .last-run-report.json/generate.log
+      # (this workflow is workflow_dispatch-only, so that never actually
+      # happens, but isolated paths cost nothing and rule it out by
+      # construction anyway).
+      # ----------------------------------------------------------------
+      - name: Fixture + check — checkgen-structured (precedence 1)
+        if: github.event.inputs.kind == 'checkgen-structured' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_structured_check
+        run: |
+          cat > /tmp/test-checkgen-structured-report.json <<'EOF'
+          {
+            "generatedAt": "2026-08-31T00:00:00.000Z",
+            "outcome": "identity_incomplete",
+            "identityErrors": ["[ТЕСТ] missing DRE number", "[ТЕСТ] missing phone number"]
+          }
+          EOF
+          node tools/blog-generator/checkGenerateFailureReason.mjs \
+            --report-path=/tmp/test-checkgen-structured-report.json \
+            --log-path=/tmp/test-checkgen-structured-nolog.log \
+            --detail-out=/tmp/test-checkgen-structured-detail.txt \
+            >> "$GITHUB_OUTPUT"
+      - name: Build + send — checkgen-structured
+        if: github.event.inputs.kind == 'checkgen-structured' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_structured
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="[ТЕСТ] ${{ steps.checkgen_structured_check.outputs.reason }}" \
+            --detail-file=/tmp/test-checkgen-structured-detail.txt \
+            --slug="${{ steps.checkgen_structured_check.outputs.slug }}" \
+            --failure-class="${{ steps.checkgen_structured_check.outputs.failure_class }}" \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify (email) — test checkgen-structured
+        if: github.event.inputs.kind == 'checkgen-structured' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.checkgen_structured.outputs.subject }}"
+          html_body: ${{ steps.checkgen_structured.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      - name: Fixture + check — checkgen-log (precedence 2, recognized sentinel)
+        if: github.event.inputs.kind == 'checkgen-log' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_log_check
+        run: |
+          cat > /tmp/test-checkgen-log-log.log <<'EOF'
+          [ТЕСТ] some setup noise before the real signal
+          ::error::[generate] QUEUE EXHAUSTED — every topic in topics.json has already been attempted (real article or open rejected-attempt PR).
+          EOF
+          node tools/blog-generator/checkGenerateFailureReason.mjs \
+            --report-path=/tmp/test-checkgen-log-noreport.json \
+            --log-path=/tmp/test-checkgen-log-log.log \
+            --detail-out=/tmp/test-checkgen-log-detail.txt \
+            >> "$GITHUB_OUTPUT"
+      - name: Build + send — checkgen-log
+        if: github.event.inputs.kind == 'checkgen-log' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_log
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="[ТЕСТ] ${{ steps.checkgen_log_check.outputs.reason }}" \
+            --detail-file=/tmp/test-checkgen-log-detail.txt \
+            --slug="${{ steps.checkgen_log_check.outputs.slug }}" \
+            --failure-class="${{ steps.checkgen_log_check.outputs.failure_class }}" \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify (email) — test checkgen-log
+        if: github.event.inputs.kind == 'checkgen-log' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.checkgen_log.outputs.subject }}"
+          html_body: ${{ steps.checkgen_log.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # THE NO-REPORT-AMBIGUITY CASE: a log exists (something was
+      # captured) but carries no recognized signal — proves the system
+      # says "cause could not be pinned down from the report" and still
+      # attaches the real captured text, rather than defaulting to a named
+      # guess (the exact failure mode this whole tactical pass exists to
+      # rule out).
+      - name: Fixture + check — checkgen-log-ambiguous (no recognized signal)
+        if: github.event.inputs.kind == 'checkgen-log-ambiguous' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_log_ambiguous_check
+        run: |
+          cat > /tmp/test-checkgen-ambig-log.log <<'EOF'
+          [ТЕСТ] Error: ENOSPC: no space left on device, write
+          EOF
+          node tools/blog-generator/checkGenerateFailureReason.mjs \
+            --report-path=/tmp/test-checkgen-ambig-noreport.json \
+            --log-path=/tmp/test-checkgen-ambig-log.log \
+            --detail-out=/tmp/test-checkgen-ambig-detail.txt \
+            >> "$GITHUB_OUTPUT"
+      - name: Build + send — checkgen-log-ambiguous
+        if: github.event.inputs.kind == 'checkgen-log-ambiguous' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_log_ambiguous
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="[ТЕСТ] ${{ steps.checkgen_log_ambiguous_check.outputs.reason }}" \
+            --detail-file=/tmp/test-checkgen-ambig-detail.txt \
+            --slug="${{ steps.checkgen_log_ambiguous_check.outputs.slug }}" \
+            --failure-class="${{ steps.checkgen_log_ambiguous_check.outputs.failure_class }}" \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify (email) — test checkgen-log-ambiguous
+        if: github.event.inputs.kind == 'checkgen-log-ambiguous' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.checkgen_log_ambiguous.outputs.subject }}"
+          html_body: ${{ steps.checkgen_log_ambiguous.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      - name: Fixture + check — checkgen-neutral (precedence 3, no report and no log)
+        if: github.event.inputs.kind == 'checkgen-neutral' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_neutral_check
+        run: |
+          node tools/blog-generator/checkGenerateFailureReason.mjs \
+            --report-path=/tmp/test-checkgen-neutral-noreport.json \
+            --log-path=/tmp/test-checkgen-neutral-nolog.log \
+            --detail-out=/tmp/test-checkgen-neutral-detail.txt \
+            >> "$GITHUB_OUTPUT"
+      - name: Build + send — checkgen-neutral
+        if: github.event.inputs.kind == 'checkgen-neutral' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: checkgen_neutral
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=failure \
+            --reason="[ТЕСТ] ${{ steps.checkgen_neutral_check.outputs.reason }}" \
+            --detail-file=/tmp/test-checkgen-neutral-detail.txt \
+            --slug="${{ steps.checkgen_neutral_check.outputs.slug }}" \
+            --failure-class="${{ steps.checkgen_neutral_check.outputs.failure_class }}" \
+            --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify (email) — test checkgen-neutral
+        if: github.event.inputs.kind == 'checkgen-neutral' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.checkgen_neutral.outputs.subject }}"
+          html_body: ${{ steps.checkgen_neutral.outputs.html_body }}
           smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
           smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}

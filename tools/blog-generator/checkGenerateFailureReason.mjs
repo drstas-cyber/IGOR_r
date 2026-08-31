@@ -171,7 +171,18 @@ export function checkGenerateFailureReason({
 
 const isMain = process.argv[1] && process.argv[1].endsWith('checkGenerateFailureReason.mjs');
 if (isMain) {
-  const result = checkGenerateFailureReason();
+  // --report-path / --log-path (2026-08-31, tactical item 3a) -- optional
+  // overrides of the two default paths, purely so
+  // test-email-notifications.yml can dispatch this CLI against different
+  // fixture files in the same job without them colliding on the same
+  // default location. The real generate-article.yml workflow never passes
+  // these -- it relies on the defaults, same as every other caller.
+  const reportPathArg = process.argv.find((a) => a.startsWith('--report-path='))?.slice('--report-path='.length);
+  const logPathArg = process.argv.find((a) => a.startsWith('--log-path='))?.slice('--log-path='.length);
+  const result = checkGenerateFailureReason({
+    ...(reportPathArg ? { reportPath: reportPathArg } : {}),
+    ...(logPathArg ? { logPath: logPathArg } : {}),
+  });
   // reason/failure_class/slug are always single-line -- printed straight
   // to stdout for the workflow to redirect into $GITHUB_OUTPUT, same
   // convention as checkRejectedMarker.mjs. detail can
