@@ -7,25 +7,93 @@ risk of scaled AI content on a domain that also hosts paid landing pages —
 so this is deliberately built as a **low-volume, human-edited pipeline**,
 not a content farm:
 
-- `topics.json` seeds **40** topics (restocked from 20, 2026-08-03 —
-  see "Automated publishing" below). Trivially extensible (just add
-  another `{topic, target_keyword}` entry). It carries **no status
-  field** — see "How topic availability is decided" below for why and
-  how "already attempted" is derived instead.
+- `topics.json` seeds **40** topics (restocked from 20, 2026-08-03).
+  Trivially extensible (just add another `{topic, target_keyword}`
+  entry). It carries **no status field** — see "How topic availability is
+  decided" below for why and how "already attempted" is derived instead.
 - Every PR this pipeline opens is a **review-and-EDIT step, not a rubber
-  stamp** — UNLESS the run was perfectly silent, in which case it merges
-  and publishes automatically as of 2026-08-03 (owner decision — see
-  "Automated publishing" below for the exact conditions). Any finding
-  anywhere, including a log-only one, still means: read the article, both
-  gates passing means "no known automated red flag," not "ready to
-  publish as-is."
+  stamp, always** — including a perfectly silent run. Generation is
+  automatic; **publication is manual, by design** (owner ruling,
+  2026-08-31, see "How this actually works today" below and "Automated
+  publishing," now superseded). A perfectly-silent run's PR still needs a
+  human to tap Merge before anything goes live; `allSilent` is a quality
+  signal in the PR body and email, telling the reviewer this one needs
+  less scrutiny than usual — it has never, in this project's history,
+  meant "published without a human looking at it."
 - Cadence: every other day, 14:00 UTC, as of 2026-08-03 (`workflow_dispatch`
   stays available alongside the cron; supersedes the 2026-08-01 weekly-cron
-  decision — see "Automated publishing" below). **The schedule controls
-  how often a PR gets opened AND, on a perfectly silent run, whether it
-  auto-publishes.** A run with any finding still requires a full supervised
-  human read before merge, exactly as before — cron changed cadence and
-  added the silent-only fast path; it did not touch the gates themselves.
+  decision). This controls **generation** cadence only — how often a PR
+  gets opened — never publication, which is always a separate, manual
+  step regardless of cadence.
+
+## How this actually works today (2026-08-31, current and canonical)
+
+Read this section first if you're orienting to the pipeline as it stands.
+Sections elsewhere in this file marked "superseded" or "retired" are kept
+for their decision history, not because they describe current behavior.
+
+1. **Generation is automatic.** `generate-article.yml` fires every other
+   day at 14:00 UTC (or on demand via `workflow_dispatch`), picks the next
+   available topic, writes a draft, self-reviews it, and runs it through
+   two independent compliance gates (Layer 1 regex scanner, Layer 2
+   independent LLM claim review) plus schema/internal-link/identity
+   validation. See "Why seven layers" and "The two-layer gate" below for
+   what each check actually does.
+2. **Three outcomes, each with exactly one path:**
+   - **Clean or holds for review** — a `blog-generator/auto-*` PR opens
+     with the full gate report as its body, `allSilent` shown as an
+     informational line only. An email fires either way ("article PR
+     opened, held for review") — every real article gets exactly this one
+     notification, whether or not it was silent.
+   - **A gate/schema/link/identity trip discards the draft** — no article
+     is written; a `blog-generator/rejected-*` marker PR opens instead,
+     recording the topic as permanently blocked if ever merged, released
+     if closed unmerged. See "A gate trip is not silent" below.
+   - **An early exit before generation started** (missing secret, missing
+     `GITHUB_REPOSITORY`, an uncaught exception during topic selection, or
+     a genuinely exhausted topic queue) — no PR of either kind; a red-run
+     email fires instead, naming the real cause from a structured report
+     when one exists, never a guess (see `checkGenerateFailureReason.mjs`
+     and "First live firing" under "Publish-on-merge" below).
+3. **Publication is ALWAYS a human tap.** There is no code path in this
+   repo, as of 2026-08-31, that merges or publishes a generator PR without
+   a human doing it. The reviewer reads the email, opens the PR, checks
+   the Cloudflare Pages preview, and either taps **Merge** (today: from
+   the GitHub mobile app) or **Close**s it unmerged (silent or rejected
+   PRs release their topic on close; merging a rejected-marker PR
+   permanently blocks it instead). This was a deliberate owner ruling
+   (2026-08-31), not an oversight: an auto-merge/auto-publish path existed
+   from 2026-08-03 to 2026-08-31 and was retired after a review found zero
+   silent publishes in the project's entire history under it — every
+   article that ever went live was human-merged, and `allSilent` was
+   effectively unreachable in practice (self-review's phantom internal-
+   link-stripping corrections, root-fixed the same day, meant a
+   genuinely clean draft almost always still carried at least one
+   "correction" — see "Self-review no longer validates internal links,"
+   the entry superseding the two below it in the file's chronology).
+4. **`publish-on-merge.yml` is the sole publish mechanism**, for every
+   article, silent or not. A human Merge on a `blog-generator/auto-*` PR
+   triggers it: `published:true` flip, `_headers` cache-pair insertion,
+   `blog-articles.json` regeneration, one commit, push. See
+   "Publish-on-merge" below for the full mechanism and its first-live-
+   firing incident/fixes.
+5. **The weekly retrospective audit** (see "Weekly retrospective, real"
+   below) is the standing content-quality audit for every article this
+   pipeline has published, full stop — not a compensating control for an
+   auto-publish path, since none exists to compensate for anymore. Its
+   job is unchanged: a full six-category read of everything published
+   that week, report-only, same verdict scale; an article that fails
+   retrospectively gets unpublished by a single documented commit.
+6. **Planned successor for the human tap: the "George-gate."** The
+   2026-08-31 ruling names Merge-from-phone as the mechanism "today" —
+   explicitly not the permanent shape of the manual-publish step, just
+   the first one. A designed-but-not-yet-built successor (working name:
+   "George-gate") is intended to let George himself perform the human
+   review/approval step directly, without a human intermediary reading
+   the email and tapping Merge on his behalf. Nothing in this repo
+   implements it yet as of 2026-08-31 — noted here so the manual-Merge
+   step described above is read as "the current mechanism," not "the
+   final design."
 
 ## How this fits with the existing pipeline
 
@@ -367,14 +435,18 @@ do clicking through a mirror instead of the source of record.
 Generated articles default to `published: false`. Merging the PR to `main`
 does **not** put the article live by itself — flipping `"published": false`
 to `"published": true"` is a second, separate gate, done via
-`setPublished.mjs` (extracted 2026-08-03) either by a human after a
-supervised read, or automatically on a perfectly-silent run as of
-2026-08-03 — see "Automated publishing" below for the exact conditions and
-why a human read is still the default path for anything with a finding.
+`setPublished.mjs` (extracted 2026-08-03). As of 2026-08-31 this flip
+happens exactly one way, for every article regardless of `allSilent`:
+`publish-on-merge.yml` runs it automatically the moment a human merges
+the PR — see "How this actually works today" above and "Publish-on-merge"
+below for the full mechanism. (2026-08-03 through 2026-08-31, a
+perfectly-silent run could instead trigger this flip via a since-retired
+auto-merge/auto-publish path inside `generate-article.yml` itself, before
+a human ever saw the PR — see "Automated publishing," now superseded.)
 
 `setPublished.mjs --slug=<slug> --value=false` is also the exact rollback
-command for the retrospective-audit compensating control (see "Automated
-publishing" §4) — the same script, opposite direction.
+command for the weekly retrospective audit's compensating control (see
+"Weekly retrospective, real" below) — the same script, opposite direction.
 
 At build time, `tools/fetch-blog-data.js` merges eligible (`published:
 true`) generated articles with whatever BabyLoveGrowth contributes, handling
@@ -421,16 +493,12 @@ Required repo setup before the first run:
 4. If branch protection on `main` requires status checks or blocks the
    `github-actions[bot]` actor from opening PRs, that will need to change —
    this cannot be verified without a real run (see the build report's
-   "cannot verify without pushing" list). As of 2026-08-03 this also
-   applies to *merging*: the auto-merge step (see "Automated publishing"
-   above) runs `gh pr merge` as the same actor/token, gated behind
-   `gh pr checks --watch` passing first — if branch protection blocks that
-   actor from merging (as opposed to just opening PRs), the auto-merge
-   step fails, the job goes red, and the PR is left open exactly as it
-   would be for a non-silent run, just with a failed auto-merge attempt
-   as the reason rather than a finding. Not distinguishable from a real
-   infra failure by the Monday-morning signal table alone — check the job
-   log if an "all-silent" PR is unexpectedly still open.
+   "cannot verify without pushing" list). (2026-08-03 through 2026-08-31,
+   this also applied to `github-actions[bot]` *merging* — the since-
+   retired auto-merge step ran `gh pr merge` as that actor/token. As of
+   2026-08-31 nothing in this repo merges a generator PR except a human,
+   so branch protection on merging is no longer this workflow's concern at
+   all — moot, not just historical.)
 
 ## On ever enabling cron
 
@@ -507,16 +575,38 @@ pipeline's backstop against silently running dry — not the plan for
 managing the topic queue, which is restocking `topics.json` proactively
 (see "Automated publishing" below for the current runway numbers).
 
-## Automated publishing (owner decision, 2026-08-03)
+## Automated publishing (owner decision, 2026-08-03) — SUPERSEDED 2026-08-31
+
+**The auto-merge/auto-publish MECHANISM described in §2/§3 below is
+RETIRED, not disabled behind a flag — deleted from generate-article.yml
+entirely (owner ruling, 2026-08-31, manual-publish formalization). See
+"How this actually works today" at the top of this file for current
+behavior.** Kept below for its decision history and because §1 (cadence)
+and §5/§6 (topic and `_headers` runway) remain accurate independent of the
+retired mechanism. The finding that forced the retirement: a review found
+**zero silent publishes in this project's entire history** under this
+path — every article that ever went live was human-merged, and
+`allSilent` was effectively unreachable in practice (self-review's
+phantom internal-link-stripping corrections, root-fixed the same day,
+meant a genuinely clean draft almost always still carried at least one
+"correction" before it ever reached this section's §2 conditions — see
+"Self-review no longer validates internal links" below). `checkAllSilent
+.mjs`, referenced in §3 below, no longer exists (deleted — its only
+caller was the retired workflow step); `report.allSilent` is still
+computed exactly as §3 describes, now feeding an informational PR-body
+line instead of a workflow decision.
 
 **Supersedes the 2026-08-01 weekly-cron decision above.** Owner (Stan)
 instruction, explicit, this date. Nothing here weakens the gates
 themselves — every check that existed before this decision still runs,
 still means the same thing, and still holds a PR for a human on any
-finding. What changes is what happens on a run with **zero** findings of
-any kind: it now merges and publishes itself, with a standing weekly
+finding. What changed, 2026-08-03 through 2026-08-31: a run with **zero**
+findings of any kind merged and published itself, with a standing weekly
 retrospective audit as the compensating control for removing the pre-
-merge human read on that one path.
+merge human read on that one path. As of 2026-08-31, every run — silent
+or not — holds for a human Merge; the retrospective audit's job continues
+unchanged as the standing content-quality audit for everything published,
+just no longer described as compensating for a gap that no longer exists.
 
 ### 1. Cadence
 
@@ -532,10 +622,10 @@ stays truer to what was actually asked for; the quirk's worst case (one
 extra generation attempt around 31-day month boundaries, ~7×/year,
 costing at most one topic) is immaterial at this pipeline's volume.
 
-### 2. The auto-publish path — exact conditions
+### 2. The auto-publish path — exact conditions (RETIRED — historical)
 
-A cron-generated PR (real article, `outcome: 'generated'`) auto-merges and
-auto-publishes **only** when every one of these holds — see
+A cron-generated PR (real article, `outcome: 'generated'`) used to
+auto-merge and auto-publish **only** when every one of these held — see
 `autoPublishGate.mjs`'s `computeAllSilent()` for the actual implementation,
 covered by `autoPublishGate.test.mjs`:
 
@@ -574,15 +664,17 @@ for a human. This is the standing rule, unchanged: *a PR that fails its
 read does not merge, cron or no cron* — extended to *a PR with any finding
 at all, however minor, does not auto-merge*.
 
-### 3. Mechanism
+### 3. Mechanism (RETIRED — historical; `checkAllSilent.mjs` no longer exists)
 
 `report.allSilent` is computed once, in `generate.mjs`, on the same report
-object the PR body and the auto-merge check both read (`computeAllSilent()`
-never re-derived a second way that could disagree with itself).
+object the PR body reads (`computeAllSilent()` never re-derived a second
+way that could disagree with itself) — this part is UNCHANGED and still
+true today, just no longer feeding a workflow decision. What's retired:
 `checkAllSilent.mjs` (matching `checkRejectedMarker.mjs`'s exact extracted,
-fail-closed, three-state-aware pattern) reads that report and emits
+fail-closed, three-state-aware pattern) used to read that report and emit
 `all_silent`/`article_slug` to `$GITHUB_OUTPUT` — the workflow's auto-merge
-step gates on that flag, never on log text.
+step gated on that flag, never on log text. Deleted 2026-08-31 along with
+the auto-merge step, its only caller.
 
 On `all_silent == 'true'`: the workflow first runs `gh pr checks --watch`
 on the just-opened PR and only merges if the PR's own required checks
@@ -606,18 +698,27 @@ has already merged, the step aborts (GitHub Actions' default `-e` for
 (nothing goes live wrong), not silent: the job is red, requiring a human
 to notice and finish the publish step by hand using the same two scripts.
 
-### 4. Compensating control — retrospective audit
+### 4. Compensating control — retrospective audit (role changed 2026-08-31, mechanism unchanged)
 
-Pre-merge human reads no longer happen on silent runs, so the floor moves
-from *before* publish to *after*: a **standing weekly audit** — the full
-six-category read (fabricated speech, misattributed quotes, prohibited
-claims, stats-vs-citations, identity block, quality/rendering) of
-**everything auto-published that week**, report-only, same verdict scale
-(CLEAR / NEEDS-FIX / REJECT) used for every prior audit in this project.
-Stan can run it manually (his own stated fallback, Mondays) or it can be
-delegated the same "owner-delegated read" way individual article reads
-already have been (see "Owner-delegated reads" above) — either way, it is
-a standing commitment this decision depends on, not optional follow-up.
+2026-08-03 through 2026-08-31, this section's own reasoning: pre-merge
+human reads no longer happened on silent runs, so the floor moved from
+*before* publish to *after* — a **standing weekly audit** as the
+compensating control for that removed step. As of 2026-08-31 every run
+holds for a human Merge again, so there's no longer a removed step to
+compensate for — but the audit itself didn't stop being valuable, so it
+didn't stop: it's now the standing content-quality audit for everything
+this pipeline has published, full stop, same mechanism, same standing
+commitment, just described accurately instead of as a compensating
+control for a gap that no longer exists. See "Weekly retrospective, real"
+below for the actual implementation. The full six-category read
+(fabricated speech, misattributed quotes, prohibited claims, stats-vs-
+citations, identity block, quality/rendering) of everything published
+that week, report-only, same verdict scale (CLEAR / NEEDS-FIX / REJECT)
+used for every prior audit in this project. Stan can run it manually (his
+own stated fallback, Mondays) or it can be delegated the same "owner-
+delegated read" way individual article reads already have been (see
+"Owner-delegated reads" above) — either way, it is a standing commitment,
+not optional follow-up.
 
 **Checklist line item added 2026-08-03** (see "Site-wide fabricated-claims
 sweep" below): the weekly retrospective audit also re-checks the
@@ -1011,6 +1112,15 @@ finished.
 
 ### Standing operations
 
+**SUPERSEDED 2026-08-31 — this subsection is a snapshot of 2026-08-03,
+kept for history.** "Auto-publishes vs. holds" below describes a
+mechanism retired 2026-08-31; see "How this actually works today" at the
+top of this file for current, canonical behavior. The prediction in that
+paragraph ("zero have been silent so far") turned out to hold for the
+mechanism's entire lifetime, not just at this snapshot — see "Automated
+publishing"'s new superseded-banner for the finding that closed it out:
+zero silent publishes ever happened, project-wide.
+
 **Every other day, 14:00 UTC:** `generate-article.yml` fires (workflow_dispatch
 also stays available any time). One topic is generated, self-reviewed, and
 run through three gates (regex scanner, independent LLM claim review,
@@ -1177,6 +1287,11 @@ around a link.
 
 ## Self-review never validated internal links — fixed 2026-08-12
 
+**Superseded 2026-08-31 — see "Self-review no longer validates internal
+links — root-fixed 2026-08-31" below, past the next entry.** This fix and
+the 2026-08-19 one after it both mitigated symptoms of the same root
+cause; kept for decision history.
+
 Real incident, both real runs since internal linking shipped: PR #28
 (2026-08-09) and PR #29 (2026-08-11) each stripped every internal link the
 draft pass had added, self-review reporting things like *"no known live
@@ -1287,6 +1402,75 @@ specifically checking that any restored link is genuinely correct (points
 at the right, relevant route) and that the restore log (printed by
 `generate.mjs`, not currently surfaced in the PR body) doesn't show any
 `skipped` entries that should have been restorable.
+
+**SUPERSEDED 2026-08-31 — see the entry immediately below.** Both this
+fix and the 2026-08-12 one above mitigated symptoms, not the cause. PR
+#38 (2026-08-27) proved the pattern hadn't actually stopped: 9 links
+stripped, 8 restored by this mechanism, the one miss traced to self-review
+REWORDING the surrounding sentence rather than a URL judgment at all.
+`internalLinkRestore.mjs` itself is NOT removed as of 2026-08-31 — it
+stays wired in as defense-in-depth pending proof of the root fix below —
+but self-review no longer has any reason to invoke the failure mode this
+entry documents.
+
+## Self-review no longer validates internal links — root-fixed 2026-08-31 (owner ruling item 2, manual-publish formalization)
+
+**Supersedes both entries immediately above.** Two prior fixes (2026-08-12:
+give self-review the Known live routes list; 2026-08-19:
+`internalLinkRestore.mjs`, a deterministic backstop) each mitigated a
+symptom without fixing the actual cause. The pattern repeated a third
+time: PR #38 (2026-08-27) stripped 9 links, the backstop restored 8, and
+the one miss wasn't even a URL-matching failure — self-review had
+reworded the surrounding sentence, leaving no exact anchor text for the
+backstop's deliberately-conservative restore logic to find. Three real
+incidents (2026-08-09/11, 2026-08-17, 2026-08-27), two prior fixes, the
+same failure class every time: **asking an LLM to re-judge exact URL
+string equality is unreliable, even with the list in hand, even after
+being told twice how to do it more carefully.**
+
+**Root fix:** stop asking. `selfReview()` (`generate.mjs`) no longer
+receives the `Known live routes` list at all, and its user-message
+instruction changed from "validate every internal link... strip any that
+aren't" to "leave every internal link EXACTLY as it appears — do not
+re-validate, strip, or re-wrap any of them." `prompt.md`'s self-review
+pass instructions carry the matching change: the old "Validate internal
+links against the list" paragraph is replaced with "Do not touch internal
+links during self-review," explicitly citing both prior incidents as the
+reason self-review's own judgment is not trusted for this anymore (the
+old paragraph is kept in a collapsed `<details>` block for history, marked
+"no longer in effect"). The draft pass is UNCHANGED — it still receives
+the list and is still instructed to choose only from it; only self-review
+lost the (redundant, unreliable) re-validation responsibility.
+`internalLinkGate.mjs` (deterministic, not a second LLM judgment call)
+remains the real backstop for a genuinely wrong URL from the draft pass
+itself.
+
+**`internalLinkRestore.mjs` is explicitly NOT removed in this pass** —
+marked "pending removal" in its own header comment and at its call site in
+`generate.mjs`, kept wired in as defense-in-depth until the root fix
+proves out against real runs. Removing a safety net in the same commit
+that introduces the thing it's supposed to backstop would mean a single
+bad live run has nothing left to catch it.
+
+**Tests:** two new in `generate.test.mjs`'s "self-review no longer
+re-validates internal links" block, confirmed failing before the prompt
+change (the self-review request still offered the list) — one proving the
+self-review request carries no `Known live routes` list while the draft
+pass still does, one a real multi-link fixture (a static-page link and a
+blog-article link) proving zero `violations_found` entries and zero
+restore actions when self-review correctly leaves links untouched. The
+pre-existing 2026-08-12 regression test (asserting self-review DID
+receive the list) is inverted and kept as the guard that the list must
+never come back.
+
+**PROOF, unlike everything else in the 2026-08-31 manual-publish
+formalization pass: this cannot be proven by test alone.** Self-review is
+a live model call; no test can prove what the real model will do on a
+real draft. Success = the next real cron run's `violations_found`
+containing zero link-related entries — checked run over run, not assumed
+from the code change alone. If it recurs even once, the deterministic
+backstop is still there to catch it, but the root fix would need
+revisiting, not just re-trusting.
 
 ## Batch-build compliance filter didn't know about the generator's own demotion — fixed 2026-08-12
 
@@ -1459,12 +1643,20 @@ gate before its first real run.
 
 ## Weekly retrospective, real — 2026-08-25 (hardening batch, item 2/3)
 
-The compensating control §4 of "Automated publishing" above has committed
+The compensating control §4 of "Automated publishing" above had committed
 to since 2026-08-03 — a standing weekly six-category read of everything
 auto-published that week — had, per git history, **never actually run
 once** in the ~3 weeks since the decision. This entry closes that gap:
 real implementation, plus a one-time catch-up backfill covering everything
 currently live.
+
+**Re-based 2026-08-31:** with the auto-publish path this audit originally
+compensated for now retired (see "Automated publishing," above), this job
+continues unchanged — same schedule, same six categories, same scope,
+same rollback line — as the standing content-quality audit for
+**everything this pipeline has published, full stop**, not specifically a
+control for a gap that no longer exists. Nothing below needed to change
+except the reason it exists.
 
 ### The ongoing job
 
@@ -1605,8 +1797,10 @@ it), which is exactly what the idempotency guarantee below exists for.
 2. **IDEMPOTENT by construction, not a special-cased flag**:
    `evaluatePublishStatus()` (`publishStatusReport.mjs`, already built for
    exactly this) checks real repo state first. Already fully published
-   (e.g. the perfectly-silent auto-publish path already handled this exact
-   PR) → clean no-op, nothing written, nothing committed. Every write this
+   (this workflow re-firing for the same PR; historically also possible if
+   the since-retired auto-publish path had already handled it, see
+   "Automated publishing" above) → clean no-op, nothing written, nothing
+   committed. Every write this
    script can make already goes through a function that's itself a no-op
    at the target state (`setPublishedInJson`'s `changed` flag,
    `insertCacheEntry`'s `inserted` flag) — re-running this workflow twice
@@ -1619,18 +1813,15 @@ it), which is exactly what the idempotency guarantee below exists for.
    a non-zero exit, which fails the workflow step before any commit/push
    (bash's default `-e`), leaving the article merged on `main` but
    `published: false` — a safe, visibly-incomplete state requiring a human
-   to notice the red run and finish by hand, the exact same documented
-   failure mode the silent auto-publish path already has (§3, above).
+   to notice the red run and finish by hand.
 5. **Regenerate `blog-articles.json`** — `node tools/fetch-blog-data.js`,
-   a separate workflow step gated on `already_complete == 'false'`. (The
-   perfectly-silent auto-publish path, notably, does NOT do this step —
-   it's not strictly required for the live site, since Cloudflare Pages'
-   own build re-runs `fetch-blog-data.js` fresh on every deploy anyway,
-   but it's the established human-publish-sequence convention this
-   workflow is explicitly automating, per instruction: "flip + _headers +
-   regenerate + push.")
-6. **One atomic commit, push** — same reasoning the silent path's own
-   commit message already states: the merge itself is the human decision,
+   a separate workflow step gated on `already_complete == 'false'`. Not
+   strictly required for the live site, since Cloudflare Pages' own build
+   re-runs `fetch-blog-data.js` fresh on every deploy anyway, but it's the
+   established human-publish-sequence convention this workflow is
+   explicitly automating, per instruction: "flip + _headers + regenerate +
+   push."
+6. **One atomic commit, push** — the merge itself is the human decision,
    there's no separate judgment call to represent as two commits.
 
 ### GITHUB_TOKEN cascade note
@@ -1851,22 +2042,24 @@ change: edit that one `default:` value (e.g. to
 
 ### The four triggers
 
-1. **Article PR opened** (`generate-article.yml`, held/non-silent runs
-   only — see below for why) — `📝 Новая статья ждёт проверки: <title>`.
-   Body: first paragraph of the article (`extractFirstParagraphText()`,
-   plain text, truncated at a word boundary), the Cloudflare Pages preview
-   link (reused directly from the "Update PR body" step's own already-
-   polled result — one poll, two consumers, not a second poll), the
-   one-line gate summary (`gateSummaryLine.mjs`, reused from item 3), and
-   the PR link (tap it to open the PR and merge from the phone).
+1. **Article PR opened** (`generate-article.yml`) — `📝 Новая статья ждёт
+   проверки: <title>`. Body: first paragraph of the article
+   (`extractFirstParagraphText()`, plain text, truncated at a word
+   boundary), the Cloudflare Pages preview link (reused directly from the
+   "Update PR body" step's own already-polled result — one poll, two
+   consumers, not a second poll), the one-line gate summary
+   (`gateSummaryLine.mjs`, reused from item 3), and the PR link (tap it to
+   open the PR and merge from the phone).
 
-   **Deliberately gated on `all_silent != 'true'`** — a perfectly-silent
-   run's PR opens and auto-merges/auto-publishes within the same job run,
-   seconds apart. "A new article awaits your review" would be actively
-   misleading for something already being auto-published by the time the
-   email could be read. The silent path gets trigger 3 instead — every
-   real article still gets exactly one notification, never zero, never a
-   confusing two.
+   **UPDATED 2026-08-31:** this used to be gated on `all_silent !=
+   'true'`, on the reasoning that a perfectly-silent run's PR opened and
+   auto-merged/auto-published within the same job run, seconds apart, so
+   "a new article awaits your review" would have been actively misleading
+   by the time the email could be read. That auto-publish path is retired
+   (see "Automated publishing," now superseded) — every real article PR
+   now gets exactly this one notification regardless of `allSilent`,
+   because it genuinely does await review; there's no longer a separate
+   silent-publish trigger to avoid double-notifying about.
 
 2. **Rejected-attempt PR opened** (`generate-article.yml`) — `⛔ Статья
    отклонена воротами: <topic>`. Body: the failure class
@@ -1879,30 +2072,38 @@ change: edit that one `default:` value (e.g. to
    demoted/log-only Layer 1 findings deliberately excluded, since they
    didn't cause the rejection), and the PR link.
 
-3. **Publish completed, BOTH paths** — `✅ Опубликовано: <title>`. Fires
-   from the silent auto-publish step in `generate-article.yml` AND from
-   `publish-on-merge.yml`'s own publish step (only when
-   `already_complete == 'false'` there — the idempotent no-op path sends
-   nothing, correctly, since nothing was actually published that run).
-   Body: the live URL and the `publishStatusReport` verdict
+3. **Publish completed** — `✅ Опубликовано: <title>`. **UPDATED
+   2026-08-31:** fires from `publish-on-merge.yml`'s own publish step
+   only, now the sole publish mechanism (only when `already_complete ==
+   'false'` there — the idempotent no-op path sends nothing, correctly,
+   since nothing was actually published that run); the silent
+   auto-publish step in `generate-article.yml` this used to also fire from
+   is retired. Body: the live URL and the `publishStatusReport` verdict
    (`evaluatePublishStatus()`, reused directly — `--skip-live`
    equivalent, i.e. the three LOCAL checks only, not a synchronous live
    fetch immediately after a push that may not have propagated yet; the
    live URL is included so Stan can tap through and check himself).
 
-4. **Red runs** — `🔴 Сбой генерации: <reason>`. Two independent call
-   sites: `generate-article.yml` (gated on `failure()` AND neither PR type
-   having opened — a gate trip/schema/link/identity discard already gets
-   its own trigger-2 email; this specifically covers the failure modes
-   that leave no PR at all, e.g. queue-exhausted, a missing
-   `ANTHROPIC_API_KEY`, an uncaught exception) and `publish-on-merge.yml`
-   (gated on `failure()` generally — most likely cause there is the
-   `_headers` 100-rule cap-guard). Body: a best-effort detail line (the
-   generic explanation when no structured report exists to be more
-   specific — `.last-run-report.json` genuinely doesn't exist for most
-   real trigger-4 cases, since every failure mode that DOES write one
-   already gets its own PR and its own trigger-2 email instead) and the
-   run link.
+4. **Red runs** — subject prefix as of 2026-08-31 depends on
+   `failureClass` (`buildFailureEmail`'s `no_article` → `🔴 Сбой
+   генерации: <reason>`, unchanged; `article_stranded` → `🟠 Статья
+   существует, но не опубликована: <reason>` — see the notification-
+   hardening pass's decision record below for why the subject needed to
+   distinguish "nothing was produced" from "an article exists but didn't
+   go live"). Two independent call sites: `generate-article.yml` (gated on
+   `failure()` AND neither PR type having opened — a gate trip/schema/
+   link/identity discard already gets its own trigger-2 email; this
+   specifically covers the failure modes that leave no PR at all, e.g.
+   queue-exhausted, a missing `ANTHROPIC_API_KEY`, an uncaught exception,
+   or generation succeeding but a LATER step failing) and
+   `publish-on-merge.yml` (gated on `failure()` generally, always
+   `failureClass=article_stranded` — that workflow only ever runs
+   post-merge, so an article always already exists by the time it can
+   fail). Body: as of 2026-08-31, a structured-first detail — see
+   `checkGenerateFailureReason.mjs` (generate-article's side) and
+   `buildFailureDetail` (publish-on-merge's side) in the notification-
+   hardening pass's decision record below; both replaced an earlier
+   hardcoded guess that turned out wrong on its actual first live firing.
 
 ### Content pipeline
 
