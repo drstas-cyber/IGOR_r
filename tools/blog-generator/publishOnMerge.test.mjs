@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAddedArticleSlugs, getMergedArticleSlug, runPublishOnMerge } from './publishOnMerge.mjs';
+import { parseAddedArticleSlugs, getMergedArticleSlug, runPublishOnMerge, buildFailureDetail } from './publishOnMerge.mjs';
 
 describe('parseAddedArticleSlugs — pure', () => {
   test('a single real article file -> its slug', () => {
@@ -115,5 +115,80 @@ describe('runPublishOnMerge — orchestration, real setPublishedInJson/insertCac
       () => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'] }),
       /over Cloudflare Pages/
     );
+  });
+
+  // FIX 3 (2026-08-31) -- the slug must reach $GITHUB_OUTPUT (via the
+  // injected onSlugKnown callback the real CLI wires to a real
+  // fs.appendFileSync) the moment it's resolved, BEFORE any write work --
+  // not only in the success .then(), which last night's actual failure
+  // (the git-diff-itself-failed case) never reached. This is what lets a
+  // LATER throw -- including one that happens after the slug is known,
+  // like the cap-guard case above -- still leave the slug behind for the
+  // failure email to name.
+  test('onSlugKnown fires with the resolved slug before any fs write, and survives a later throw (cap-guard)', async () => {
+    const exec = (cmd) => {
+      if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
+      throw new Error(`unexpected exec: ${cmd}`);
+    };
+    const fullHeaders = `${Array.from({ length: 50 }, (_, i) => `/blog/existing-${i}/\n  Cache-Control: x\n/blog/existing-${i}\n  Cache-Control: x`).join('\n')}\n/assets/*\n  Cache-Control: y\n`;
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: fullHeaders });
+    let onSlugKnownSlug = null;
+    let writesWhenSlugKnownFired = null;
+    const onSlugKnown = (slug) => {
+      onSlugKnownSlug = slug;
+      writesWhenSlugKnownFired = Object.keys(fakeFs.written).length;
+    };
+    await assert.rejects(
+      () => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'], onSlugKnown }),
+      /over Cloudflare Pages/
+    );
+    assert.equal(onSlugKnownSlug, 'x', 'onSlugKnown must fire with the real slug even though the run ultimately throws');
+    assert.equal(writesWhenSlugKnownFired, 0, 'onSlugKnown must fire before any fs write (the write phase)');
+  });
+
+  test('onSlugKnown never fires when slug resolution itself fails (git diff error) -- there is no slug to report', async () => {
+    const exec = () => { throw new Error('git error'); };
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: CLEAN_HEADERS });
+    let called = false;
+    const onSlugKnown = () => { called = true; };
+    await assert.rejects(() => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'], onSlugKnown }));
+    assert.equal(called, false);
+  });
+});
+
+// FIX 2 (2026-08-31) -- the failure email's --detail text must report what
+// actually happened, never a guess. The original hardcoded Russian string
+// ("вероятно, превышен лимит _headers...") was written before this
+// workflow had ever run and was simply wrong on its first real failure
+// (an unrelated shallow-checkout bug -- see README.md's "Publish-on-
+// merge" decision record). This function is the one place that decision
+// gets made, so it's the one place that needs a test proving each branch.
+describe('buildFailureDetail — reports what happened, never asserts a cause it does not have', () => {
+  test('a captured log containing the _headers cap-guard error -- names the real, identifiable cause', () => {
+    const log = '[publishOnMerge] FATAL: insertCacheEntry: adding "x" would bring the total to 102 rules, over Cloudflare Pages\' 100-rule limit -- refusing to write. Prune stale entries...';
+    const detail = buildFailureDetail(log);
+    assert.match(detail, /100-rule limit/);
+    assert.match(detail, /_headers/);
+  });
+
+  test('a captured log with any other error -- reports the captured text, invents no cause', () => {
+    const log = 'fatal: bad revision \'abc~1\'\n[publishOnMerge] FATAL: [publishOnMerge] git diff failed: Command failed: git diff --name-only --diff-filter=A abc~1 abc -- src/data/generated-articles/\n. Refusing to guess which article this PR added.';
+    const detail = buildFailureDetail(log);
+    assert.match(detail, /bad revision/);
+    assert.doesNotMatch(detail, /100-rule limit/);
+    assert.doesNotMatch(detail, /_headers/i);
+  });
+
+  test('empty/unreadable log -- the neutral message, no cause named', () => {
+    for (const empty of ['', '   \n', null, undefined]) {
+      const detail = buildFailureDetail(empty);
+      assert.equal(detail, 'publish sequence failed after merge; the article is merged on main but published:false -- see the run log.');
+    }
+  });
+
+  test('a very long captured log is capped, not sent to the email in full', () => {
+    const log = `x`.repeat(5000);
+    const detail = buildFailureDetail(log);
+    assert.ok(detail.length < 5000, 'a runaway stack trace must not produce an unreadable email');
   });
 });

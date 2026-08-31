@@ -1649,6 +1649,110 @@ write path is known to fail) but not zero. If this ever needs closing, the
 fix is a PAT-backed push instead of `GITHUB_TOKEN` — not something to
 silently assume is already covered.
 
+### First live firing (2026-08-30/31): 0-for-1, three fixes
+
+This workflow fired for real for the first time on PR #38 (2026-08-30,
+run 33363712388) and failed. It had never once completed a publish before
+that night, and because it only ever runs post-merge (`on: pull_request:
+types: [closed]`), ordinary CI on a branch/PR never exercises it — exactly
+why the bug below went undetected through the workflow's entire existence
+until it actually mattered.
+
+**Root cause.** The checkout step declared `ref: main` with no
+`fetch-depth`, so `actions/checkout@v4` cloned at its default depth of 1 —
+the merge commit only, no parent. `getMergedArticleSlug()` then ran
+`git diff --name-only --diff-filter=A <merge-sha>~1 <merge-sha> --
+src/data/generated-articles/` to find what the PR added (see the sequence
+above, step 1) — but `<merge-sha>~1` doesn't exist in a depth-1 clone. Git
+returned `fatal: bad revision '<sha>~1'`, `getMergedArticleSlug()` threw,
+and the step exited 1 **before any write**, exactly as CAP-GUARD's
+documented failure mode above promises: the article stayed merged on
+`main` but `published: false` — safe, visibly incomplete, not silently
+wrong. A human (this repo's recovery pass) noticed the red run and
+finished the sequence by hand.
+
+**Fix 1 — `fetch-depth: 2`.** The merge commit checked out here IS `main`'s
+tip (this workflow only ever runs post-merge), so its first parent is
+exactly the second commit a depth-2 clone includes — nothing this workflow
+diffs is ever more than one commit back. `fetch-depth: 0` (full history)
+would also fix it and is more robust against some future change to what
+this workflow diffs, but costs a full clone for a need depth 2 already
+covers completely — not chosen. A textual regression guard now asserts the
+checkout step declares `fetch-depth: 0` or `>= 2`
+(`publishOnMergeWorkflow.test.mjs`) — since ordinary CI can't exercise this
+workflow's actual run, at minimum its static shape gets checked on every
+PR.
+
+**Fix 2 — the red-run email was asserting a cause it had no evidence
+for.** The original notification's `--detail` was a hardcoded Russian
+string written when this workflow was built (2026-08-25), guessing the
+most plausible failure mode in advance: *"вероятно, превышен лимит
+_headers (100 правил Cloudflare Pages)"* ("probably the _headers 100-rule
+limit"). That guess was frozen into the workflow file itself, to be sent
+on **every** future red run regardless of what actually happened. On this
+workflow's first real failure, it was wrong — the cause was the
+shallow-checkout bug above, and `_headers` was sitting at 44/100, nowhere
+near the cap. **This is the finding most worth writing down**: a
+monitoring path that guesses is worse than one that reports nothing,
+because it spends the reader's attention in the wrong direction — a human
+reading "probably the _headers cap" goes and checks `_headers` first,
+finds nothing wrong, and has learned nothing about the real problem.
+Replaced with `buildFailureDetail()` (`publishOnMerge.mjs`, tested in
+`publishOnMerge.test.mjs`): the publish step now runs with `set -o
+pipefail` and pipes its output through `tee /tmp/publish-on-merge.log` (
+`pipefail` is what makes the step still fail on `node`'s exit code through
+the pipe — verified directly: `false | tee x` alone exits 0, `set -o
+pipefail; false | tee x` exits 1 — without it a real failure would report
+green), and the failure-email step reads that log
+(`--detail-log=/tmp/publish-on-merge.log`) instead of asserting a fixed
+string. `buildFailureDetail()` reports the real captured error verbatim
+(capped at 2000 chars, keeping the tail — the actual thrown error is
+almost always the last thing in the log, not the `npm ci` noise at the
+top), with exactly one named exception: `insertCacheEntry`'s own 100-rule
+cap-guard error (identifiable by its `"rule limit"` text) really is
+diagnostic and gets called out specifically. An empty or unreadable log
+gets the neutral *"publish sequence failed after merge; the article is
+merged on main but published:false — see the run log"* — no cause named,
+because none is known.
+
+**Fix 3 — the alert couldn't name the stranded article.** Because last
+night's failure happened inside `getMergedArticleSlug()` itself, `steps.
+publish.outputs.slug` was never set, and the email could only point at a
+PR number. Traceable by hand for one stranded article; not for several
+during a backfill. `runPublishOnMerge()` now takes an `onSlugKnown`
+callback, fired the moment the slug resolves — before any read/write work
+— and the CLI wires it straight to `$GITHUB_OUTPUT` (`slug=<slug>`), so a
+LATER failure (the cap-guard throw, or anything else past that point)
+still leaves the slug behind for the failure email. The workflow always
+passes `--slug="${{ steps.publish.outputs.slug }}"` (possibly empty)
+rather than omitting the flag, so `buildNotificationEmailCli.mjs` can tell
+"resolved to nothing" apart from "this caller has no slug concept at all"
+(`generate-article.yml`'s unrelated generic-failure path, which never
+passes `--slug` and is completely unaffected — see `buildFailureEmail`'s
+three-way `slug` contract: `undefined` omits the line, `null`/empty says
+*"slug could not be determined; the failure occurred before the article
+was identified,"* a real string names it). That sentence is itself
+diagnostic: it tells the reader the failure was early, in slug resolution,
+not in the write phase.
+
+**What's proven by test vs. not.** All three fixes are proven by unit/
+regression test only — `publishOnMergeWorkflow.test.mjs` (the fetch-depth
+guard, confirmed failing against the pre-fix file before this was
+written), `publishOnMerge.test.mjs` (`onSlugKnown` fires before any write
+and survives a later throw; `buildFailureDetail`'s three branches), and
+`notificationEmail.test.mjs` (`buildFailureEmail`'s three-way `slug`
+contract) — plus the idempotency path (`evaluatePublishStatus`) was
+re-verified by hand to still no-op cleanly against the already-published
+new-construction article. **Re-running the failed run
+(33363712388) would prove nothing** — a `pull_request` re-run uses the
+workflow file as it existed at the triggering ref, not this fix, so that
+was deliberately not attempted. First real proof is the next generator PR
+this workflow fires against for real — same disclosed limit this file
+already applies to every gate before its first live firing (see this
+workflow's own "0-for-1" opening line above, now closed by this entry, and
+open again for whatever the next thing it hasn't yet seen turns out to
+be).
+
 ### PR body: preview link + gate summary at top
 
 A separate, small piece, wired into `generate-article.yml` itself (not

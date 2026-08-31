@@ -154,9 +154,25 @@ export function summarizeRejectionFindings(report, maxLines = 8) {
 }
 
 // --- Trigger 4: a red run (queue exhausted / generic failure) ------------
-export function buildFailureEmail({ reason, detailText, runUrl }) {
+// slug (2026-08-31, publish-on-merge FIX 3) -- optional, three-way:
+//   undefined -- caller has no slug concept at all (generate-article.yml's
+//                generic failure path); line omitted entirely, unchanged
+//                behavior for every pre-existing caller.
+//   null      -- caller DOES have a slug concept but the failure happened
+//                before the article could be identified (e.g. the
+//                2026-08-30 incident: the merge-diff itself failed) --
+//                says so explicitly rather than sending a blank field.
+//   string    -- the real, resolved slug of the stranded article.
+export function buildFailureEmail({ reason, detailText, runUrl, slug }) {
   const subject = `🔴 Сбой генерации: ${reason}`;
+  let slugLine = '';
+  if (slug === null) {
+    slugLine = '<p><strong>Статья:</strong> slug could not be determined; the failure occurred before the article was identified.</p>';
+  } else if (slug) {
+    slugLine = `<p><strong>Статья:</strong> ${escapeHtml(slug)}</p>`;
+  }
   const lines = [
+    slugLine,
     `<p>${escapeHtml(detailText || 'Пайплайн упал без структурированного отчёта — вероятно, отсутствует секрет, исчерпана очередь тем, или инфраструктурная ошибка. Подробности — в логе прогона.')}</p>`,
     linkLine('Открыть прогон', runUrl),
   ];

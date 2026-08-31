@@ -39,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import realFs from 'node:fs';
 import { setPublishedInJson, articlePath } from './setPublished.mjs';
-import { insertCacheEntry } from './headersCacheEntry.mjs';
+import { insertCacheEntry, MAX_HEADERS_RULES } from './headersCacheEntry.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -102,8 +102,19 @@ function readBlogArticlesSlugs(fs) {
 // injectable for tests (default: real node:fs / execSync). Returns
 // { slug, alreadyComplete }. Throws on the cap-guard (see header comment)
 // or on slug ambiguity -- both must reach the caller as real failures.
-export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs, blogArticlesSlugs } = {}) {
+// onSlugKnown (2026-08-31, FIX 3) -- fired the moment the slug is resolved,
+// before any read/write work below. Not merely a convenience: this is what
+// lets a LATER failure (the _headers cap-guard throw, or anything else
+// past this point) still carry the slug into $GITHUB_OUTPUT via the real
+// CLI's callback (see isMain below) -- last night's actual failure (git
+// diff itself failing, i.e. the slug never resolves at all) is exactly the
+// other case this distinguishes: onSlugKnown simply never fires, so the
+// failure email can say so explicitly instead of naming a slug it doesn't
+// have. Default no-op so every existing caller (tests, and any future
+// direct import) is unaffected unless it opts in.
+export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs, blogArticlesSlugs, onSlugKnown = () => {} } = {}) {
   const slug = getMergedArticleSlug({ mergeSha, exec });
+  onSlugKnown(slug);
 
   const filePath = articlePath(slug);
   const articleText = fs.readFileSync(filePath, 'utf8');
@@ -134,6 +145,42 @@ export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs
   return { slug, alreadyComplete: false };
 }
 
+// buildFailureDetail (exported, pure -- 2026-08-31, FIX 2) -- turns a
+// captured publish-step log into the failure email's --detail text.
+// Replaces the 2026-08-25 red-run notification's hardcoded Russian guess
+// ("вероятно, превышен лимит _headers...") -- written before this workflow
+// had ever run, and simply wrong on its first real failure (an unrelated
+// shallow-checkout bug; see README.md's "Publish-on-merge" decision
+// record). This function never asserts a cause the log doesn't support:
+// it reports the captured error verbatim (capped, so a runaway stack
+// trace can't produce an unreadable email), with exactly ONE named
+// exception -- insertCacheEntry's own _headers 100-rule cap-guard error
+// (headersCacheEntry.mjs), identifiable by its "rule limit" text, which
+// really is diagnostic and worth calling out specifically. Anything else,
+// including "no log at all," gets no invented cause.
+const MAX_FAILURE_DETAIL_LENGTH = 2000;
+
+function truncateFailureDetail(text, max = MAX_FAILURE_DETAIL_LENGTH) {
+  if (text.length <= max) return text;
+  // Keeps the TAIL -- the actual thrown error is almost always the last
+  // thing in the log, not the npm-install/setup noise at the top.
+  return `[truncated -- earlier output omitted]\n...\n${text.slice(-max)}`;
+}
+
+export function buildFailureDetail(logText) {
+  const trimmed = String(logText || '').trim();
+  if (!trimmed) {
+    return 'publish sequence failed after merge; the article is merged on main but published:false -- see the run log.';
+  }
+  if (/rule limit/.test(trimmed)) {
+    return (
+      `_headers cache-pair insertion hit Cloudflare Pages' ${MAX_HEADERS_RULES}-rule limit -- see the run log for the exact entry:\n\n` +
+      truncateFailureDetail(trimmed)
+    );
+  }
+  return truncateFailureDetail(trimmed);
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
   const mergeShaArg = process.argv.find((a) => a.startsWith('--merge-sha='));
@@ -142,10 +189,22 @@ if (isMain) {
     console.error('[publishOnMerge] usage: node publishOnMerge.mjs --merge-sha=<sha>');
     process.exitCode = 1;
   } else {
-    runPublishOnMerge({ mergeSha })
+    // slug is written to $GITHUB_OUTPUT here, at the moment it's known --
+    // not bundled into the success-only .then() below -- so a later throw
+    // (the cap-guard, or anything else) still leaves it behind for the
+    // failure email to name (see runPublishOnMerge's onSlugKnown comment
+    // and README.md's "Publish-on-merge" decision record).
+    runPublishOnMerge({
+      mergeSha,
+      onSlugKnown: (slug) => {
+        if (process.env.GITHUB_OUTPUT) {
+          realFs.appendFileSync(process.env.GITHUB_OUTPUT, `slug=${slug}\n`);
+        }
+      },
+    })
       .then((result) => {
         if (process.env.GITHUB_OUTPUT) {
-          realFs.appendFileSync(process.env.GITHUB_OUTPUT, `slug=${result.slug}\nalready_complete=${result.alreadyComplete}\n`);
+          realFs.appendFileSync(process.env.GITHUB_OUTPUT, `already_complete=${result.alreadyComplete}\n`);
         }
       })
       .catch((err) => {

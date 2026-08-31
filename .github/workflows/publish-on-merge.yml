@@ -40,9 +40,27 @@ jobs:
       # own ref -- same reasoning generate-article.yml's existing
       # auto-publish step already documents: never assume what state a
       # merge-event checkout leaves the workspace in.
+      #
+      # fetch-depth: 2 (2026-08-31, FIX 1 -- see README.md's "Publish-on-
+      # merge" decision record for the full incident). The default (1)
+      # clones ONLY the merge commit itself -- no parent -- but
+      # publishOnMerge.mjs's getMergedArticleSlug() runs
+      # `git diff <merge-sha>~1 <merge-sha>` to find what the PR added,
+      # and `~1` (the merge commit's first parent) doesn't exist in a
+      # depth-1 clone: git returns "bad revision," the step fails before
+      # any write. This was this workflow's actual first-live-firing
+      # failure (PR #38, run 33363712388), not a hypothetical. Depth 2 is
+      # the minimal fix: the merge commit checked out here IS main's tip
+      # (this workflow only ever runs post-merge), so its first parent is
+      # exactly the second commit a depth-2 clone includes -- nothing
+      # deeper is ever dereferenced. fetch-depth: 0 (full history) would
+      # also work and is more robust against a future change to what this
+      # workflow diffs, but costs a full clone for no reason THIS specific
+      # need requires -- not chosen.
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 2
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -62,9 +80,22 @@ jobs:
       # visibly-incomplete state (see publishOnMerge.mjs's header comment
       # for the full failure-mode reasoning, same as the silent path's own
       # documented failure mode in README.md).
+      #
+      # Output captured to a log file (2026-08-31, FIX 2) so a red run's
+      # notification email can report what ACTUALLY failed instead of a
+      # guess -- see the "Build email content (red run...)" step below and
+      # README.md's "Publish-on-merge" decision record. `set -o pipefail`
+      # is what makes the step still fail on a non-zero exit from `node`
+      # through the pipe to `tee` -- without it, bash reports the
+      # PIPELINE's exit status as `tee`'s (normally 0), silently masking a
+      # real failure. `node`'s own $GITHUB_OUTPUT writes (slug, then
+      # already_complete -- see publishOnMerge.mjs) happen directly to the
+      # runner's output file regardless of this piping.
       - name: Flip published:true and add the _headers cache pair
         id: publish
-        run: node tools/blog-generator/publishOnMerge.mjs --merge-sha="${{ github.event.pull_request.merge_commit_sha }}"
+        run: |
+          set -o pipefail
+          node tools/blog-generator/publishOnMerge.mjs --merge-sha="${{ github.event.pull_request.merge_commit_sha }}" 2>&1 | tee /tmp/publish-on-merge.log
 
       - name: Regenerate blog-articles.json
         if: steps.publish.outputs.already_complete == 'false'
@@ -135,11 +166,27 @@ jobs:
           smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
           smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
 
-      # Red-run notification -- most likely cause is the _headers cap-guard
-      # (publishOnMerge.mjs throwing at the 100-rule limit), leaving the
-      # article merged on main but published:false (see that file's header
-      # comment for the full failure-mode reasoning). `failure()` is
-      # deliberate and explicit -- this must only fire on a real red run.
+      # Red-run notification (2026-08-31, FIX 2 + FIX 3 -- see README.md's
+      # "Publish-on-merge" decision record). The --detail used to be a
+      # hardcoded guess ("probably the _headers cap") written before this
+      # workflow had ever run -- wrong on its actual first failure (an
+      # unrelated shallow-checkout bug). It now reads the real captured
+      # output of the publish step (--detail-log, written by that step's
+      # `tee` above) through buildFailureDetail() -- see publishOnMerge.mjs
+      # -- which names the _headers cap ONLY when that specific,
+      # identifiable error is actually present in the log, and otherwise
+      # reports the real captured error and nothing invented. `failure()`
+      # is deliberate and explicit -- this must only fire on a real red
+      # run.
+      #
+      # --slug always passes the flag (possibly empty) rather than omitting
+      # it, so buildNotificationEmailCli.mjs can tell "known to be
+      # inapplicable" (empty) apart from "caller has no slug concept"
+      # (flag absent entirely, generate-article.yml's case) -- see that
+      # file's --kind=failure handling. Empty here means the publish step
+      # failed before getMergedArticleSlug() resolved a slug at all (e.g.
+      # the 2026-08-30 incident) -- publishOnMerge.mjs's onSlugKnown only
+      # writes this output once the slug is actually known.
       - name: Build email content (red run — publish-on-merge failed)
         id: email_failure
         if: failure()
@@ -148,7 +195,8 @@ jobs:
           node tools/blog-generator/buildNotificationEmailCli.mjs \
             --kind=failure \
             --reason="publish-on-merge (PR #${{ github.event.pull_request.number }})" \
-            --detail="Публикация после мержа PR #${{ github.event.pull_request.number }} завершилась с ошибкой — вероятно, превышен лимит _headers (100 правил Cloudflare Pages) или произошла инфраструктурная ошибка. Статья осталась смерженной в main, но published:false — безопасное, но незавершённое состояние, требует ручного завершения (см. tools/blog-generator/README.md, «Publish-on-merge»)." \
+            --detail-log=/tmp/publish-on-merge.log \
+            --slug="${{ steps.publish.outputs.slug }}" \
             --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Notify (email) — red run

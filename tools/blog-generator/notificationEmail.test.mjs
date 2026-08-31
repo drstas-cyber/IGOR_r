@@ -188,4 +188,27 @@ describe('buildFailureEmail', () => {
     const { html } = buildFailureEmail({ reason: 'x', detailText: null, runUrl: 'https://x/runs/1' });
     assert.doesNotMatch(html, /undefined|null/);
   });
+
+  // FIX 3 (2026-08-31, publish-on-merge) -- a stranded article's slug must
+  // be nameable in the failure email so a human doesn't have to reverse-
+  // engineer it from the run log during a backfill with several failures.
+  // `slug` is optional and undefined by default so existing callers
+  // (generate-article.yml's generic failure path, which has no slug
+  // concept at all) are completely unaffected -- see the three-way
+  // distinction below.
+  test('slug omitted entirely (undefined) -- no article line at all, unaffected generate-article.yml behavior', () => {
+    const { html } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1' });
+    assert.doesNotMatch(html, /Статья/);
+  });
+
+  test('slug is a real string -- names it', () => {
+    const { html } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1', slug: 'new-construction-vs-resale-homes-temecula' });
+    assert.match(html, /new-construction-vs-resale-homes-temecula/);
+  });
+
+  test('slug is explicitly null (known to be inapplicable -- failure occurred before the article was identified) -- says so, not a blank field', () => {
+    const { html } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1', slug: null });
+    assert.match(html, /could not be determined/i);
+    assert.match(html, /before the article was identified/i);
+  });
 });

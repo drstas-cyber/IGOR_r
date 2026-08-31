@@ -36,6 +36,7 @@ import { buildGateSummaryLine } from './gateSummaryLine.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
 import { hasCacheEntry } from './headersCacheEntry.mjs';
 import { articlePath } from './setPublished.mjs';
+import { buildFailureDetail } from './publishOnMerge.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -103,10 +104,40 @@ function buildForKind(kind) {
   }
 
   if (kind === 'failure') {
+    // --detail-log (2026-08-31, publish-on-merge FIX 2) takes priority
+    // over a literal --detail= string when both are given: it points at a
+    // captured run log (e.g. /tmp/publish-on-merge.log) that
+    // buildFailureDetail() turns into the real detail text, rather than
+    // trusting a hand-written guess frozen into the calling workflow (the
+    // 2026-08-25 red-run notification's mistake -- see README.md's
+    // "Publish-on-merge" decision record). A missing or unreadable log
+    // file reads as "" -- buildFailureDetail's own neutral-message branch,
+    // never a crash here.
+    const detailLogPath = argValue('detail-log');
+    let detailText = argValue('detail') || null;
+    if (detailLogPath) {
+      let logText = '';
+      try {
+        logText = fs.readFileSync(detailLogPath, 'utf8');
+      } catch {
+        logText = '';
+      }
+      detailText = buildFailureDetail(logText);
+    }
+
+    // --slug (FIX 3): undefined (flag never passed) -- caller has no slug
+    // concept, line omitted (generate-article.yml's generic failure path).
+    // Present but empty ("") -- caller DOES have a slug concept for this
+    // alert but couldn't resolve one; maps to null so buildFailureEmail
+    // says so explicitly rather than rendering a blank field.
+    const slugArg = argValue('slug');
+    const slug = slugArg === undefined ? undefined : (slugArg || null);
+
     return buildFailureEmail({
       reason: argValue('reason'),
-      detailText: argValue('detail') || null,
+      detailText,
       runUrl: argValue('run-url'),
+      slug,
     });
   }
 
