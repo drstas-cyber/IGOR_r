@@ -13,9 +13,11 @@ name: weekly-retro
 # commit subjects on main -- NOT jsonLd.datePublished, which is generation
 # time and can predate the actual publish flip by days on a held PR).
 #
-# Monday, 15:00 UTC / 8am Pacific -- a day after generate-article.yml's
-# own 14:00 UTC slot on the days it fires, so this always audits a full
-# settled week rather than racing a same-morning publish.
+# Monday, 15:00 UTC / 8am Pacific -- comfortably after generate-article
+# .yml's own slot on the days it fires (13:23 UTC as of 2026-08-31, moved
+# off the hour boundary -- see that workflow's own header comment; was
+# 14:00 UTC), so this always audits a full settled week rather than racing
+# a same-morning publish.
 on:
   workflow_dispatch: {}
   schedule:

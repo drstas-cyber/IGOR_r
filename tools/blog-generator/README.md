@@ -20,11 +20,14 @@ not a content farm:
   signal in the PR body and email, telling the reviewer this one needs
   less scrutiny than usual — it has never, in this project's history,
   meant "published without a human looking at it."
-- Cadence: every other day, 14:00 UTC, as of 2026-08-03 (`workflow_dispatch`
-  stays available alongside the cron; supersedes the 2026-08-01 weekly-cron
-  decision). This controls **generation** cadence only — how often a PR
-  gets opened — never publication, which is always a separate, manual
-  step regardless of cadence.
+- Cadence: every other day, as of 2026-08-03 (`workflow_dispatch` stays
+  available alongside the cron; supersedes the 2026-08-01 weekly-cron
+  decision), **13:23 UTC as of 2026-08-31** (moved off the exact hour
+  boundary — see "Automated publishing" §1 and generate-article.yml's own
+  header comment for the three documented incidents this closes out).
+  This controls **generation** cadence only — how often a PR gets opened —
+  never publication, which is always a separate, manual step regardless of
+  cadence.
 
 ## How this actually works today (2026-08-31, current and canonical)
 
@@ -33,7 +36,7 @@ Sections elsewhere in this file marked "superseded" or "retired" are kept
 for their decision history, not because they describe current behavior.
 
 1. **Generation is automatic.** `generate-article.yml` fires every other
-   day at 14:00 UTC (or on demand via `workflow_dispatch`), picks the next
+   day at 13:23 UTC (or on demand via `workflow_dispatch`), picks the next
    available topic, writes a draft, self-reviews it, and runs it through
    two independent compliance gates (Layer 1 regex scanner, Layer 2
    independent LLM claim review) plus schema/internal-link/identity
@@ -610,17 +613,34 @@ just no longer described as compensating for a gap that no longer exists.
 
 ### 1. Cadence
 
-Every other day, 14:00 UTC (`0 14 */2 * *`), `workflow_dispatch` kept
-alongside. `*/2` in the day-of-month field means "every odd day of the
-month" — accepted, known quirk: a 31-day month fires on day 31 and day 1
-of the next month on consecutive calendar days, since cron has no
-month-boundary-surviving "every N days" concept. Considered and rejected
-`0 14 * * 1,3,5` (Mon/Wed/Fri): cleaner and drift-free, but it changes the
-cadence to 3 fixed weekdays with an irregular 3-day Fri→Mon gap, which
-reads as a different schedule shape rather than "every other day." `*/2`
-stays truer to what was actually asked for; the quirk's worst case (one
-extra generation attempt around 31-day month boundaries, ~7×/year,
-costing at most one topic) is immaterial at this pipeline's volume.
+Every other day (`workflow_dispatch` kept alongside). `*/2` in the
+day-of-month field means "every odd day of the month" — accepted, known
+quirk: a 31-day month fires on day 31 and day 1 of the next month on
+consecutive calendar days, since cron has no month-boundary-surviving
+"every N days" concept. Considered and rejected `0 14 * * 1,3,5`
+(Mon/Wed/Fri): cleaner and drift-free, but it changes the cadence to 3
+fixed weekdays with an irregular 3-day Fri→Mon gap, which reads as a
+different schedule shape rather than "every other day." `*/2` stays truer
+to what was actually asked for; the quirk's worst case (one extra
+generation attempt around 31-day month boundaries, ~7×/year, costing at
+most one topic) is immaterial at this pipeline's volume.
+
+**Time-of-day moved off :00, 2026-08-31 (owner instruction).** Originally
+`0 14 */2 * *` (14:00 UTC exactly). Three documented incidents on this
+exact cron, all at the hour boundary: Aug 27 (run 33126258071, fired
+23:26 UTC, 9h26m late), Aug 29 (run 33265677614, fired 17:27 UTC, 3h27m
+late), and Aug 31 (no run at all that day — confirmed against every run
+created that day via the Actions API; workflow was `active`, no GitHub
+status incident; manually dispatched instead, run 33428265910). GitHub
+Actions' own documentation names "the start of every hour" as the
+highest-risk window for a scheduled workflow to be delayed or dropped
+under load — this cron sat exactly there. Now `23 13 */2 * *` — 13:23
+UTC / ~6:23 AM Pacific (PDT), same odd-day cadence, same accepted
+month-boundary quirk above, ~37 minutes earlier than the old nominal time
+(not a deliberate schedule-shape change — just where minute 23 lands).
+This does not fix a bug in this pipeline's own code; it avoids a
+documented GitHub Actions platform risk this workflow had already been
+hit by three times.
 
 ### 2. The auto-publish path — exact conditions (RETIRED — historical)
 

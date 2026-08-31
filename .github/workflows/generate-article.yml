@@ -15,6 +15,23 @@ name: generate-article
 # ~7x/year, consuming at most one topic) is immaterial at this pipeline's
 # cost and volume.
 #
+# MOVED OFF :00, 2026-08-31 (owner instruction) -- was `0 14 */2 * *`
+# (14:00 UTC exactly). GitHub Actions' own documentation names "the start
+# of every hour" as the highest-risk window for a scheduled workflow to be
+# delayed or silently dropped under load, and this repo's own run history
+# backs that up directly: three documented incidents on this exact cron,
+# all at :00 -- Aug 27 (run 33126258071, fired 23:26 UTC, 9h26m late), Aug
+# 29 (run 33265677614, fired 17:27 UTC, 3h27m late), and Aug 31 (no run at
+# all -- confirmed via the Actions API against every run created that day;
+# workflow was 'active', no GitHub status incident; manually dispatched
+# instead, see run 33428265910). Now `23 13 */2 * *` -- 13:23 UTC / ~6:23
+# AM Pacific (PDT), off the hour boundary, same odd-day cadence and same
+# accepted month-boundary quirk described above, ~37 minutes earlier than
+# the old nominal time (not a deliberate schedule-shape change, just where
+# minute 23 lands against the existing hour). This does not fix a bug in
+# this pipeline's own code -- it avoids a documented GitHub Actions
+# platform risk this workflow had already been hit by three times.
+#
 # MANUAL PUBLISH, BY DESIGN (owner ruling, 2026-08-31, supersedes the
 # 2026-08-03 auto-publish decision) -- this schedule controls GENERATION
 # cadence only. Every PR this workflow opens, silent or not, sits until a
@@ -31,7 +48,7 @@ name: generate-article
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 14 */2 * *'  # every other day (odd days of month), 14:00 UTC / 7am Pacific (PDT)
+    - cron: '23 13 */2 * *'  # every other day (odd days of month), 13:23 UTC / ~6:23am Pacific (PDT) -- off :00, see comment above
 
 permissions:
   contents: write
