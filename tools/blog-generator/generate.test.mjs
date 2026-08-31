@@ -663,20 +663,25 @@ describe('main() — early-exit reports (2026-08-31)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Self-review internal-link validation (2026-08-12). Real incident: two
-// real runs (PRs #28, #29, 2026-08-09/11) each stripped every internal
-// link from the draft during self-review because selfReview() never
-// received knownRoutesText at all -- the self-review model had no list to
-// check the draft's links against, so it defensively removed all of them.
-// The internalLinkGate (tested immediately above) was always a correct
-// fail-closed backstop; this fix is about the self-review pass actually
-// doing its job (keep valid links, strip only invalid ones) instead of
-// the gate being the only thing standing between a draft and zero
-// internal links ever surviving.
+// Self-review internal-link validation -- SUPERSEDED 2026-08-31.
+//
+// History: two real runs (PRs #28, #29, 2026-08-09/11) stripped every
+// internal link during self-review because selfReview() never received
+// knownRoutesText at all (fixed 2026-08-12: give it the list). That
+// mitigated the symptom but not the cause -- PR #32 (2026-08-17) and PR #38
+// (2026-08-27) both still stripped valid links WITH the list in hand,
+// citing mismatches that didn't exist. The 2026-08-31 root fix (owner
+// ruling item 2) removed self-review's link-validation responsibility
+// entirely instead -- see the "self-review no longer re-validates internal
+// links" describe block above for that fix's own tests. The first test
+// below is kept, INVERTED, as the regression guard for the root fix (the
+// list must never come back); the second test below still holds --
+// self-review correctly leaving already-valid links untouched remains the
+// desired behavior, now guaranteed by instruction rather than judgment.
 // ---------------------------------------------------------------------------
 
-describe('self-review — internal-link validation (2026-08-12)', () => {
-  test('the self-review API call includes the same Known live routes list the draft pass received', async () => {
+describe('self-review — internal-link validation (2026-08-12 fix, superseded 2026-08-31)', () => {
+  test('the self-review API call does NOT include a Known live routes list (root fix, 2026-08-31) -- the draft pass still does', async () => {
     const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
     let selfReviewUserMessage = null;
     let draftUserMessage = null;
@@ -713,9 +718,8 @@ describe('self-review — internal-link validation (2026-08-12)', () => {
     assert.equal(process.exitCode, undefined);
     assert.ok(draftUserMessage, 'the draft pass must have been called');
     assert.ok(selfReviewUserMessage, 'the self-review pass must have been called');
-    assert.match(draftUserMessage, /Known live routes/, 'sanity check: the draft pass has always received this list');
-    assert.match(selfReviewUserMessage, /Known live routes/, 'the self-review pass must now receive the same list -- this is the actual fix');
-    assert.match(selfReviewUserMessage, /temeculavalleyhomes\.us\//, 'real route URLs, not just the section label, must be present');
+    assert.match(draftUserMessage, /Known live routes/, 'sanity check: the draft pass has always received this list, and still must');
+    assert.doesNotMatch(selfReviewUserMessage, /Known live routes/, 'the self-review pass must NOT receive this list -- the 2026-08-31 root fix removed the re-validation it used to enable');
   });
 
   test('two internal links matching known routes survive self-review intact -- the run generates normally with both links in content_html', async () => {
@@ -822,6 +826,130 @@ describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (
       new RegExp(`<a href="${LINK.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">homes for sale in Temecula</a>`),
       'the link self-review stripped must be restored, verbatim, in the final written article'
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Root-fix: self-review no longer touches internal links at all (2026-08-31,
+// owner ruling item 2, manual-publish formalization). The 2026-08-12 fix
+// (self-review receives the Known live routes list) and the 2026-08-19
+// backstop (internalLinkRestore.mjs, tested immediately above) both
+// mitigated SYMPTOMS -- giving the model the list, then deterministically
+// undoing its mistakes after the fact. Neither fixed the actual cause:
+// asking an LLM to re-judge exact URL string equality is unreliable even
+// with the list in hand. PR #32 (2026-08-17) stripped 6 valid links citing
+// a mismatch that didn't exist; PR #38 (2026-08-27) stripped 9, restored
+// 8, the one miss traced to self-review REWORDING the surrounding sentence,
+// not a URL judgment call at all -- further evidence this pass has no
+// business touching links.
+//
+// Root fix: remove the instruction (and the redundant list) that asks
+// self-review to re-validate links entirely. The draft pass already
+// receives and is instructed to use the same "Known live routes" list;
+// self-review re-checking it is both redundant (nothing has changed the
+// draft's links yet at that point) and the actual source of every phantom
+// correction observed. internalLinkGate.mjs remains the real backstop --
+// deterministic, not a second LLM judgment call -- for the case where the
+// draft pass itself gets a URL wrong.
+// ---------------------------------------------------------------------------
+describe('self-review no longer re-validates internal links (2026-08-31, root fix)', () => {
+  test('the self-review request never offers a "Known live routes" list -- nothing left for the model to (mis)judge against', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const capturedMessages = [];
+    globalThis.fetch = async (url, init = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/v1/models')) return jsonResponse(200, { data: [{ id: WRITER_MODEL }, { id: REVIEWER_MODEL }] });
+      if (!urlStr.includes('api.anthropic.com')) return { status: 200, text: async () => '' };
+      const body = JSON.parse(init.body);
+      const toolName = body.tool_choice?.name;
+      const userMessage = body.messages?.[0]?.content || '';
+      if (toolName === 'submit_article_draft') {
+        capturedMessages.push({ toolName, userMessage });
+        return jsonResponse(200, toolUseBody('submit_article_draft', {
+          title: 'Understanding HOA Fees',
+          slug_suggestion: 'understanding-hoa-fees',
+          meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
+          content_html: `<p>HOA fees fund shared amenities.</p>${IDENTITY_BLOCK_HTML}`,
+          keywords: ['hoa fees'],
+          citations: [],
+          faq_items: [],
+        }));
+      }
+      if (toolName === 'submit_reviewed_article') {
+        capturedMessages.push({ toolName, userMessage });
+        return jsonResponse(200, toolUseBody('submit_reviewed_article', {
+          draft_was_clean: true,
+          violations_found: [],
+          title: 'Understanding HOA Fees',
+          slug_suggestion: 'understanding-hoa-fees',
+          meta_description: 'A clear, practical explanation of how HOA fees work for California homebuyers considering a planned community.',
+          content_html: `<p>HOA fees fund shared amenities.</p>${IDENTITY_BLOCK_HTML}`,
+          keywords: ['hoa fees'],
+          citations: [],
+          faq_items: [],
+        }));
+      }
+      if (toolName === 'report_compliance_check') return jsonResponse(200, toolUseBody('report_compliance_check', CLEAN_CHECKLIST));
+      throw new Error(`test router: unexpected tool_choice "${toolName}"`);
+    };
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined);
+    const draftCall = capturedMessages.find((m) => m.toolName === 'submit_article_draft');
+    const reviewCall = capturedMessages.find((m) => m.toolName === 'submit_reviewed_article');
+    assert.match(draftCall.userMessage, /Known live routes/, 'the DRAFT pass must still receive the list -- only self-review\'s re-validation is removed');
+    assert.doesNotMatch(reviewCall.userMessage, /Known live routes/i, 'self-review must no longer be offered a link list to re-judge against');
+    assert.doesNotMatch(reviewCall.userMessage, /exact match/i, 'self-review must no longer be asked to judge exact URL matches -- the actual source of every phantom correction observed');
+  });
+
+  // The real multi-link fixture the fix is proven against: several links
+  // of different shapes (a static page, two blog articles), self-review
+  // returning them byte-for-byte unchanged (the correct behavior now that
+  // it has no instruction to re-touch them) -- asserts the actual, fully
+  // observable success condition: zero link-related violations_found
+  // entries AND zero restore actions (nothing needed restoring because
+  // nothing was stripped).
+  test('a real multi-link fixture: self-review leaves every internal link untouched -- zero phantom violations_found entries, zero restore actions needed', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const LINK_A = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
+    const LINK_B = 'https://temeculavalleyhomes.us/contact/';
+    const html = `<p>Start by browsing <a href="${LINK_A}">homes for sale in Temecula</a> today, or <a href="${LINK_B}">reach out with questions</a> any time.</p>${IDENTITY_BLOCK_HTML}`;
+
+    globalThis.fetch = async (url, init = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/v1/models')) return jsonResponse(200, { data: [{ id: WRITER_MODEL }, { id: REVIEWER_MODEL }] });
+      if (!urlStr.includes('api.anthropic.com')) return { status: 200, text: async () => '' };
+      const body = JSON.parse(init.body);
+      const toolName = body.tool_choice?.name;
+      const common = {
+        title: 'Homes For Sale in Temecula: A Buyer’s Overview',
+        slug_suggestion: 'temecula-buyer-overview-2',
+        meta_description: 'An overview for buyers exploring homes for sale in Temecula Valley and nearby areas.',
+        content_html: html,
+        keywords: ['temecula homes'],
+        citations: [],
+        faq_items: [],
+      };
+      if (toolName === 'submit_article_draft') return jsonResponse(200, toolUseBody('submit_article_draft', common));
+      if (toolName === 'submit_reviewed_article') return jsonResponse(200, toolUseBody('submit_reviewed_article', { ...common, draft_was_clean: true, violations_found: [] }));
+      if (toolName === 'report_compliance_check') return jsonResponse(200, toolUseBody('report_compliance_check', CLEAN_CHECKLIST));
+      throw new Error(`test router: unexpected tool_choice "${toolName}"`);
+    };
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.deepEqual(report.selfReview.violationsFound, [], 'zero violations_found entries -- nothing was touched, nothing to report');
+
+    const articleFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    const article = JSON.parse(fs.readFileSync(path.join(generatedDir, articleFiles[0]), 'utf8'));
+    assert.match(article.content_html, new RegExp(`<a href="${LINK_A.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">homes for sale in Temecula</a>`));
+    assert.match(article.content_html, new RegExp(`<a href="${LINK_B.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">reach out with questions</a>`));
   });
 });
 

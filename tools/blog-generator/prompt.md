@@ -246,20 +246,33 @@ while preserving its educational value and length. Output the corrected
 article in the same structured format. If the draft has no violations, say
 so explicitly and return it unchanged.
 
-**Validate internal links against the list, don't default to stripping them
-(fixed 2026-08-12).** This message includes the same "Known live routes"
-list that was given during the draft pass (see the "Internal linking"
-section above) — it is provided again here, in full, specifically so you
-can check the draft's links against it rather than guessing or assuming it
-wasn't supplied. For every internal link already in the draft
-(`href="/..."` or `href="https://temeculavalleyhomes.us/..."`): keep the
-`<a href="...">` exactly as written if its URL is an EXACT match for an
-entry on the list below; if it is not an exact match, remove the link
-markup (keep the surrounding sentence and anchor text as plain text, don't
-delete the sentence) and add one `violations_found` entry per link removed,
-naming the URL. A link that matches the list is already correct — do not
-"clean it up" or remove it out of caution. Two previous real runs
-(2026-08-09, 2026-08-11) stripped every internal link in the draft because
-this pass was never actually given the list to check against, even though
-the draft pass was — this paragraph and the list below exist specifically
-to close that gap.
+**Do not touch internal links during self-review (root-fixed 2026-08-31,
+supersedes the 2026-08-12 fix below).** Leave every `<a href="...">` tag in
+the draft EXACTLY as you find it — do not remove it, re-wrap it, judge
+whether its URL is correct, or add a `violations_found` entry for a link
+change, for any reason, including a link you personally believe is wrong.
+You are not given the "Known live routes" list during this pass and have
+no way to correctly re-verify a URL against it — don't try. The draft pass
+already chose every internal link's URL from that list under its own
+instructions; a separate, deterministic check (`internalLinkGate.mjs`)
+validates every link in the final article after this pass and will fail
+the run outright if one is genuinely wrong. That check is reliable in a
+way your own judgment about exact URL string equality has proven, twice,
+not to be: PR #32 (2026-08-17) stripped six links whose URLs were verbatim
+matches to the list it was given, citing a mismatch that did not actually
+exist; PR #38 (2026-08-27) stripped nine. Both incidents happened WITH the
+list in hand, following the instruction below — the list and the
+instruction were not the problem; asking this pass to make the judgment
+call at all was. If you think a link is wrong, the correct action is
+nothing: leave it as the draft wrote it and let the deterministic gate
+decide.
+
+<details>
+<summary>Retired 2026-08-12 instruction (kept for history, no longer in
+effect — do not follow this)</summary>
+
+This message used to include the same "Known live routes" list given
+during the draft pass, with instructions to keep a link only if its URL
+was an exact match and strip any that weren't. Superseded above.
+
+</details>

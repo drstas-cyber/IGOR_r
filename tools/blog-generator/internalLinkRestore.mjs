@@ -24,6 +24,18 @@
 // function's job, and internalLinkGate.mjs remains the fail-closed
 // backstop for anything that slips through both self-review and this pass).
 //
+// PENDING REMOVAL (2026-08-31, owner ruling item 2, manual-publish
+// formalization): self-review no longer receives the Known live routes
+// list at all and is explicitly instructed not to touch internal links --
+// see generate.mjs's selfReview() and prompt.md's "Do not touch internal
+// links during self-review" paragraph. That's the actual root fix; this
+// module stays wired in as defense-in-depth ONLY until it proves out
+// against real runs (success = a run where violations_found contains zero
+// phantom link entries -- checked run over run, not assumed from this
+// commit alone). Remove this module and its call site in generate.mjs
+// once that's confirmed; do not remove it preemptively in the same pass
+// that introduces the root fix.
+//
 // Pure, no I/O -- same pattern as internalLinkGate.mjs and every other
 // gate/helper in this directory. Called from generate.mjs right after
 // self-review returns, before assembleArticle() builds the final article.

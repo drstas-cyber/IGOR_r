@@ -159,14 +159,27 @@ async function generateDraft({ apiKey, topic, systemPrompt, knownRoutesText }) {
   return extractToolInput(response, DRAFT_TOOL.name);
 }
 
-// knownRoutesText is now passed into the self-review call too (fixed
-// 2026-08-12) -- previously only the draft pass received it, so the
-// self-review model had no list to validate the draft's internal links
-// against and defensively stripped every one it found, on both real runs
-// since internal linking shipped (PRs #28, #29, 2026-08-09/11). See
-// prompt.md's "Validate internal links against the list" paragraph for the
-// instructions this list is now checked against.
-async function selfReview({ apiKey, draft, systemPrompt, knownRoutesText }) {
+// ROOT FIX (2026-08-31, owner ruling item 2, manual-publish
+// formalization): self-review no longer receives the "Known live routes"
+// list and is no longer asked to re-validate internal links AT ALL --
+// removed here and in prompt.md's self-review pass instructions
+// ("Do not touch internal links during self-review"). This function used
+// to pass knownRoutesText into the self-review call too (fixed 2026-08-12,
+// after PRs #28/#29, 2026-08-09/11, stripped every internal link because
+// this pass had no list to check against) -- that mitigated a symptom,
+// not the cause: asking an LLM to re-judge exact URL string equality
+// proved unreliable even WITH the list in hand (PR #32, 2026-08-17,
+// stripped 6 valid links citing a mismatch that didn't exist; PR #38,
+// 2026-08-27, stripped 9 of them). The draft pass already receives and is
+// instructed to use this same list -- self-review re-checking it is
+// redundant at best (nothing has touched the draft's links yet) and the
+// actual source of every phantom correction observed. The deterministic
+// internalLinkGate.mjs remains the real backstop for a genuinely wrong
+// URL from the draft pass; internalLinkRestore.mjs stays wired in below
+// as defense-in-depth for now (see its own header comment) until this fix
+// proves out against real runs -- not removed in the same pass that
+// introduces it.
+async function selfReview({ apiKey, draft, systemPrompt }) {
   const response = await createMessage({
     apiKey,
     model: WRITER_MODEL,
@@ -174,7 +187,7 @@ async function selfReview({ apiKey, draft, systemPrompt, knownRoutesText }) {
     messages: [
       {
         role: 'user',
-        content: `Review this draft against the ten hard rules and the self-review pass instructions, then submit the corrected version:\n\n${JSON.stringify(draft, null, 2)}\n\nKnown live routes (validate every internal link already in the draft above against this list -- keep a link only if its URL is an exact match, strip any that aren't, per the self-review pass instructions' internal-linking paragraph):\n${knownRoutesText}`,
+        content: `Review this draft against the ten hard rules and the self-review pass instructions, then submit the corrected version. Per the "Do not touch internal links during self-review" paragraph of your system prompt, leave every internal link in the draft below EXACTLY as it appears -- do not re-validate, strip, or re-wrap any of them:\n\n${JSON.stringify(draft, null, 2)}`,
       },
     ],
     tools: [REVIEW_TOOL],
@@ -483,7 +496,7 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
   const draft = await generateDraft({ apiKey, topic, systemPrompt, knownRoutesText });
 
   console.log('[generate] pass 2/2: self-review...');
-  const reviewed = await selfReview({ apiKey, draft, systemPrompt, knownRoutesText });
+  const reviewed = await selfReview({ apiKey, draft, systemPrompt });
   const selfReviewCheck = validateSelfReview(reviewed);
   if (!selfReviewCheck.valid) {
     // Does NOT discard the run -- an inconsistent self-review report is not
@@ -501,15 +514,15 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
     console.log('[generate] self-review: draft was already clean per the model (draft_was_clean=true, zero violations).');
   }
 
-  // Deterministic link-restore backstop (2026-08-19) — self-review's own
-  // link-validation judgment (prompt.md, fixed 2026-08-12) still
-  // occasionally mis-judges an exact-match URL as non-matching and strips
-  // a genuinely valid link to plain text (observed live, PR #32,
-  // 2026-08-17 — see internalLinkRestore.mjs's header comment for the
-  // full incident). Runs here, between self-review and assembleArticle,
-  // so the restored content_html is what schema validation, the
-  // internal-link gate, and the written article all see — never a
-  // separate, second copy of the truth.
+  // Deterministic link-restore backstop (2026-08-19) — PENDING REMOVAL as
+  // of 2026-08-31 (owner ruling item 2): self-review no longer receives
+  // the known-routes list or any instruction to touch links at all (see
+  // selfReview() above), so it should have nothing left to wrongly strip.
+  // Kept wired in as defense-in-depth until that's proven against real
+  // runs (see internalLinkRestore.mjs's own header comment). Runs here,
+  // between self-review and assembleArticle, so the restored content_html
+  // is what schema validation, the internal-link gate, and the written
+  // article all see — never a separate, second copy of the truth.
   const linkRestore = restoreStrippedInternalLinks(draft.content_html, reviewed.content_html, knownRoutes);
   reviewed.content_html = linkRestore.html;
   if (linkRestore.restored.length > 0) {
