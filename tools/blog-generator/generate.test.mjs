@@ -591,6 +591,67 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
 });
 
 // ---------------------------------------------------------------------------
+// runGenerationPipeline() / main() try-catch boundary (2026-08-31,
+// tactical item 3c of the manual-publish formalization review). main()'s
+// try/catch around the call to runGenerationPipeline() exists to catch a
+// genuine uncaught exception (missing GITHUB_REPOSITORY's sibling case:
+// any fail-closed throw during topic selection, see "early-exit reports"
+// below) and write a minimal {outcome: 'uncaught_exception', errorMessage}
+// report. handleTrippedGate()'s gate-trip path (Layer 1/2/3 trip, schema-
+// invalid, internal-link-invalid, identity-incomplete) already writes its
+// OWN structured report and returns NORMALLY (a plain `return;`, never a
+// throw) -- by construction, that return can never reach the catch block.
+// This describe block proves that construction actually holds: a gate
+// trip's report on disk must be the ORIGINAL structured outcome (e.g.
+// 'identity_incomplete'), never silently overwritten by a second write
+// from the catch block. `errorMessage` is a field ONLY the
+// uncaught_exception branch ever sets -- its presence on a gate-trip
+// report would be direct proof the catch fired too, i.e. exactly the
+// "two conflicting structured signals" failure mode this test rules out.
+// ---------------------------------------------------------------------------
+describe('runGenerationPipeline try-catch boundary — a gate trip never also triggers the uncaught_exception catch (2026-08-31, tactical item 3c)', () => {
+  test('an identity-gate trip: exactly one structured report on disk, outcome stays identity_incomplete, no errorMessage field', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: false });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'identity_incomplete', 'the ORIGINAL structured gate-trip outcome must survive on disk -- never overwritten by a second, catch-block write');
+    assert.equal('errorMessage' in report, false, 'errorMessage is set ONLY by the uncaught_exception catch -- its presence would prove the catch fired too and clobbered the real report');
+  });
+
+  test('a Layer 2 compliance-gate trip (outcome: skipped): same guarantee holds for a different trip type', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: TRIPPING_CHECKLIST });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'skipped');
+    assert.equal('errorMessage' in report, false);
+  });
+
+  test('a genuinely uncaught exception (topicAvailability throws): DOES reach the catch and write outcome: uncaught_exception -- the boundary works in the direction it is supposed to, not just refusing to fire when it should not', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
+    process.exitCode = undefined;
+    const throwingExec = () => { throw new Error('[topicAvailability] gh pr list failed: simulated outage for the boundary test.'); };
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: throwingExec });
+
+    assert.equal(process.exitCode, 1);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'uncaught_exception');
+    assert.match(report.errorMessage, /simulated outage for the boundary test/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Early-exit reports (2026-08-31, Task 3 of the notification-hardening
 // pass). Before this, all three of these paths -- missing
 // ANTHROPIC_API_KEY, missing GITHUB_REPOSITORY, and any fail-closed throw
