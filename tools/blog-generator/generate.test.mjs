@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   handleTrippedGate,
   main,
@@ -1011,6 +1013,84 @@ describe('self-review no longer re-validates internal links (2026-08-31, root fi
     const article = JSON.parse(fs.readFileSync(path.join(generatedDir, articleFiles[0]), 'utf8'));
     assert.match(article.content_html, new RegExp(`<a href="${LINK_A.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">homes for sale in Temecula</a>`));
     assert.match(article.content_html, new RegExp(`<a href="${LINK_B.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">reach out with questions</a>`));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// report.article.firstParagraphText (2026-08-31, live-run bug found via the
+// manual-publish formalization's 14:00 UTC cron proof). Real incident: the
+// "Build email content (article PR opened, held for review)" step reads
+// report.outputPath and re-reads the article FILE from local disk to
+// extract the first-paragraph preview text -- but by the time that step
+// runs, "Open PR with the generated article" (peter-evans/create-pull-
+// request@v6) has already committed the new article file to the PR branch
+// and restored the runner's local working tree to its pre-action state for
+// that path, so the file no longer exists locally. Observed live, PR #40
+// (2026-08-31, run 33428265910): buildNotificationEmailCli.mjs logged
+// "non-fatal error building 'article-pr' email: ENOENT ... purchase-
+// agreement-contingencies-explained-california.json", the build step
+// silently produced no subject, and the notify-email action's own "no
+// subject provided -- skipping" branch correctly (by its own contract) sent
+// nothing -- meaning the "your article awaits review" email has likely
+// never actually reached the inbox for a real, non-silent generation run,
+// since this exact path was added 2026-08-25 and this was its first real
+// live exercise. Root fix: compute the first-paragraph text ONCE, in
+// generate.mjs, while `article` is still an in-memory object (never
+// touched by git) -- carried forward as report.article.firstParagraphText
+// so buildNotificationEmailCli.mjs never needs to re-read a file that may
+// no longer exist on disk by the time it runs.
+// ---------------------------------------------------------------------------
+describe('report.article.firstParagraphText — survives the article file vanishing from disk after PR creation (2026-08-31)', () => {
+  test('a generated article\'s report carries firstParagraphText, extracted from the real content_html, computed once at write time', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, undefined);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.equal(typeof report.article.firstParagraphText, 'string');
+    assert.ok(report.article.firstParagraphText.length > 0, 'must be real extracted text, not blank');
+    assert.match(report.article.firstParagraphText, /HOA fees fund shared community amenities/, 'must actually be the article\'s real first-paragraph text, not a placeholder');
+    assert.doesNotMatch(report.article.firstParagraphText, /<[a-z]/i, 'must be plain text (HTML tags stripped), matching extractFirstParagraphText\'s own contract');
+  });
+
+  test('buildNotificationEmailCli.mjs --kind=article-pr builds a real email using ONLY the report -- even after the article file is gone from disk (the real-world create-pull-request cleanup scenario)', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
+    process.exitCode = undefined;
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    assert.equal(process.exitCode, undefined);
+
+    // Simulates exactly the real-world failure: the article file is GONE
+    // from disk (as it is after create-pull-request's cleanup) by the time
+    // the email gets built -- this must still succeed. Invoked as a real
+    // subprocess (this file's isMain CLI shell reads process.argv directly,
+    // not injectable args -- matching this repo's existing pattern of
+    // testing a thin, untested-by-unit-test CLI shell via the real
+    // executable rather than refactoring it just to make it importable).
+    const articleFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
+    fs.rmSync(path.join(generatedDir, articleFiles[0]));
+
+    const cliPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'buildNotificationEmailCli.mjs');
+    const result = spawnSync(process.execPath, [
+      cliPath,
+      '--kind=article-pr',
+      `--report=${reportPath}`,
+      '--preview-url=https://example.igor-r.pages.dev',
+      '--pr-url=https://github.com/drstas-cyber/IGOR_r/pull/40',
+    ], { encoding: 'utf8' });
+
+    assert.doesNotMatch(result.stderr || '', /ENOENT/, 'must not fail trying to re-read the vanished article file');
+    // stdout is the pretty-printed {subject, html} JSON block followed by a
+    // trailing "[buildNotificationEmailCli] built ..." log line (console.log
+    // writeOutputs()'s own fallback, then main()'s own success line) -- not
+    // itself valid single-document JSON, so match on content directly
+    // rather than parsing the whole stream.
+    assert.match(result.stdout, /Understanding HOA Fees/);
+    assert.match(result.stdout, /HOA fees fund shared community amenities/);
   });
 });
 

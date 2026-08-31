@@ -66,10 +66,26 @@ function readBlogArticlesSlugs() {
 function buildForKind(kind) {
   if (kind === 'article-pr') {
     const report = readJson(argValue('report'));
-    const article = readJson(path.join(PROJECT_ROOT, report.outputPath));
+    // firstParagraphText (2026-08-31, live-run bug fix) -- read from the
+    // REPORT first, where generate.mjs now computes and carries it
+    // forward. Never re-read the article file from disk as the primary
+    // path: by the time this step runs in the real workflow, "Open PR
+    // with the generated article" (peter-evans/create-pull-request@v6)
+    // has already committed that file to the new PR branch and restored
+    // the runner's local working tree for that path, so it's gone --
+    // observed live, PR #40 (run 33428265910): ENOENT, this step silently
+    // produced no subject, and the "your article awaits review" email
+    // never actually sent. The file-read below survives only as a
+    // fallback for a report written before this field existed; it is not
+    // expected to ever actually fire against a real report going forward.
+    let firstParagraphText = report.article?.firstParagraphText;
+    if (firstParagraphText === undefined) {
+      const article = readJson(path.join(PROJECT_ROOT, report.outputPath));
+      firstParagraphText = extractFirstParagraphText(article.content_html);
+    }
     return buildArticlePrEmail({
       title: report.article?.title,
-      firstParagraphText: extractFirstParagraphText(article.content_html),
+      firstParagraphText,
       previewUrl: argValue('preview-url') || null,
       gateSummaryLine: buildGateSummaryLine(report),
       prUrl: argValue('pr-url'),

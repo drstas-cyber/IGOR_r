@@ -36,6 +36,7 @@ import { resolveAllCitations, evaluateCitationResolution } from './citationResol
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
 import { computeAllSilent } from './autoPublishGate.mjs';
 import { QUEUE_EXHAUSTED_MARKER } from './queueExhaustedMarker.mjs';
+import { extractFirstParagraphText } from './notificationEmail.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -712,7 +713,19 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
   const outPath = path.join(generatedDir, `${article.slug}.json`);
   fs.writeFileSync(outPath, `${JSON.stringify(article, null, 2)}\n`, 'utf8');
 
-  report.article = { title: article.title, slug: article.slug };
+  // firstParagraphText (2026-08-31, live-run bug fix) -- computed here,
+  // once, while `article` is still an in-memory object, and carried
+  // forward on the report itself rather than making
+  // buildNotificationEmailCli.mjs re-read the article file from disk
+  // later. That file is gone from the runner's local working tree by the
+  // time the "Build email content (article PR opened...)" workflow step
+  // runs -- "Open PR with the generated article" (peter-evans/create-
+  // pull-request@v6) commits it to the new PR branch and restores the
+  // local tree for that path -- observed live, PR #40 (run 33428265910):
+  // ENOENT, the build step silently produced no subject, and the "your
+  // article awaits review" email never actually sent. See this file's own
+  // git history / README.md for the full incident.
+  report.article = { title: article.title, slug: article.slug, firstParagraphText: extractFirstParagraphText(article.content_html) };
   report.outcome = 'generated';
   report.outputPath = path.relative(PROJECT_ROOT, outPath);
   // allSilent (2026-08-03, owner decision; informational-only as of
