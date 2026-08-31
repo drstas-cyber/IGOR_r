@@ -1,8 +1,8 @@
 // Validates the self-review tool call's own internal consistency --
 // structural, not prompt-hopeful (owner decision, 2026-08-07, see
 // tools/blog-generator/README.md "Self-review reporting fix"). Extracted
-// into its own file matching checkRejectedMarker.mjs / checkAllSilent.mjs's
-// pattern: single-purpose, unit-tested in isolation, not inline logic a
+// into its own file matching checkRejectedMarker.mjs's pattern:
+// single-purpose, unit-tested in isolation, not inline logic a
 // future reader has to untangle from generate.mjs's main().
 //
 // Root cause this exists to fix: the self-review tool schema used to have

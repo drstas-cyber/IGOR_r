@@ -15,13 +15,19 @@ name: generate-article
 # ~7x/year, consuming at most one topic) is immaterial at this pipeline's
 # cost and volume.
 #
-# Auto-publish note (2026-08-03): a PR this schedule opens now merges AND
-# publishes automatically, but ONLY when the run was perfectly silent --
-# see the "Check whether the run was perfectly silent" / "Auto-merge" /
-# "Publish" steps below and README.md's "Automated publishing" section.
-# ANY finding anywhere, including a log-only one, still holds the PR for
-# a supervised human read exactly as before this change. Cron controls
-# generation cadence; it does not weaken what gets published unread.
+# MANUAL PUBLISH, BY DESIGN (owner ruling, 2026-08-31, supersedes the
+# 2026-08-03 auto-publish decision) -- this schedule controls GENERATION
+# cadence only. Every PR this workflow opens, silent or not, sits until a
+# human taps Merge (today: from the GitHub mobile app off the notification
+# email; later: the planned "George-gate" successor). There is no
+# auto-merge/auto-publish branch in this file anymore -- see README.md's
+# decision record for why: zero silent publishes happened in this
+# project's entire history under the old design. `report.allSilent`
+# survives purely as an informational line in the PR body/report ("this
+# run would have qualified as silent") -- a quality signal for the human
+# reviewer, never a trigger. publish-on-merge.yml is the sole publish
+# mechanism: a human Merge there is what flips published:true, adds the
+# _headers cache entry, and rebuilds/deploys.
 on:
   workflow_dispatch: {}
   schedule:
@@ -80,27 +86,19 @@ jobs:
           set -o pipefail
           node tools/blog-generator/generate.mjs 2>&1 | tee /tmp/generate.log
 
-      # The `.topic` key check (2026-08-31) -- generate.mjs now writes a
-      # MINIMAL report ({generatedAt, outcome} only, no topic/layer1/etc.)
-      # on three early-exit paths it didn't write anything for before this
-      # pass (missing ANTHROPIC_API_KEY, missing GITHUB_REPOSITORY, an
-      # uncaught exception during topic selection -- see generate.mjs's
-      # early-exit reports and README.md's decision record). render-
-      # report-md.mjs unconditionally dereferences report.topic.topic and
-      # report.layer1.tripped -- it would crash on one of these minimal
-      # reports. None of those three scenarios ever opens a PR (has_new_
-      # article and has_rejected_marker are both false for all of them),
-      # so steps.report.outputs.body is never actually consumed in those
-      # cases either way -- this guard just keeps this step from adding a
-      # spurious extra red mark to the job for no benefit. Checking for a
-      # literal `"topic":` key (not enumerating the specific new outcome
-      # values) is deliberately shape-based, not a hardcoded outcome list,
-      # so it stays correct for any future minimal-report addition too.
+      # render-report-md.mjs (refactored 2026-08-31, tactical item 3d of
+      # the manual-publish formalization) now branches on the report's own
+      # required `outcome` field internally, including the three minimal
+      # early-exit shapes (missing_api_key / missing_repository /
+      # uncaught_exception -- see generate.mjs's early-exit reports) it
+      # used to crash on -- so this step goes back to a plain existence
+      # check; the shape-sniffing that used to live here (`grep -q
+      # '"topic":'`) is no longer this workflow's job to know about.
       - name: Render gate report as Markdown (always, even on failure/skip)
         if: always()
         id: report
         run: |
-          if [ -f tools/blog-generator/.last-run-report.json ] && grep -q '"topic":' tools/blog-generator/.last-run-report.json; then
+          if [ -f tools/blog-generator/.last-run-report.json ]; then
             {
               echo 'body<<GENERATE_REPORT_EOF'
               node tools/blog-generator/render-report-md.mjs
@@ -147,19 +145,6 @@ jobs:
         id: check_rejected
         if: always()
         run: node tools/blog-generator/checkRejectedMarker.mjs >> "$GITHUB_OUTPUT"
-
-      # Auto-publish gate (owner decision, 2026-08-03) — reads the
-      # STRUCTURED report generate.mjs wrote (report.allSilent, computed by
-      # autoPublishGate.mjs), never the job log. "Don't parse logs" applies
-      # here the same way it already applies to has_new_article/
-      # has_rejected_marker above. Safe to run unconditionally (always()):
-      # checkAllSilent.mjs fails closed on a missing report or a non-
-      # 'generated' outcome, so it correctly reports all_silent=false on a
-      # tripped/skipped run without needing its own extra guard condition.
-      - name: Check whether the run was perfectly silent (auto-publish eligible)
-        id: check_silent
-        if: always()
-        run: node tools/blog-generator/checkAllSilent.mjs >> "$GITHUB_OUTPUT"
 
       # Only reached (and only opens a PR) when generate.mjs actually wrote a
       # new file — a tripped/skipped/failed run has nothing new under
@@ -249,18 +234,16 @@ jobs:
       # full trigger list, the exact `gh secret set` commands, and how to
       # add a second recipient later.
       #
-      # Deliberately gated on all_silent != 'true' — a perfectly-silent
-      # run's PR opens and auto-merges/auto-publishes within the same job
-      # run, seconds apart; "a new article awaits your review" would be
-      # actively misleading for a PR that's already being auto-published
-      # by the time the email could plausibly be read. The silent path
-      # gets its own "published" email below instead (same as the human-
-      # read path, just triggered differently) — every real article still
-      # gets exactly one notification, never zero, never a confusing two.
+      # Every real article PR gets exactly this one notification now
+      # (2026-08-31, manual-publish formalization) — there is no separate
+      # silent-auto-publish path anymore to avoid double-notifying about,
+      # so this no longer gates on report.allSilent at all. A perfectly-
+      # silent run still gets "awaits your review," honestly, because it
+      # genuinely does: publication is always a human Merge.
       # ----------------------------------------------------------------
       - name: Build email content (article PR opened, held for review)
         id: email_article_pr
-        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent != 'true'
+        if: success() && steps.check.outputs.has_new_article == 'true'
         continue-on-error: true
         run: |
           node tools/blog-generator/buildNotificationEmailCli.mjs \
@@ -270,7 +253,7 @@ jobs:
             --pr-url="${{ steps.open_pr.outputs.pull-request-url }}"
 
       - name: Notify (email) — article PR opened, held for review
-        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent != 'true'
+        if: success() && steps.check.outputs.has_new_article == 'true'
         continue-on-error: true
         uses: ./.github/actions/notify-email
         with:
@@ -342,100 +325,22 @@ jobs:
           smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
 
       # ----------------------------------------------------------------
-      # Automated publishing (owner decision, 2026-08-03) — see
-      # tools/blog-generator/README.md "Automated publishing" for the
-      # full condition list, the retrospective-audit compensating
-      # control, and the one-commit unpublish rollback line.
-      #
-      # Gated on steps.check_silent.outputs.all_silent == 'true', which
-      # is ONLY 'true' when report.outcome === 'generated' AND
-      # report.allSilent === true (autoPublishGate.mjs) — Layer 1 zero
-      # findings including log-only, Layer 2 all checks false, Layer 3
-      # every citation RESOLVED, self-review zero violations, schema
-      # already guaranteed clean by construction (a schema-invalid draft
-      # never reaches outcome: 'generated' at all). ANY finding anywhere
-      # leaves all_silent at 'false' and both steps below are no-ops —
-      # the PR opened above simply sits, exactly like every PR before
-      # this change, waiting for a supervised human read.
+      # RETIRED 2026-08-31 (owner ruling, manual-publish formalization,
+      # supersedes the 2026-08-03 "Automated publishing" decision): this
+      # section used to auto-merge and auto-publish a perfectly-silent
+      # run's PR within the same job run. Removed entirely, not disabled
+      # behind a flag -- "we are not restoring automation; we are retiring
+      # its ruins." The finding that forced this: zero silent publishes
+      # happened in this project's entire history under the old design --
+      # every article was human-merged, and allSilent was unreachable in
+      # practice (self-review's phantom internal-link-stripping
+      # corrections meant a genuinely clean draft almost always still
+      # carried at least one "correction," see item 2 of the same ruling
+      # and README.md's decision record). publish-on-merge.yml is now the
+      # SOLE publish mechanism for every article, silent or not: a human
+      # Merge there flips published:true, adds the _headers cache entry,
+      # and rebuilds/deploys. See README.md for the full decision record.
       # ----------------------------------------------------------------
-
-      # Waits for the PR's own required checks (build-check, Cloudflare
-      # Pages preview) before merging — never merges on the strength of
-      # "the run was silent" alone. `gh pr checks --watch` blocks until
-      # every check resolves and exits non-zero if any of them failed,
-      # which aborts this step (bash's default `-e` for GitHub Actions
-      # `run:` blocks) before the merge command ever runs — a silent
-      # article whose build genuinely breaks does NOT get merged just
-      # because the content gates were clean.
-      - name: Auto-merge (perfectly silent run only)
-        id: auto_merge
-        if: success() && steps.check.outputs.has_new_article == 'true' && steps.check_silent.outputs.all_silent == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.open_pr.outputs.pull-request-number }}"
-          echo "[auto-merge] perfectly silent run -- waiting for PR #$PR_NUMBER's required checks before merging..."
-          gh pr checks "$PR_NUMBER" --watch
-          echo "[auto-merge] checks passed -- merging PR #$PR_NUMBER."
-          gh pr merge "$PR_NUMBER" --merge --delete-branch
-
-      # Runs only after a successful auto-merge above. Fetches the just-
-      # merged main fresh (never assumes what branch/state the workspace
-      # was left on by the create-pull-request action) and performs the
-      # exact same "full sequence" a human previously did across two
-      # commits (published:true flip, _headers cache entry) — here as one
-      # atomic commit, since there's no separate human judgment call
-      # splitting them on this path: the auto-merge itself IS the
-      # combined decision. setPublished.mjs and headersCacheEntry.mjs
-      # both fail closed (throw, non-zero exit, `-e` aborts the step) —
-      # on either failure the article lands on main merged but left
-      # published:false, a safe, visibly-incomplete state, never wrongly
-      # live. A step failure here still leaves the job red.
-      - name: Publish (perfectly silent run only) — flip published:true, add _headers entry, commit, push
-        if: success() && steps.auto_merge.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SLUG="${{ steps.check_silent.outputs.article_slug }}"
-          git fetch origin main
-          git checkout -B main origin/main
-          node tools/blog-generator/setPublished.mjs --slug="$SLUG" --value=true
-          node tools/blog-generator/headersCacheEntry.mjs --slug="$SLUG"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "src/data/generated-articles/${SLUG}.json" public/_headers
-          git commit -m "blog: auto-publish \"$SLUG\" (perfectly silent run)
-
-          Merge + published:true flip + _headers cache entry, done
-          automatically because this run tripped nothing anywhere: Layer 1
-          zero findings (including log-only), Layer 2 all checks false,
-          Layer 3 every citation RESOLVED, self-review zero violations.
-          See tools/blog-generator/README.md, \"Automated publishing\",
-          for the full condition list and the retrospective-audit
-          compensating control that reviews everything this path
-          publishes.
-
-          Run: ${{ github.run_id }}"
-          git push origin main
-
-      - name: Build email content (published — silent auto-publish)
-        id: email_published_silent
-        if: success() && steps.auto_merge.outcome == 'success'
-        continue-on-error: true
-        run: |
-          node tools/blog-generator/buildNotificationEmailCli.mjs \
-            --kind=published \
-            --slug="${{ steps.check_silent.outputs.article_slug }}"
-
-      - name: Notify (email) — published (silent auto-publish)
-        if: success() && steps.auto_merge.outcome == 'success'
-        continue-on-error: true
-        uses: ./.github/actions/notify-email
-        with:
-          subject: ${{ steps.email_published_silent.outputs.subject }}
-          html_body: ${{ steps.email_published_silent.outputs.html_body }}
-          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
-          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
 
       # ----------------------------------------------------------------
       # Red-run notification (queue exhausted / generic failure). Fires

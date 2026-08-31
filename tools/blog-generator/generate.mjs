@@ -702,12 +702,14 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
   report.article = { title: article.title, slug: article.slug };
   report.outcome = 'generated';
   report.outputPath = path.relative(PROJECT_ROOT, outPath);
-  // allSilent (2026-08-03, owner decision — see README.md "Automated
-  // publishing"): computed here, once, on the same report object the PR
-  // body and checkAllSilent.mjs both read — never re-derived separately
-  // by the workflow (which would mean two places could disagree about
-  // what "silent" means). See autoPublishGate.mjs for exactly what this
-  // requires.
+  // allSilent (2026-08-03, owner decision; informational-only as of
+  // 2026-08-31 — see README.md's decision record): computed here, once,
+  // on the report object the PR body reads directly (render-report-md.mjs)
+  // — never re-derived separately elsewhere, which would mean two places
+  // could disagree about what "silent" means. Purely a quality signal for
+  // the human reviewer now, never a workflow trigger — publication is
+  // always a human Merge via publish-on-merge.yml. See autoPublishGate.mjs
+  // for exactly what this requires.
   report.allSilent = computeAllSilent(report);
   writeReport(report, reportPath);
 

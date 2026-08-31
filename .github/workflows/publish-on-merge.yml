@@ -12,13 +12,18 @@ name: publish-on-merge
 # mobile app, per the instruction that asked for this.
 #
 # Deliberately scoped to `blog-generator/auto-*` only — a
-# `blog-generator/rejected-*` marker PR has no article to publish, and a
-# perfectly-silent PR the generate-article.yml workflow already auto-
-# merged and auto-published itself; this workflow still fires for that
-# case too (the `pull_request: closed` event doesn't distinguish who
-# merged it), but publishOnMerge.mjs's own idempotency check
-# (evaluatePublishStatus) makes that a clean, silent no-op rather than a
-# double-publish.
+# `blog-generator/rejected-*` marker PR has no article to publish.
+#
+# THE SOLE PUBLISH MECHANISM (owner ruling, 2026-08-31, manual-publish
+# formalization): generate-article.yml's auto-merge/auto-publish path is
+# retired -- every article, silent or not, now reaches this workflow only
+# via a human tapping Merge. Historically (2026-08-25 through 2026-08-31)
+# a perfectly-silent PR could ALSO have been auto-merged/auto-published by
+# generate-article.yml itself before a human ever saw this workflow fire
+# for it -- publishOnMerge.mjs's own idempotency check (evaluatePublishStatus)
+# made that a clean, silent no-op rather than a double-publish, and still
+# does (defense-in-depth is still worth keeping even though the scenario
+# it was defending against no longer exists).
 on:
   pull_request:
     types: [closed]
@@ -37,9 +42,8 @@ jobs:
     if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'blog-generator/auto-')
     steps:
       # Checks out main fresh rather than trusting the pull_request event's
-      # own ref -- same reasoning generate-article.yml's existing
-      # auto-publish step already documents: never assume what state a
-      # merge-event checkout leaves the workspace in.
+      # own ref -- never assume what state a merge-event checkout leaves
+      # the workspace in.
       #
       # fetch-depth: 2 (2026-08-31, FIX 1 -- see README.md's "Publish-on-
       # merge" decision record for the full incident). The default (1)
@@ -72,14 +76,16 @@ jobs:
         run: npm ci
 
       # Idempotent by construction (see publishOnMerge.mjs's header
-      # comment) -- an already-fully-published article (e.g. the
-      # perfectly-silent auto-publish path already handled this exact PR)
-      # is a clean no-op here, not a double-publish. CAP-GUARD: a _headers
-      # 100-rule breach throws here and this step fails BEFORE any commit
-      # -- the article stays merged on main but published:false, a safe,
-      # visibly-incomplete state (see publishOnMerge.mjs's header comment
-      # for the full failure-mode reasoning, same as the silent path's own
-      # documented failure mode in README.md).
+      # comment) -- an already-fully-published article is a clean no-op
+      # here, not a double-publish (historically this mattered because the
+      # now-retired auto-publish path in generate-article.yml could have
+      # already handled this exact PR before a human ever merged it; kept
+      # as defense-in-depth even though that scenario no longer exists).
+      # CAP-GUARD: a _headers 100-rule breach throws here and this step
+      # fails BEFORE any commit -- the article stays merged on main but
+      # published:false, a safe, visibly-incomplete state (see
+      # publishOnMerge.mjs's header comment for the full failure-mode
+      # reasoning).
       #
       # Output captured to a log file (2026-08-31, FIX 2) so a red run's
       # notification email can report what ACTUALLY failed instead of a
@@ -139,7 +145,7 @@ jobs:
 
       - name: No-op (already fully published)
         if: steps.publish.outputs.already_complete == 'true'
-        run: echo "\"${{ steps.publish.outputs.slug }}\" was already fully published (e.g. the perfectly-silent auto-publish path already handled it) -- nothing to do."
+        run: echo "\"${{ steps.publish.outputs.slug }}\" was already fully published (e.g. this workflow already fired once for this PR) -- nothing to do."
 
       # ----------------------------------------------------------------
       # Email notifications (added 2026-08-25) — non-gating everywhere,

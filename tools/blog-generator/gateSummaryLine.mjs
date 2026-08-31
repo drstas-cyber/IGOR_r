@@ -6,12 +6,24 @@
 // full report already has everything render-report-md.mjs's own detailed
 // rendering needs; this is a compressed, second view of the same report
 // object, not a second source of truth computed a different way.
-
+//
+// "Perfectly silent" is informational only (owner ruling, 2026-08-31,
+// superseding the 2026-08-03 auto-publish decision) -- publication is
+// ALWAYS a human Merge, never a trigger this line's wording should imply
+// happens automatically. The finding that forced this: zero silent
+// publishes in the project's entire history -- every article was
+// human-merged, and allSilent was unreachable in practice (phantom
+// self-review link-stripping corrections, see internalLinkRestore.mjs's
+// header comment and README.md's decision record, meant a "clean" draft
+// almost always still carried at least one correction). This line still
+// tells a reviewer "this one needs less scrutiny than usual," which is
+// genuinely useful -- it just never claims to have acted on that signal
+// itself.
 export function buildGateSummaryLine(report) {
   if (report.outcome !== 'generated') return null; // a discarded draft carries no article identity, nothing to summarize at the top
 
   if (report.allSilent) {
-    return '**Perfectly silent** — Layer 1/2/3 clean, self-review found nothing. Auto-merges/auto-publishes.';
+    return '**Perfectly silent** — Layer 1/2/3 clean, self-review found nothing. Still requires a human Merge to publish.';
   }
 
   const correctionCount = report.selfReview?.violationsFound?.length || 0;

@@ -2,8 +2,8 @@
 /* eslint-disable no-console */
 // Determines what generate-article.yml's red-run email should say, for the
 // GitHub Actions step that builds that email. Extracted (2026-08-31, Task
-// 3 of the notification-hardening pass) matching checkRejectedMarker.mjs
-// and checkAllSilent.mjs's exact pattern: a pure, fail-closed, three-
+// 3 of the notification-hardening pass) matching checkRejectedMarker.mjs's
+// exact pattern: a pure, fail-closed, three-
 // (here: multi-) state-aware core function, plus a thin CLI shell at the
 // bottom that prints to stdout for the workflow to redirect into
 // $GITHUB_OUTPUT.
@@ -20,8 +20,8 @@
 //      summarizer that could drift out of sync.
 //   2. Captured job log text, if no structured report exists (or it
 //      exists but fails to parse -- treated identically to "does not
-//      exist," same fail-closed posture checkAllSilent.mjs already
-//      applies to its own parse failures). One specific, real signal is
+//      exist," same fail-closed posture this project's check* scripts
+//      have always applied to their own parse failures). One specific, real signal is
 //      recognized here: QUEUE_EXHAUSTED_MARKER, the same stable sentinel
 //      generate.mjs's own `::error::` annotation already uses -- this is
 //      a deliberately-designed, already-existing signal, not a guess (see
@@ -126,8 +126,7 @@ export function checkGenerateFailureReason({
       const structured = deriveStructuredResult(report);
       if (structured) return structured;
     } catch {
-      // Falls through to precedence 2, same as checkAllSilent.mjs's own
-      // parse-failure handling -- an unparseable report is treated
+      // Falls through to precedence 2 -- an unparseable report is treated
       // identically to no report at all, never a crash here.
     }
   }
@@ -175,7 +174,7 @@ if (isMain) {
   const result = checkGenerateFailureReason();
   // reason/failure_class/slug are always single-line -- printed straight
   // to stdout for the workflow to redirect into $GITHUB_OUTPUT, same
-  // convention as checkRejectedMarker.mjs/checkAllSilent.mjs. detail can
+  // convention as checkRejectedMarker.mjs. detail can
   // be multi-line (findings lists, log excerpts) -- NOT safe for that same
   // plain-redirect convention, so it is written to a fixed file instead
   // (mirroring publish-on-merge.yml's own captured-log-to-file pattern);

@@ -1,8 +1,14 @@
 // Computes whether a successfully-generated article run was "perfectly
-// silent" -- eligible for the auto-merge/auto-publish path (owner
-// decision, 2026-08-03; see README.md "Automated publishing"). Pure, no
-// I/O, exported for tests -- same reasoning as assembleArticle() in
-// generate.mjs: a deterministic decision the pipeline can just compute,
+// silent". Originally gated an auto-merge/auto-publish path (owner
+// decision, 2026-08-03); that path was retired 2026-08-31 (owner ruling,
+// manual-publish formalization -- zero silent publishes happened in this
+// project's entire history under it; see README.md's decision record).
+// This function's LOGIC is unchanged and still worth keeping exactly as
+// it was: report.allSilent is now purely an informational line in the PR
+// body ("this run would have qualified as silent") -- a genuinely useful
+// quality signal for the human reviewer, just never a trigger anymore.
+// Pure, no I/O, exported for tests -- same reasoning as assembleArticle()
+// in generate.mjs: a deterministic decision the pipeline can just compute,
 // not something worth asking a model to self-assess.
 //
 // "Perfectly silent" means every one of these holds:

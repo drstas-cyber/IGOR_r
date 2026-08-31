@@ -16,7 +16,7 @@ import { QUEUE_EXHAUSTED_MARKER } from './queueExhaustedMarker.mjs';
 // missing ANTHROPIC_API_KEY, a missing GITHUB_REPOSITORY, and any
 // fail-closed throw in topicAvailability's gh/git state gathering (before
 // this pass; see generate.mjs's early-exit reports, Task 3). Mirrors
-// checkAllSilent.mjs / checkRejectedMarker.mjs's fail-closed,
+// checkRejectedMarker.mjs's fail-closed,
 // three-state-aware pure-core shape.
 
 function fixedReport(overrides = {}) {

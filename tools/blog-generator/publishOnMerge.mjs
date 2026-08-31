@@ -18,22 +18,20 @@
 // no-op when the target state is already reached (setPublishedInJson's
 // `changed` flag, insertCacheEntry's `inserted` flag) -- and the whole run
 // short-circuits to a clean no-op via evaluatePublishStatus() before
-// touching anything if the article is ALREADY fully published (e.g. the
-// perfectly-silent auto-publish path already handled it, or this workflow
-// fires twice for the same merge). Never assumes "not yet run" -- always
-// checks real repo state first.
+// touching anything if the article is ALREADY fully published (this
+// workflow firing twice for the same merge; historically also possible if
+// generate-article.yml's since-retired auto-publish path had already
+// handled it -- see README.md's decision record). Never assumes "not yet
+// run" -- always checks real repo state first.
 //
 // CAP-GUARD: insertCacheEntry() already throws, unmodified, when the
 // _headers 100-rule limit would be exceeded (see headersCacheEntry.mjs).
 // This script does NOT catch that -- it propagates all the way up to a
 // non-zero process exit, which fails the calling workflow step before any
-// git commit/push happens (bash's default `-e`, same mechanism the
-// existing perfectly-silent auto-publish step already relies on). Result:
-// the article stays merged on main but published:false -- a safe,
-// visibly-incomplete state, not silently wrong -- requiring a human to
-// notice the red run and finish the sequence by hand, exactly the failure
-// mode README.md's "Automated publishing" §3 already documents for the
-// silent path, now shared by this path too.
+// git commit/push happens (bash's default `-e`). Result: the article
+// stays merged on main but published:false -- a safe, visibly-incomplete
+// state, not silently wrong -- requiring a human to notice the red run and
+// finish the sequence by hand.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';

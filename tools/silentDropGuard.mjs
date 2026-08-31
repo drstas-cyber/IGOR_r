@@ -1,7 +1,7 @@
 // assertNoGeneratedArticleSilentlyDropped (2026-08-12) — makes the class of
 // bug that shipped "seller-closing-costs-explained" impossible to
 // reintroduce silently. Extracted into its own file matching
-// checkRejectedMarker.mjs / checkAllSilent.mjs / internalLinkGate.mjs's
+// checkRejectedMarker.mjs / internalLinkGate.mjs's
 // pattern: single-purpose, pure, unit-tested in isolation -- not inline
 // logic a future reader has to untangle from fetch-blog-data.js's
 // buildAndWrite(), which also can't easily be unit-tested directly (that
