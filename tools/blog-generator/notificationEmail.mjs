@@ -12,6 +12,17 @@
 // the most portable choice across mail clients, especially mobile Gmail
 // (the explicit "tap-to-merge from phone" use case named in the
 // instruction).
+//
+// This file's only import from elsewhere in tools/blog-generator/ is the
+// single stable constant below (HEADERS_CAP_EXCEEDED_CODE) -- deliberately
+// light. buildFailureDetail used to live in publishOnMerge.mjs, which
+// would have meant EVERY caller of it (buildNotificationEmailCli.mjs, and
+// eventually generate-article's own failure path) transitively pulling in
+// execSync, setPublished.mjs, headersCacheEntry.mjs's full surface, and
+// publishStatusReport.mjs just to format a string. Moved here 2026-08-31
+// (Task 0 of the notification-hardening pass) specifically so that
+// inversion never has to happen -- see README.md's decision record.
+import { HEADERS_CAP_EXCEEDED_CODE, MAX_HEADERS_RULES } from './headersCacheEntry.mjs';
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -154,6 +165,21 @@ export function summarizeRejectionFindings(report, maxLines = 8) {
 }
 
 // --- Trigger 4: a red run (queue exhausted / generic failure) ------------
+// FAILURE_SUBJECT_PREFIXES (2026-08-31, Task 4) -- the subject used to be
+// hardcoded "🔴 Сбой генерации" ("generation failure") for every caller,
+// including publish-on-merge.yml, where a failure NEVER means "no article
+// was produced" -- that workflow only ever runs post-merge, so an article
+// always already exists; what failed is getting it live. The subject is
+// the one thing read before deciding whether to act on it, so it has to
+// carry that distinction. failureClass is optional and unknown values
+// (including undefined, every pre-existing caller) fall back to the
+// original default -- unchanged behavior for anything not explicitly
+// updated to pass one.
+const FAILURE_SUBJECT_PREFIXES = {
+  no_article: '🔴 Сбой генерации',
+  article_stranded: '🟠 Статья существует, но не опубликована',
+};
+
 // slug (2026-08-31, publish-on-merge FIX 3) -- optional, three-way:
 //   undefined -- caller has no slug concept at all (generate-article.yml's
 //                generic failure path); line omitted entirely, unchanged
@@ -163,8 +189,9 @@ export function summarizeRejectionFindings(report, maxLines = 8) {
 //                2026-08-30 incident: the merge-diff itself failed) --
 //                says so explicitly rather than sending a blank field.
 //   string    -- the real, resolved slug of the stranded article.
-export function buildFailureEmail({ reason, detailText, runUrl, slug }) {
-  const subject = `🔴 Сбой генерации: ${reason}`;
+export function buildFailureEmail({ reason, detailText, runUrl, slug, failureClass }) {
+  const subjectPrefix = FAILURE_SUBJECT_PREFIXES[failureClass] || FAILURE_SUBJECT_PREFIXES.no_article;
+  const subject = `${subjectPrefix}: ${reason}`;
   let slugLine = '';
   if (slug === null) {
     slugLine = '<p><strong>Статья:</strong> slug could not be determined; the failure occurred before the article was identified.</p>';
@@ -177,4 +204,48 @@ export function buildFailureEmail({ reason, detailText, runUrl, slug }) {
     linkLine('Открыть прогон', runUrl),
   ];
   return { subject, html: wrapEmailHtml(lines) };
+}
+
+// buildFailureDetail (exported, pure -- moved here 2026-08-31 from
+// publishOnMerge.mjs, see this file's header comment for why). Turns a
+// captured publish-step log into the failure email's detail text.
+// Replaces the 2026-08-25 red-run notification's hardcoded Russian guess
+// ("вероятно, превышен лимит _headers...") -- written before publish-on-
+// merge.yml had ever run, and simply wrong on its actual first failure
+// (an unrelated shallow-checkout bug; see README.md's "Publish-on-merge"
+// decision record). Never asserts a cause the log doesn't support: reports
+// the captured error verbatim (capped, so a runaway stack trace can't
+// produce an unreadable email), with exactly ONE named exception --
+// insertCacheEntry's own _headers cap-guard, detected by
+// HEADERS_CAP_EXCEEDED_CODE (a stable token, NOT by matching its message
+// text -- see this file's header comment and headersCacheEntry.mjs for
+// Task 1's full reasoning). Anything else, including "no log at all," gets
+// no invented cause.
+export const MAX_FAILURE_DETAIL_LENGTH = 2000;
+const TRUNCATION_PREFIX = '[truncated -- earlier output omitted]\n...\n';
+
+// Exported (2026-08-31, Task 3) so checkGenerateFailureReason.mjs's own
+// log-fallback branch reuses this exact truncation behavior instead of a
+// second, independently-written copy -- same "share, don't duplicate"
+// discipline internalLinkGate.mjs's normalize() already established for
+// internalLinkRestore.mjs.
+export function truncateFailureDetail(text, max = MAX_FAILURE_DETAIL_LENGTH) {
+  if (text.length <= max) return text;
+  // Keeps the TAIL -- the actual thrown error is almost always the last
+  // thing in the log, not the npm-install/setup noise at the top.
+  return `${TRUNCATION_PREFIX}${text.slice(-max)}`;
+}
+
+export function buildFailureDetail(logText) {
+  const trimmed = String(logText || '').trim();
+  if (!trimmed) {
+    return 'publish sequence failed after merge; the article is merged on main but published:false -- see the run log.';
+  }
+  if (trimmed.includes(`error_code=${HEADERS_CAP_EXCEEDED_CODE}`)) {
+    return (
+      `_headers cache-pair insertion hit Cloudflare Pages' ${MAX_HEADERS_RULES}-rule limit -- see the run log for the exact entry:\n\n` +
+      truncateFailureDetail(trimmed)
+    );
+  }
+  return truncateFailureDetail(trimmed);
 }

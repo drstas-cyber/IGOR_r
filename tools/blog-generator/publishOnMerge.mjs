@@ -39,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import realFs from 'node:fs';
 import { setPublishedInJson, articlePath } from './setPublished.mjs';
-import { insertCacheEntry, MAX_HEADERS_RULES } from './headersCacheEntry.mjs';
+import { insertCacheEntry } from './headersCacheEntry.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -145,42 +145,6 @@ export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs
   return { slug, alreadyComplete: false };
 }
 
-// buildFailureDetail (exported, pure -- 2026-08-31, FIX 2) -- turns a
-// captured publish-step log into the failure email's --detail text.
-// Replaces the 2026-08-25 red-run notification's hardcoded Russian guess
-// ("вероятно, превышен лимит _headers...") -- written before this workflow
-// had ever run, and simply wrong on its first real failure (an unrelated
-// shallow-checkout bug; see README.md's "Publish-on-merge" decision
-// record). This function never asserts a cause the log doesn't support:
-// it reports the captured error verbatim (capped, so a runaway stack
-// trace can't produce an unreadable email), with exactly ONE named
-// exception -- insertCacheEntry's own _headers 100-rule cap-guard error
-// (headersCacheEntry.mjs), identifiable by its "rule limit" text, which
-// really is diagnostic and worth calling out specifically. Anything else,
-// including "no log at all," gets no invented cause.
-const MAX_FAILURE_DETAIL_LENGTH = 2000;
-
-function truncateFailureDetail(text, max = MAX_FAILURE_DETAIL_LENGTH) {
-  if (text.length <= max) return text;
-  // Keeps the TAIL -- the actual thrown error is almost always the last
-  // thing in the log, not the npm-install/setup noise at the top.
-  return `[truncated -- earlier output omitted]\n...\n${text.slice(-max)}`;
-}
-
-export function buildFailureDetail(logText) {
-  const trimmed = String(logText || '').trim();
-  if (!trimmed) {
-    return 'publish sequence failed after merge; the article is merged on main but published:false -- see the run log.';
-  }
-  if (/rule limit/.test(trimmed)) {
-    return (
-      `_headers cache-pair insertion hit Cloudflare Pages' ${MAX_HEADERS_RULES}-rule limit -- see the run log for the exact entry:\n\n` +
-      truncateFailureDetail(trimmed)
-    );
-  }
-  return truncateFailureDetail(trimmed);
-}
-
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
   const mergeShaArg = process.argv.find((a) => a.startsWith('--merge-sha='));
@@ -209,6 +173,17 @@ if (isMain) {
       })
       .catch((err) => {
         console.error(`[publishOnMerge] FATAL: ${err.message}`);
+        // err.code (2026-08-31, Task 1) -- printed as its own greppable
+        // line so a TYPED error (e.g. HeadersCapExceededError, see
+        // headersCacheEntry.mjs) survives into the captured log text as a
+        // stable token. buildFailureDetail (notificationEmail.mjs) only
+        // ever sees this log text, not the live Error object -- it cannot
+        // check `err.code` directly, so the code has to be written out
+        // explicitly, in a fixed, parseable shape, independent of
+        // err.message's own wording.
+        if (err.code) {
+          console.error(`[publishOnMerge] error_code=${err.code}`);
+        }
         process.exitCode = 1;
       });
   }

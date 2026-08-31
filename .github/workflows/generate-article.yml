@@ -63,18 +63,44 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Output captured to a log file (2026-08-31, notification-hardening
+      # pass, Task 3) so a red run's email can read the REAL captured
+      # output instead of guessing -- same reasoning and same `set -o
+      # pipefail` requirement as publish-on-merge.yml's own fix the day
+      # before (see that workflow's own comment on this exact step shape):
+      # without pipefail, this step would report success on `tee`'s exit
+      # code even when `node` itself failed, silently masking a real
+      # failure through the pipe.
       - name: Run generator (writer + self-review + both compliance gates)
         id: generate
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node tools/blog-generator/generate.mjs
+        run: |
+          set -o pipefail
+          node tools/blog-generator/generate.mjs 2>&1 | tee /tmp/generate.log
 
+      # The `.topic` key check (2026-08-31) -- generate.mjs now writes a
+      # MINIMAL report ({generatedAt, outcome} only, no topic/layer1/etc.)
+      # on three early-exit paths it didn't write anything for before this
+      # pass (missing ANTHROPIC_API_KEY, missing GITHUB_REPOSITORY, an
+      # uncaught exception during topic selection -- see generate.mjs's
+      # early-exit reports and README.md's decision record). render-
+      # report-md.mjs unconditionally dereferences report.topic.topic and
+      # report.layer1.tripped -- it would crash on one of these minimal
+      # reports. None of those three scenarios ever opens a PR (has_new_
+      # article and has_rejected_marker are both false for all of them),
+      # so steps.report.outputs.body is never actually consumed in those
+      # cases either way -- this guard just keeps this step from adding a
+      # spurious extra red mark to the job for no benefit. Checking for a
+      # literal `"topic":` key (not enumerating the specific new outcome
+      # values) is deliberately shape-based, not a hardcoded outcome list,
+      # so it stays correct for any future minimal-report addition too.
       - name: Render gate report as Markdown (always, even on failure/skip)
         if: always()
         id: report
         run: |
-          if [ -f tools/blog-generator/.last-run-report.json ]; then
+          if [ -f tools/blog-generator/.last-run-report.json ] && grep -q '"topic":' tools/blog-generator/.last-run-report.json; then
             {
               echo 'body<<GENERATE_REPORT_EOF'
               node tools/blog-generator/render-report-md.mjs
@@ -415,23 +441,30 @@ jobs:
       # Red-run notification (queue exhausted / generic failure). Fires
       # ONLY when the job failed AND neither PR type opened — a gate trip
       # or schema/link/identity discard already gets its own "rejected-
-      # attempt PR opened" email above; this is specifically for the
-      # failure modes that leave no PR at all (queue exhausted, a missing
-      # secret, a network/infrastructure error, an uncaught exception).
-      # `failure()` (not `always()`) is deliberate and explicit here —
-      # this step must only run on a real red run.
-      # ----------------------------------------------------------------
-      - name: Determine failure reason (best-effort, for the email only)
+      # attempt PR opened" email above (and already correctly names its
+      # real cause -- deriveFailureClassLabel/summarizeRejectionFindings,
+      # notificationEmail.mjs -- this section covers what's LEFT: the
+      # failure modes that leave no PR at all: queue exhausted, a missing
+      # secret, a network/infrastructure error, an uncaught exception, or
+      # generation succeeding but a LATER step failing). `failure()` (not
+      # `always()`) is deliberate and explicit here — this step must only
+      # run on a real red run.
+      #
+      # checkGenerateFailureReason.mjs (2026-08-31, notification-hardening
+      # pass, Task 3) replaces what used to be a two-branch hardcoded
+      # guess here ("report missing -> probably queue exhausted, missing
+      # secret, or infra" / "report exists -> pipeline failure after
+      # generation") -- the first branch would have confidently blamed the
+      # topic queue on ANY no-report failure, including this exact
+      # workflow's own identity-gate trips before they got their own
+      # early-exit reports. See README.md's decision record for the full
+      # incident and the strict structured-report > captured-log > neutral
+      # precedence this now follows. See checkGenerateFailureReason.mjs's
+      # own header comment for exactly what it reads and why.
+      - name: Determine failure reason (structured report > captured log > neutral)
         id: failure_reason
         if: failure() && steps.check.outputs.has_new_article != 'true' && steps.check_rejected.outputs.has_rejected_marker != 'true'
-        run: |
-          if [ ! -f tools/blog-generator/.last-run-report.json ]; then
-            echo "reason=не удалось сгенерировать статью" >> "$GITHUB_OUTPUT"
-            echo "detail=Этап генерации завершился с ошибкой без структурированного отчёта — вероятно, исчерпана очередь тем (topics.json), отсутствует ANTHROPIC_API_KEY, либо сбой сети или инфраструктуры. Подробности — в логе прогона." >> "$GITHUB_OUTPUT"
-          else
-            echo "reason=сбой пайплайна после генерации" >> "$GITHUB_OUTPUT"
-            echo "detail=Генерация прошла успешно, но последующий шаг (открытие PR, авто-мерж или публикация) завершился с ошибкой. Подробности — в логе прогона." >> "$GITHUB_OUTPUT"
-          fi
+        run: node tools/blog-generator/checkGenerateFailureReason.mjs --detail-out=/tmp/generate-failure-detail.txt >> "$GITHUB_OUTPUT"
 
       - name: Build email content (red run)
         id: email_failure
@@ -441,7 +474,9 @@ jobs:
           node tools/blog-generator/buildNotificationEmailCli.mjs \
             --kind=failure \
             --reason="${{ steps.failure_reason.outputs.reason }}" \
-            --detail="${{ steps.failure_reason.outputs.detail }}" \
+            --detail-file=/tmp/generate-failure-detail.txt \
+            --slug="${{ steps.failure_reason.outputs.slug }}" \
+            --failure-class="${{ steps.failure_reason.outputs.failure_class }}" \
             --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Notify (email) — red run

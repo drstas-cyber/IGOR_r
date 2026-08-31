@@ -22,6 +22,33 @@ const HEADERS_PATH = path.join(PROJECT_ROOT, 'public', '_headers');
 // countRules() below for what counts as a "rule".
 export const MAX_HEADERS_RULES = 100;
 
+// HEADERS_CAP_EXCEEDED_CODE / HeadersCapExceededError (2026-08-31, Task 1
+// of the notification-hardening pass) -- the cap-guard below used to be a
+// plain `new Error(...)`, identifiable only by matching its message
+// against `/rule limit/`. buildFailureDetail (notificationEmail.mjs) did
+// exactly that, which meant a future reword of this message would silently
+// break that detection with no test failure -- the same free-text coupling
+// this project has ruled out repeatedly elsewhere. err.code is now the
+// actual contract; the message stays human-readable but callers must never
+// depend on its wording again.
+//
+// The constraint that makes this non-trivial: a workflow catching this
+// failure (publish-on-merge.yml) only has the PROCESS's captured stdout/
+// stderr LOG TEXT to work with by the time it builds a failure email, not
+// this live Error object -- so the code has to survive into that log as a
+// literal, greppable token. publishOnMerge.mjs's catch block does that
+// explicitly (`error_code=${err.code}`); this constant is exported so
+// nothing downstream hand-copies the string.
+export const HEADERS_CAP_EXCEEDED_CODE = 'HEADERS_CAP_EXCEEDED';
+
+export class HeadersCapExceededError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'HeadersCapExceededError';
+    this.code = HEADERS_CAP_EXCEEDED_CODE;
+  }
+}
+
 const CACHE_CONTROL_LINE = '  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate';
 
 function escapeRegex(s) {
@@ -74,7 +101,7 @@ export function insertCacheEntry(headersText, slug) {
 
   const ruleCountAfter = countRules(updated);
   if (ruleCountAfter > MAX_HEADERS_RULES) {
-    throw new Error(
+    throw new HeadersCapExceededError(
       `insertCacheEntry: adding "${slug}" would bring the total to ${ruleCountAfter} rules, over Cloudflare Pages' ` +
       `${MAX_HEADERS_RULES}-rule limit -- refusing to write. Prune stale entries (e.g. the dead-BabyLoveGrowth ` +
       `noindex block already in this file) before adding more, or raise MAX_HEADERS_RULES only if Cloudflare's own limit changed.`

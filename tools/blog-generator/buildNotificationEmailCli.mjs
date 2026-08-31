@@ -31,12 +31,12 @@ import {
   buildFailureEmail,
   deriveFailureClassLabel,
   summarizeRejectionFindings,
+  buildFailureDetail,
 } from './notificationEmail.mjs';
 import { buildGateSummaryLine } from './gateSummaryLine.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
 import { hasCacheEntry } from './headersCacheEntry.mjs';
 import { articlePath } from './setPublished.mjs';
-import { buildFailureDetail } from './publishOnMerge.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -104,18 +104,33 @@ function buildForKind(kind) {
   }
 
   if (kind === 'failure') {
-    // --detail-log (2026-08-31, publish-on-merge FIX 2) takes priority
-    // over a literal --detail= string when both are given: it points at a
-    // captured run log (e.g. /tmp/publish-on-merge.log) that
-    // buildFailureDetail() turns into the real detail text, rather than
-    // trusting a hand-written guess frozen into the calling workflow (the
-    // 2026-08-25 red-run notification's mistake -- see README.md's
-    // "Publish-on-merge" decision record). A missing or unreadable log
-    // file reads as "" -- buildFailureDetail's own neutral-message branch,
-    // never a crash here.
+    // Three, deliberately distinct ways to supply detail text, in
+    // precedence order -- never more than one wins:
+    //
+    // --detail-file (2026-08-31, Task 3) -- a file already holding the
+    //   FINAL, fully-decided detail text (e.g. checkGenerateFailureReason
+    //   .mjs's structured-first output) -- read VERBATIM, no reprocessing.
+    //   Multi-line-safe by construction (a file, not a shell argument),
+    //   same reasoning --detail-log below already established.
+    // --detail-log (2026-08-31, publish-on-merge FIX 2) -- a captured RAW
+    //   run log (e.g. /tmp/publish-on-merge.log) that buildFailureDetail()
+    //   turns into detail text, rather than trusting a hand-written guess
+    //   frozen into the calling workflow (the 2026-08-25 red-run
+    //   notification's original mistake -- see README.md's "Publish-on-
+    //   merge" decision record). A missing or unreadable log file reads as
+    //   "" -- buildFailureDetail's own neutral-message branch, never a
+    //   crash here.
+    // --detail -- a literal inline string (legacy/simple callers).
+    const detailFilePath = argValue('detail-file');
     const detailLogPath = argValue('detail-log');
     let detailText = argValue('detail') || null;
-    if (detailLogPath) {
+    if (detailFilePath) {
+      try {
+        detailText = fs.readFileSync(detailFilePath, 'utf8');
+      } catch {
+        detailText = null; // falls through to buildFailureEmail's own neutral fallback
+      }
+    } else if (detailLogPath) {
       let logText = '';
       try {
         logText = fs.readFileSync(detailLogPath, 'utf8');
@@ -126,7 +141,7 @@ function buildForKind(kind) {
     }
 
     // --slug (FIX 3): undefined (flag never passed) -- caller has no slug
-    // concept, line omitted (generate-article.yml's generic failure path).
+    // concept, line omitted (a caller that predates this convention).
     // Present but empty ("") -- caller DOES have a slug concept for this
     // alert but couldn't resolve one; maps to null so buildFailureEmail
     // says so explicitly rather than rendering a blank field.
@@ -138,6 +153,10 @@ function buildForKind(kind) {
       detailText,
       runUrl: argValue('run-url'),
       slug,
+      // --failure-class (Task 4): undefined for any caller that hasn't
+      // been updated to pass one -- buildFailureEmail's own fallback
+      // keeps today's exact subject prefix for those.
+      failureClass: argValue('failure-class'),
     });
   }
 

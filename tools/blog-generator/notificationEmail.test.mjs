@@ -8,7 +8,10 @@ import {
   buildFailureEmail,
   deriveFailureClassLabel,
   summarizeRejectionFindings,
+  buildFailureDetail,
+  MAX_FAILURE_DETAIL_LENGTH,
 } from './notificationEmail.mjs';
+import { HEADERS_CAP_EXCEEDED_CODE } from './headersCacheEntry.mjs';
 
 describe('extractFirstParagraphText', () => {
   test('strips tags and returns the first <p> as plain text', () => {
@@ -210,5 +213,102 @@ describe('buildFailureEmail', () => {
     const { html } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1', slug: null });
     assert.match(html, /could not be determined/i);
     assert.match(html, /before the article was identified/i);
+  });
+
+  // FIX 4 (2026-08-31, notification-hardening pass) -- the subject must
+  // distinguish "no article was produced" from "an article exists but
+  // didn't go live." failureClass is optional; every pre-existing caller
+  // that passes none keeps the exact current subject prefix, unchanged.
+  test('no failureClass -- unchanged default subject prefix (every pre-existing caller)', () => {
+    const { subject } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1' });
+    assert.equal(subject, '🔴 Сбой генерации: x');
+  });
+
+  test('failureClass: "no_article" -- same default prefix (explicit, not just the fallback)', () => {
+    const { subject } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1', failureClass: 'no_article' });
+    assert.equal(subject, '🔴 Сбой генерации: x');
+  });
+
+  test('failureClass: "article_stranded" -- a visibly different subject, not the generic "generation failure" wording', () => {
+    const { subject } = buildFailureEmail({ reason: 'x', detailText: 'y', runUrl: 'https://x/runs/1', failureClass: 'article_stranded' });
+    assert.notEqual(subject, '🔴 Сбой генерации: x');
+    assert.match(subject, /x$/); // reason still appears
+    assert.doesNotMatch(subject, /Сбой генерации/);
+  });
+});
+
+// buildFailureDetail (moved here 2026-08-31, Task 0 of the notification-
+// hardening pass -- was previously in publishOnMerge.mjs, imported from
+// there by buildNotificationEmailCli.mjs. That made the email builder
+// depend on the publish script for something that has nothing to do with
+// publishing; tolerable with one caller, a real inversion the moment
+// generate-article's own failure path needed the same "turn a captured
+// log into detail text, name the _headers cap specifically when it's
+// really there" capability. Lives here instead, beside buildFailureEmail,
+// which is its only real consumer.
+//
+// Task 1 of the same pass: the cap-guard branch used to be
+// `/rule limit/.test(trimmed)` -- a substring match on English prose that
+// would silently stop matching if insertCacheEntry's message was ever
+// reworded, with no test failure to catch it. It now matches
+// HEADERS_CAP_EXCEEDED_CODE, a stable token exported by
+// headersCacheEntry.mjs and printed into the captured log verbatim by
+// publishOnMerge.mjs's catch block (`error_code=${err.code}`) --
+// independent of whatever the error's own message says. The
+// reword-insensitivity test below is the actual proof of that.
+describe('buildFailureDetail — reports what happened, never asserts a cause it does not have', () => {
+  test('a captured log containing the _headers cap-guard error CODE -- names the real, identifiable cause', () => {
+    const log = `[publishOnMerge] FATAL: insertCacheEntry: adding "x" would bring the total to 102 rules, over Cloudflare Pages' 100-rule limit -- refusing to write.\n[publishOnMerge] error_code=${HEADERS_CAP_EXCEEDED_CODE}`;
+    const detail = buildFailureDetail(log);
+    assert.match(detail, /100-rule limit/);
+    assert.match(detail, /_headers/);
+  });
+
+  test('REWORD-INSENSITIVITY (the actual point of Task 1): the cap-guard prose text alone, with NO error_code token, is NOT detected as the cap-guard', () => {
+    // Same human-readable wording insertCacheEntry actually throws today --
+    // deliberately WITHOUT the stable token, simulating exactly the
+    // scenario that broke the old /rule limit/ prose-matching approach: a
+    // message that says the right words but isn't accompanied by the
+    // typed signal. If this test ever fails, detection has regressed back
+    // to matching wording instead of the mechanism.
+    const log = '[publishOnMerge] FATAL: insertCacheEntry: adding "x" would bring the total to 102 rules, over Cloudflare Pages\' 100-rule limit -- refusing to write.';
+    const detail = buildFailureDetail(log);
+    assert.doesNotMatch(detail, /_headers cache-pair insertion hit/);
+    // Falls through to the generic "report the captured text" branch instead.
+    assert.match(detail, /100-rule limit/); // the real captured text is still shown -- just not specially labeled
+  });
+
+  test('a captured log with any other error -- reports the captured text, invents no cause', () => {
+    const log = 'fatal: bad revision \'abc~1\'\n[publishOnMerge] FATAL: [publishOnMerge] git diff failed: Command failed: git diff --name-only --diff-filter=A abc~1 abc -- src/data/generated-articles/\n. Refusing to guess which article this PR added.';
+    const detail = buildFailureDetail(log);
+    assert.match(detail, /bad revision/);
+    assert.doesNotMatch(detail, /100-rule limit/);
+    assert.doesNotMatch(detail, /_headers/i);
+  });
+
+  test('empty/unreadable log -- the neutral message, no cause named', () => {
+    for (const empty of ['', '   \n', null, undefined]) {
+      const detail = buildFailureDetail(empty);
+      assert.equal(detail, 'publish sequence failed after merge; the article is merged on main but published:false -- see the run log.');
+    }
+  });
+
+  // Task 2 -- the old test (`detail.length < 5000` against a 2000-char cap)
+  // passed at 4999 too; it never actually pinned the cap. This asserts the
+  // EXACT resulting length, so a future change to MAX_FAILURE_DETAIL_LENGTH
+  // (in either direction) fails this test instead of sliding silently.
+  test('a very long captured log is truncated to EXACTLY the configured cap plus the truncation prefix -- not merely "shorter than some big number"', () => {
+    const log = 'x'.repeat(5000);
+    const detail = buildFailureDetail(log);
+    const expectedPrefix = '[truncated -- earlier output omitted]\n...\n';
+    assert.equal(detail.length, expectedPrefix.length + MAX_FAILURE_DETAIL_LENGTH, 'length must be pinned to the prefix + the configured cap, exactly');
+    assert.ok(detail.startsWith(expectedPrefix));
+    assert.ok(detail.endsWith('x'.repeat(50)), 'the TAIL of the log must be kept, not the head');
+  });
+
+  test('a log at or under the cap is returned whole, no truncation prefix', () => {
+    const log = 'y'.repeat(MAX_FAILURE_DETAIL_LENGTH);
+    const detail = buildFailureDetail(log);
+    assert.equal(detail, log);
   });
 });

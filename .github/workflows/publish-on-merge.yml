@@ -197,6 +197,7 @@ jobs:
             --reason="publish-on-merge (PR #${{ github.event.pull_request.number }})" \
             --detail-log=/tmp/publish-on-merge.log \
             --slug="${{ steps.publish.outputs.slug }}" \
+            --failure-class=article_stranded \
             --run-url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Notify (email) — red run

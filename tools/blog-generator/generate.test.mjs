@@ -591,6 +591,78 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
 });
 
 // ---------------------------------------------------------------------------
+// Early-exit reports (2026-08-31, Task 3 of the notification-hardening
+// pass). Before this, all three of these paths -- missing
+// ANTHROPIC_API_KEY, missing GITHUB_REPOSITORY, and any fail-closed throw
+// during topic selection (topicAvailability.mjs) -- wrote NO report at
+// all, indistinguishable from a genuinely exhausted topic queue from a
+// workflow step's point of view (checkGenerateFailureReason.mjs, tested
+// separately, needs a real report to tell them apart). Console output and
+// exit codes must stay exactly what they were before this pass -- these
+// tests check both, not just the new report.
+// ---------------------------------------------------------------------------
+describe('main() — early-exit reports (2026-08-31)', () => {
+  test('missing ANTHROPIC_API_KEY: exits 1, writes NO real article, writes a minimal report with outcome missing_api_key', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    process.exitCode = undefined;
+
+    await main({ apiKey: '', repo: 'owner/repo', generatedDir, topicsPath, reportPath });
+
+    assert.equal(process.exitCode, 1);
+    process.exitCode = undefined;
+    assert.equal(fs.existsSync(path.join(generatedDir)), false, 'nothing should be written under generatedDir at all -- generation never started');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'missing_api_key');
+  });
+
+  test('missing GITHUB_REPOSITORY: exits 1 after model verification succeeds, writes a minimal report with outcome missing_repository', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: '', generatedDir, topicsPath, reportPath });
+
+    assert.equal(process.exitCode, 1);
+    process.exitCode = undefined;
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'missing_repository');
+  });
+
+  test('a fail-closed throw during topic selection (topicAvailability\'s own gh/git state gathering): exits 1, writes a report with outcome uncaught_exception and the real captured error message', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
+    process.exitCode = undefined;
+    const throwingExec = () => { throw new Error('[topicAvailability] gh pr list failed: simulated CI outage. Refusing to guess which topics are already attempted.'); };
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: throwingExec });
+
+    assert.equal(process.exitCode, 1);
+    process.exitCode = undefined;
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'uncaught_exception');
+    assert.match(report.errorMessage, /\[topicAvailability\]/);
+    assert.match(report.errorMessage, /simulated CI outage/);
+  });
+
+  test('the queue-exhausted path is UNCHANGED by this pass -- still no report written (detected via captured log text instead, see checkGenerateFailureReason.mjs)', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    // Exhaust the one topic writeIsolatedRepoFixture() seeds by pre-writing
+    // a generated article for it, matching getLocallyAttemptedTopics()'s
+    // own ground-truth check.
+    fs.mkdirSync(generatedDir, { recursive: true });
+    fs.writeFileSync(path.join(generatedDir, 'understanding-hoa-fees.json'), JSON.stringify({ slug: 'understanding-hoa-fees', sourceTopic: 'Understanding HOA Fees' }), 'utf8');
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1);
+    process.exitCode = undefined;
+    assert.equal(fs.existsSync(reportPath), false, 'queue-exhausted must still write no report -- this path is deliberately left as log-only, not structured, per this pass\'s explicit scope');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Self-review internal-link validation (2026-08-12). Real incident: two
 // real runs (PRs #28, #29, 2026-08-09/11) each stripped every internal
 // link from the draft during self-review because selfReview() never

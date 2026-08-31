@@ -35,6 +35,7 @@ import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableT
 import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
 import { computeAllSilent } from './autoPublishGate.mjs';
+import { QUEUE_EXHAUSTED_MARKER } from './queueExhaustedMarker.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -381,22 +382,57 @@ export async function main({
 } = {}) {
   if (!apiKey) {
     console.error('[generate] ANTHROPIC_API_KEY not set. Refusing to run.');
+    // Minimal structured early-exit report (2026-08-31, Task 3 of the
+    // notification-hardening pass) -- without it, this and the other two
+    // early-exit paths runGenerationPipeline's own catch below handles
+    // (missing GITHUB_REPOSITORY, any fail-closed throw during topic
+    // selection) all looked identical to a genuinely exhausted topic queue
+    // from a workflow step's point of view (no report file, non-zero
+    // exit) -- checkGenerateFailureReason.mjs can now tell them apart
+    // instead of guessing. Console output and exit code are unchanged;
+    // this only ADDS a report write.
+    writeReport({ generatedAt: new Date().toISOString(), outcome: 'missing_api_key' }, reportPath);
     process.exitCode = 1;
     return;
   }
 
-  console.log(`[generate] verifying models against live API: writer=${WRITER_MODEL}, reviewer=${REVIEWER_MODEL}...`);
-  await verifyModel(apiKey, WRITER_MODEL);
-  await verifyModel(apiKey, REVIEWER_MODEL);
-  console.log('[generate] both models verified.');
-
-  if (!repo) {
-    console.error('[generate] GITHUB_REPOSITORY not set. Topic selection requires it to check open PR branches — refusing to guess. Run this inside GitHub Actions, or set GITHUB_REPOSITORY=owner/repo explicitly.');
+  try {
+    await runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec });
+  } catch (err) {
+    // ANY throw from runGenerationPipeline (verifyModel, topicAvailability's
+    // own fail-closed gh/git state gathering -- see that module's header
+    // comment -- or anything else) used to propagate all the way to the
+    // bare `main().catch()` at the bottom of this file with no report
+    // written, making it indistinguishable from a genuinely exhausted
+    // topic queue. console.error text and process.exitCode=1 here are
+    // IDENTICAL to what that bottom-of-file catch already printed for
+    // this exact case -- the only change is the added report write.
+    console.error(`[generate] FATAL: ${err.message}`);
+    writeReport({ generatedAt: new Date().toISOString(), outcome: 'uncaught_exception', errorMessage: err.message }, reportPath);
     process.exitCode = 1;
-    return;
   }
+}
 
-  const topics = loadTopics(topicsPath);
+// runGenerationPipeline (2026-08-31, Task 3) -- everything main() used to
+// do inline from model verification through a completed/discarded run, now
+// its own function purely so main() can wrap the whole thing in one
+// try/catch without re-indenting this entire body -- every line below is
+// otherwise byte-identical in behavior, console output, and exit codes to
+// what main() did directly before this pass.
+async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec }) {
+    console.log(`[generate] verifying models against live API: writer=${WRITER_MODEL}, reviewer=${REVIEWER_MODEL}...`);
+    await verifyModel(apiKey, WRITER_MODEL);
+    await verifyModel(apiKey, REVIEWER_MODEL);
+    console.log('[generate] both models verified.');
+
+    if (!repo) {
+      console.error('[generate] GITHUB_REPOSITORY not set. Topic selection requires it to check open PR branches — refusing to guess. Run this inside GitHub Actions, or set GITHUB_REPOSITORY=owner/repo explicitly.');
+      writeReport({ generatedAt: new Date().toISOString(), outcome: 'missing_repository' }, reportPath);
+      process.exitCode = 1;
+      return;
+    }
+
+    const topics = loadTopics(topicsPath);
   console.log('[generate] checking ground truth for already-attempted topics (local generated-articles/ + open generator PR branches)...');
   const locallyAttempted = getLocallyAttemptedTopics(generatedDir);
   const prAttempted = getOpenPrAttemptedTopics({ repo, exec }); // throws (fail-closed) on any failure — never falls back to topics.json state
@@ -419,7 +455,14 @@ export async function main({
     // started) and no PR of either kind opens. The fix is operational
     // (add topics to topics.json), not a prompt or gate problem, so it
     // must never look like either of those in the Actions list.
-    console.error('::error::[generate] QUEUE EXHAUSTED — every topic in topics.json has already been attempted (real article or open rejected-attempt PR). This is not a gate trip and not a bug: add more topics to topics.json. See tools/blog-generator/README.md, "What happens when the queue runs dry."');
+    //
+    // QUEUE_EXHAUSTED_MARKER (2026-08-31, Task 3): this specific sentinel
+    // is what checkGenerateFailureReason.mjs matches against captured log
+    // text to name this exact cause when no report exists to read instead
+    // -- imported, not hand-copied, so the two can never silently drift
+    // apart (see queueExhaustedMarker.mjs's header comment for why it's
+    // its own tiny module).
+    console.error(`::error::[generate] ${QUEUE_EXHAUSTED_MARKER} — every topic in topics.json has already been attempted (real article or open rejected-attempt PR). This is not a gate trip and not a bug: add more topics to topics.json. See tools/blog-generator/README.md, "What happens when the queue runs dry."`);
     process.exitCode = 1;
     return;
   }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildCacheEntryBlock, countRules, hasCacheEntry, insertCacheEntry, MAX_HEADERS_RULES } from './headersCacheEntry.mjs';
+import { buildCacheEntryBlock, countRules, hasCacheEntry, insertCacheEntry, MAX_HEADERS_RULES, HEADERS_CAP_EXCEEDED_CODE, HeadersCapExceededError } from './headersCacheEntry.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REAL_HEADERS_PATH = path.join(__dirname, '..', '..', 'public', '_headers');
@@ -88,6 +88,46 @@ describe('insertCacheEntry', () => {
     const nearLimitHeaders = `${nearLimitLines.join('\n')}\n\n/assets/*\n  Cache-Control: x\n`; // 98 rules + /assets/* = 99
     assert.equal(countRules(nearLimitHeaders), 99);
     assert.throws(() => insertCacheEntry(nearLimitHeaders, 'one-too-many'), /over Cloudflare Pages' 100-rule limit/);
+  });
+
+  // 2026-08-31 (Task 1, notification-hardening pass) -- the cap-guard must
+  // be catchable BY CLASS, not by matching this exact prose. A test that
+  // only asserts the message regex above would still pass after a reword
+  // that silently breaks callers detecting this error downstream (exactly
+  // what happened to buildFailureDetail's original `/rule limit/` check --
+  // see README.md). err.code is the machine-readable identity of this
+  // error; the message stays human-readable but is no longer the contract.
+  test('the cap-guard error is a typed, identifiable failure -- catchable by class and by a stable err.code, independent of message wording', () => {
+    const nearLimitLines = [];
+    for (let i = 0; i < 49; i++) {
+      nearLimitLines.push(`/blog/filler-${i}/\n  Cache-Control: x\n/blog/filler-${i}\n  Cache-Control: x`);
+    }
+    const nearLimitHeaders = `${nearLimitLines.join('\n')}\n\n/assets/*\n  Cache-Control: x\n`;
+    let caught = null;
+    try {
+      insertCacheEntry(nearLimitHeaders, 'one-too-many');
+    } catch (err) {
+      caught = err;
+    }
+    assert.ok(caught, 'expected insertCacheEntry to throw');
+    assert.ok(caught instanceof HeadersCapExceededError, 'expected a HeadersCapExceededError instance');
+    assert.ok(caught instanceof Error, 'must still be a real Error (instanceof Error), not a bespoke non-Error throw');
+    assert.equal(caught.code, HEADERS_CAP_EXCEEDED_CODE);
+  });
+
+  // A DIFFERENT insertCacheEntry failure (the missing-anchor case) must NOT
+  // be mistaken for the cap-guard -- proves the typed check discriminates,
+  // not just "insertCacheEntry threw something".
+  test('a non-cap-guard insertCacheEntry failure does NOT carry the cap-guard code', () => {
+    let caught = null;
+    try {
+      insertCacheEntry('/some/other/path\n  Cache-Control: x\n', 'new-slug');
+    } catch (err) {
+      caught = err;
+    }
+    assert.ok(caught);
+    assert.ok(!(caught instanceof HeadersCapExceededError));
+    assert.notEqual(caught.code, HEADERS_CAP_EXCEEDED_CODE);
   });
 
   test('exactly at the limit (100) is allowed, 101 is not', () => {
