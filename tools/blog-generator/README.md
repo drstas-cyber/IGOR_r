@@ -224,6 +224,47 @@ deliberately no automated or one-command "unblock" path — the same human
 review that would have caught the accidental merge in the first place is
 the right gate on reversing it too.
 
+**This has actually happened twice** (PR #36, 2026-08-25, and PR #41,
+2026-09-01 — both a marker PR tapped Merge instead of Close, the same
+mistake the section above exists to make recoverable), which is why it
+got hardened rather than left as a documented-but-unaddressed risk after
+the second occurrence:
+
+- **PR #41's topic** (How California's Preliminary Change of Ownership
+  Report Works) was released back to the queue — the underlying rejection
+  was Layer 2 flagging the Prop 19 / 2021 date as an "uncited statistic"
+  even though it *was* cited (California Constitution, Article XIII A) and
+  self-review had already verified and kept it; a regenerate may simply
+  pass. The marker file was deleted via a normal `git rm` + push, per the
+  procedure above.
+- **PR #36's topic** (Understanding Mello-Roos Taxes in Temecula Valley
+  Communities) is a separate, still-open decision — its marker remains on
+  `main`, deliberately not touched by the #41 cleanup. Unblocking it (or
+  not) is a decision for whoever reviews that topic next, following the
+  exact same procedure.
+- **Two hardening changes, both 2026-09-01, aimed at the merge itself
+  rather than at the recovery procedure** (recovery was already fine; nothing
+  was catching the mistake *as it happened*):
+  1. The rejected-attempt PR's title changed from "[Blog draft] Rejected
+     generation attempt — topic released if closed unmerged" (read as a
+     status report, easy to skim past on a phone) to "⛔ DO NOT MERGE —
+     close to release topic back to queue" (leads with the warning glyph
+     and the imperative). See generate-article.yml's "Open PR for rejected
+     attempt" step.
+  2. publish-on-merge.yml gained a second job,
+     `notify-marker-merged-by-mistake`, scoped to
+     `blog-generator/rejected-*` branches specifically (the exact
+     complement of the existing `publish` job's `blog-generator/auto-*`
+     scoping) — until this, merging a marker PR triggered *nothing at
+     all*: no publish (correctly — there's no article), but also no signal
+     that the merge was a mistake and the topic was just permanently
+     blocked. The new job sends a "вы смержили маркер — ничего не
+     опубликовано" email naming the topic, the marker file path, and the
+     `git rm` command to reverse it — see `tools/blog-generator/
+     markerMerged.mjs` (identifies which marker file the merge commit
+     added, mirroring `publishOnMerge.mjs`'s own `getMergedArticleSlug()`
+     git-diff approach) and `notificationEmail.mjs`'s `buildMarkerMergedEmail`.
+
 To pull a generated article into the normal build output for local preview:
 
 ```

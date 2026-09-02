@@ -6,6 +6,7 @@ import {
   buildRejectedPrEmail,
   buildPublishedEmail,
   buildFailureEmail,
+  buildMarkerMergedEmail,
   deriveFailureClassLabel,
   summarizeRejectionFindings,
   buildFailureDetail,
@@ -105,6 +106,35 @@ describe('buildPublishedEmail', () => {
     const { html } = buildPublishedEmail({ title: 'x', liveUrl: 'https://temeculavalleyhomes.us/blog/x/', verdictLabel: 'COMPLETE (local)' });
     assert.match(html, /https:\/\/temeculavalleyhomes\.us\/blog\/x\//);
     assert.match(html, /COMPLETE \(local\)/);
+  });
+});
+
+describe('buildMarkerMergedEmail', () => {
+  const base = {
+    topic: "How California's Preliminary Change of Ownership Report Works",
+    markerFilePath: 'src/data/generated-articles/.rejected/how-california-s-preliminary-change-of-ownership-report-works.json',
+    prUrl: 'https://github.com/drstas-cyber/IGOR_r/pull/41',
+  };
+
+  test('subject names the topic and warns nothing was published', () => {
+    const { subject } = buildMarkerMergedEmail(base);
+    assert.match(subject, /Вы смержили маркер/);
+    assert.match(subject, /How California's Preliminary Change of Ownership Report Works/);
+  });
+
+  test('body includes the topic, marker file path, git rm instructions, and the PR link', () => {
+    const { html } = buildMarkerMergedEmail(base);
+    assert.match(html, /How California's Preliminary Change of Ownership Report Works/);
+    assert.match(html, /how-california-s-preliminary-change-of-ownership-report-works\.json/);
+    assert.match(html, /git rm/);
+    assert.match(html, /pull\/41/);
+  });
+
+  test('a missing topic still renders a clean, non-blank body with a fallback note', () => {
+    const { subject, html } = buildMarkerMergedEmail({ topic: null, markerFilePath: null, prUrl: 'https://x/pull/1' });
+    assert.doesNotMatch(subject, /undefined|null/);
+    assert.doesNotMatch(html, /undefined|null/);
+    assert.match(html, /Не удалось определить тему/);
   });
 });
 

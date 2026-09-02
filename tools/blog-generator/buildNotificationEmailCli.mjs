@@ -14,6 +14,7 @@
 //   node buildNotificationEmailCli.mjs --kind=rejected-pr --report=<path> --pr-url=<url>
 //   node buildNotificationEmailCli.mjs --kind=published --slug=<slug> --title=<title>
 //   node buildNotificationEmailCli.mjs --kind=failure --reason=<text> [--detail=<text>] --run-url=<url>
+//   node buildNotificationEmailCli.mjs --kind=marker-merged --topic=<text> --marker-file=<path> --pr-url=<url>
 //
 // Never throws past its own top-level catch -- see main()'s wrapper below.
 // This is a notification convenience feature; a bug here must cost a
@@ -29,6 +30,7 @@ import {
   buildRejectedPrEmail,
   buildPublishedEmail,
   buildFailureEmail,
+  buildMarkerMergedEmail,
   deriveFailureClassLabel,
   summarizeRejectionFindings,
   buildFailureDetail,
@@ -176,7 +178,15 @@ function buildForKind(kind) {
     });
   }
 
-  throw new Error(`unknown --kind="${kind}" (expected article-pr | rejected-pr | published | failure)`);
+  if (kind === 'marker-merged') {
+    return buildMarkerMergedEmail({
+      topic: argValue('topic') || null,
+      markerFilePath: argValue('marker-file') || null,
+      prUrl: argValue('pr-url'),
+    });
+  }
+
+  throw new Error(`unknown --kind="${kind}" (expected article-pr | rejected-pr | published | failure | marker-merged)`);
 }
 
 function writeOutputs({ subject, html }) {
@@ -197,7 +207,7 @@ function writeOutputs({ subject, html }) {
 function main() {
   const kind = argValue('kind');
   if (!kind) {
-    console.error('[buildNotificationEmailCli] usage: node buildNotificationEmailCli.mjs --kind=<article-pr|rejected-pr|published|failure> [...]');
+    console.error('[buildNotificationEmailCli] usage: node buildNotificationEmailCli.mjs --kind=<article-pr|rejected-pr|published|failure|marker-merged> [...]');
     process.exitCode = 1;
     return;
   }

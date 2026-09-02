@@ -215,3 +215,68 @@ jobs:
           html_body: ${{ steps.email_failure.outputs.html_body }}
           smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
           smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+  # notify-marker-merged-by-mistake (2026-09-01, PR #41 incident) — the
+  # `publish` job above is deliberately scoped to `blog-generator/auto-*`
+  # only (see this file's header comment), so a `blog-generator/rejected-*`
+  # marker PR merged by mistake (PR #41, and #36 before it) previously
+  # triggered NOTHING at all here: no publish, no email, nothing to tell a
+  # human the merge just silently mispublished (published nothing) and
+  # permanently blocked its topic (topicAvailability.mjs's stated decision,
+  # see README.md's "Unblocking a topic after an accidentally-merged
+  # rejection"). This job exists purely to close that silent gap. It is a
+  # notification-only job: it never touches the marker file, never
+  # publishes anything, never un-blocks the topic -- recovery stays the
+  # documented manual, reviewed `git rm` of the marker file.
+  notify-marker-merged-by-mistake:
+    name: Notify — a rejection marker PR was merged instead of closed
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'blog-generator/rejected-')
+    steps:
+      # Same fetch-depth: 2 reasoning as the publish job above --
+      # markerMerged.mjs's getMergedMarkerFiles() runs the same
+      # `git diff <merge-sha>~1 <merge-sha>` shape and needs the merge
+      # commit's parent present in the shallow clone.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Non-fatal by construction (markerMerged.mjs's isMain block never
+      # throws past its own try/catch -- see that file's header comment) --
+      # a bug here must cost a less-specific email, never block on the fact
+      # that a mistaken merge already happened and nothing can undo it from
+      # this job anyway.
+      - name: Identify the merged marker file and its topic
+        id: detect_marker
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/markerMerged.mjs --merge-sha="${{ github.event.pull_request.merge_commit_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build email content (marker PR merged by mistake)
+        id: email_marker_merged
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=marker-merged \
+            --topic="${{ steps.detect_marker.outputs.topic }}" \
+            --marker-file="${{ steps.detect_marker.outputs.marker_file }}" \
+            --pr-url="${{ github.event.pull_request.html_url }}"
+
+      - name: Notify (email) — marker PR merged by mistake
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.email_marker_merged.outputs.subject }}
+          html_body: ${{ steps.email_marker_merged.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}

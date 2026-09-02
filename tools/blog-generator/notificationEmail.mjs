@@ -105,6 +105,31 @@ export function buildPublishedEmail({ title, liveUrl, verdictLabel }) {
   return { subject, html: wrapEmailHtml(lines) };
 }
 
+// --- Trigger 5: a rejected-attempt MARKER PR got merged by mistake -------
+// (publish-on-merge.yml's sibling job for `blog-generator/rejected-*`
+// branches, added after PR #41 was merged instead of closed, 2026-09-01).
+// This PR never carried article content — only a marker file (see
+// generate-article.yml's "Open PR for rejected attempt" step) — so there
+// is nothing to publish here. Per topicAvailability.mjs's stated decision,
+// merging it PERMANENTLY blocks the topic (same as a merged real article
+// would); this email exists so that never happens silently. Recovery is
+// manual and deliberate (README.md's "Unblocking a topic" section): delete
+// the named marker file and push that as a normal, reviewed change.
+export function buildMarkerMergedEmail({ topic, markerFilePath, prUrl }) {
+  const subject = `⚠️ Вы смержили маркер отклонения — публикации не было${topic ? `: ${topic}` : ''}`;
+  const lines = [
+    '<p>Эта PR содержала только маркер отклонённой попытки генерации, а не статью — публиковать было нечего.</p>',
+    '<p><strong>Тема теперь заблокирована навсегда</strong> — пока кто-то вручную не удалит файл маркера и не запушит это как обычное изменение.</p>',
+    topic ? `<p><strong>Тема:</strong> ${escapeHtml(topic)}</p>` : '<p><em>Не удалось определить тему автоматически — см. PR.</em></p>',
+    markerFilePath ? `<p><strong>Файл маркера:</strong> <code>${escapeHtml(markerFilePath)}</code></p>` : '',
+    markerFilePath
+      ? `<p>Чтобы освободить тему: <code>git rm ${escapeHtml(markerFilePath)}</code>, закоммитить и запушить в main.</p>`
+      : '<p>Чтобы освободить тему: удалить соответствующий файл маркера из <code>src/data/generated-articles/.rejected/</code>, закоммитить и запушить в main.</p>',
+    linkLine('Смерженный PR', prUrl),
+  ].filter(Boolean);
+  return { subject, html: wrapEmailHtml(lines) };
+}
+
 // FAILURE_CLASS_LABELS mirrors handleTrippedGate()'s own FAILURE_CLASSES
 // set (generate.mjs) plus its 'gate_trip' fallback -- one small, readable
 // Russian label per outcome, not a re-derivation of the classification

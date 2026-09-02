@@ -307,6 +307,20 @@ jobs:
       # itself fails (API error, rate limit, branch-name collision), the
       # job is already red from the generate step -- a failure here adds a
       # second red mark, never turns a trip green.
+      #
+      # TITLE (2026-09-01, PR #41 incident) -- this PR's own Merge button
+      # looks identical to a real-article PR's, and a human tapping it from
+      # a mobile inbox has no other visual cue that this one is a trap: PR
+      # #41 (and #36 before it) were merged by mistake instead of closed.
+      # The old title ("[Blog draft] Rejected generation attempt — topic
+      # released if closed unmerged") read as a status report, not a
+      # warning, and buried the actual instruction in the second half of a
+      # long sentence. Retitled to lead with the warning glyph and the verb
+      # a human actually needs to act on -- see the new
+      # "notify-marker-merged-by-mistake" job in publish-on-merge.yml for
+      # the second half of this hardening (an email if it's merged anyway),
+      # and README.md's "Unblocking a topic after an accidentally-merged
+      # rejection" section for the manual recovery procedure.
       - name: Open PR for rejected attempt (marker only — no article content)
         id: open_pr_rejected
         if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
@@ -315,7 +329,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "blog: record rejected generation attempt (no article content)"
           branch: "blog-generator/rejected-${{ github.run_id }}"
-          title: "[Blog draft] Rejected generation attempt — topic released if closed unmerged"
+          title: "⛔ DO NOT MERGE — close to release topic back to queue"
           body: ${{ steps.report.outputs.body }}
           add-paths: |
             src/data/generated-articles/.rejected/
