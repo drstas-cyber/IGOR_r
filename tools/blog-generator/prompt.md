@@ -150,15 +150,41 @@ something works"), and organized with clear headings a reader can scan.
    frame content as a comparison against another agent or brokerage** (no
    "X vs Y", "alternatives to...", "compared to other agents").
 
-10. **Contact identity is fixed — use these exact details if any are
-   included, and never any other identity information:**
+10. **Every article ends with the closing identity block. This is
+   UNCONDITIONAL — every article, every topic, every register.** That
+   includes dry procedural, administrative, tax, and legal-process topics
+   that feel as though they have no natural place for a contact block.
+   They do; find it. There is no topic for which omitting this block is
+   the correct output.
+
+   The block carries all four of these, verbatim, and never any other
+   identity information:
    - DRE: 02034120
    - Brokerage: Allison James Estates & Homes
    - Phone: 619-277-2766
    - Email: askgeorgek@gmail.com
 
-   If the article doesn't need a contact block, don't invent one. If it does,
-   use only the values above, verbatim.
+   **All four, not a subset.** An article that gives the phone and email
+   but omits the DRE number and the brokerage name is as wrong as one
+   with no block at all — both have actually happened (PR #39 and PR #42,
+   2026-08-29 and 2026-09-03) and both failed the run outright.
+
+   A short closing paragraph under its own heading is the expected shape:
+
+       <h2>About George Khazanovskiy</h2>
+       <p>George Khazanovskiy is a Temecula Valley real estate agent
+       (DRE #02034120) with Allison James Estates &amp; Homes. Reach
+       George at 619-277-2766 or askgeorgek@gmail.com.</p>
+
+   Keep it neutral and unembellished — no tenure, no superlatives, no
+   service claims. Rules 1-3 apply to this block exactly as they apply to
+   the body; "unconditional" governs whether the block is present, never
+   what it is allowed to assert.
+
+   A deterministic gate (`identityCompletenessGate.mjs`) checks that all
+   four elements are present in `content_html` and discards the entire
+   article if any one is missing. It cannot be satisfied by a link to the
+   contact page, by naming the agent, or by any three of the four.
 
 ## Internal linking (Batch B, Part 3, 2026-08-08)
 
@@ -213,14 +239,17 @@ a substitute for actually choosing only from the provided list.
   statistics.
 - Practical, actionable advice framed generally ("buyers should budget for
   inspection costs") rather than tied to unverifiable specifics.
-- A short, neutral author/contact mention using only the fixed identity above
-  — no embellishment.
+- The closing identity block required by rule 10 — short, neutral, no
+  embellishment. Listed here so this section is not misread as an
+  exhaustive list of what may appear; it is **required**, not merely
+  permitted, and rule 10 governs it.
 
 ## Output contract
 
 Produce a complete article: a clear title, semantic HTML body content
 (headings, paragraphs, lists as appropriate — no inline styles, no `<script>`
-tags), a meta description between 70 and 160 characters, a list of relevant
+tags) **ending with the closing identity block required by rule 10**, a meta
+description between 70 and 160 characters, a list of relevant
 keywords, a `citations` array (one entry per inline `data-cite` marker in
 `content_html`, per rules 5–6 above — empty array if the article makes no
 citable claims), an Article JSON-LD object, and an FAQ JSON-LD object ONLY if
@@ -266,6 +295,18 @@ instruction were not the problem; asking this pass to make the judgment
 call at all was. If you think a link is wrong, the correct action is
 nothing: leave it as the draft wrote it and let the deterministic gate
 decide.
+
+**The closing identity block is not yours to remove, trim, or judge
+(2026-09-03).** If the draft ends with the rule-10 block, leave all four
+elements — DRE number, brokerage name, phone, email — exactly as you find
+them. Do not strip one because it reads as redundant, do not replace the
+values with a link to the contact page, and do not "tidy" the block into
+a shorter mention. If the draft is MISSING the block, or carries only
+part of it, that IS a violation you must fix: add the complete block back
+per rule 10, in the shape rule 10 shows, and record it in
+`violations_found`. This is the one identity edit you are asked to make —
+restoring a missing or partial block, never removing or shortening a
+complete one.
 
 <details>
 <summary>Retired 2026-08-12 instruction (kept for history, no longer in

@@ -1011,6 +1011,150 @@ a deliberate human look regardless, specifically to confirm the rescoped
 prompt behaves as intended on real model output before trusting it to
 gate unattended publishing again.
 
+## The identity block was optional in the prompt and mandatory in the gate — root-fixed 2026-09-03
+
+**Trigger: two consecutive rejections on the same topic** (How
+California's Preliminary Change of Ownership Report Works), which invoked
+the standing "diagnose before draw 3" rule:
+
+- **2026-09-01, run `33537219946`, PR #41** — `gate_trip`, Layer 2
+  flagging the Prop 19 / 2021 date as an `uncited_statistic` when it was
+  in fact cited. A false positive; see the Layer 2 FP tally below. The
+  marker PR was tapped Merge by mistake, then cleaned up per the
+  documented procedure, releasing the topic back to the queue.
+- **2026-09-03, run `33782401146`, PR #42** — `identity_incomplete`, all
+  four elements missing from `content_html`. Unrelated to the first
+  rejection.
+
+**The draft's ending cannot be quoted, and that is by design, not a gap in
+this record.** `handleTrippedGate()` writes a marker carrying only the
+findings — never `content_html`, never the title or slug (see its
+identity-withholding comment). No artifact is uploaded and the job log
+prints no article body. So the question "was the block truly absent or
+present-but-unmatched" had to be answered from the gate's own evidence
+rather than from the text:
+
+1. **A formatting false positive is not reachable for three of the four
+   checks.** `findIdentityCompletenessErrors()` matches the brokerage and
+   the email as plain case-insensitive substrings, and the phone by
+   stripping every non-digit from the whole document before a substring
+   test. Only the DRE check is pattern-sensitive (it wants `DRE` adjacent
+   to the number). Three simultaneous substring misses mean the strings
+   were not in the document.
+2. **The two failures have different error counts, and the difference is
+   the diagnosis.** PR #42 flagged all four. PR #39 (2026-08-29, "How
+   Interest Rates Affect Home Affordability for Buyers") flagged exactly
+   two — DRE and brokerage — meaning that draft *did* carry the phone and
+   email. Its self-review log even discusses reformatting the email. One
+   draft wrote no block; the other wrote a partial one.
+
+**Root cause — the prompt and the gate disagreed, and the writer was
+following the prompt.** `prompt.md` rule 10 read: *"Contact identity is
+fixed — use these exact details **if any are included**"*, closing with
+*"If the article doesn't need a contact block, don't invent one."* The
+"What's fine and encouraged" section listed the contact mention as
+encouraged, and the Output contract never mentioned it at all. Nothing in
+the prompt ever required the block. `identityCompletenessGate.mjs`, added
+2026-08-25 after PR #35, has been fail-closed on all four elements since.
+Between those two dates the pipeline was running on luck: articles passed
+when the writer happened to include a full block, and were discarded when
+it exercised the discretion the prompt explicitly granted it.
+
+**This is not a topic-fit problem, and retiring the PCOR topic would have
+fixed nothing.** The register hypothesis (a dry administrative topic
+pushes the writer off template) does not survive PR #39: "How Interest
+Rates Affect Home Affordability for Buyers" is an ordinary consumer
+topic, and it failed the same gate five days earlier. The variable was the
+prompt's own permission, not the subject matter. Retiring PCOR would have
+left the contradiction in place for the many procedural and
+disclosure-shaped topics still in `topics.json` — including the very next
+one in queue order (Riverside County's Documentary Transfer Tax).
+
+**Fix — `prompt.md`, four coordinated edits:**
+
+1. **Rule 10 rewritten as unconditional.** Every article, every topic,
+   every register; the dry-procedural case named explicitly as still
+   requiring it; all four elements, "not a subset," with PR #39's partial
+   block called out by name as a failure; the expected HTML shape shown;
+   the deterministic gate named as the consequence. The two retired
+   sentences that granted the discretion are gone.
+2. **"What's fine and encouraged"** no longer lists the block as
+   encouraged — it points at rule 10 and says required.
+3. **The Output contract** now names the closing identity block as part of
+   the required body content.
+4. **Self-review instructions** gained an identity-block paragraph modeled
+   on the internal-links one (2026-08-31): leave a complete block exactly
+   as found, never trim it or substitute a contact-page link for it, and
+   **restore** a missing or partial one as a `violations_found` fix. This
+   pass has a documented history of stripping things it was not asked to
+   judge (PR #32: six links, PR #38: nine), so the instruction is explicit
+   in both directions rather than assumed.
+
+**Regression guard:** three tests in `identityCompletenessGate.test.mjs`
+assert the prompt/gate agreement directly — that rule 10 says
+UNCONDITIONAL, that neither retired sentence comes back, that all four
+literal values and the "All four, not a subset" line are present, and that
+self-review carries the do-not-remove instruction. **Mutation-checked, not
+assumed:** all three patterns were run against the pre-fix rule-10 text
+and all three fail on it.
+
+**What this fix does NOT prove.** No live `ANTHROPIC_API_KEY` was
+available in this session, so the writer model has not been run against
+the new prompt. Same limit as the 2026-08-03 `competitor_mention` fix: the
+tests prove the prompt's stated contract, never the model's real behavior
+on a live call. That is what the acceptance read below is for.
+
+**Acceptance check (standing rule invoked): `prompt.md` changed, so the
+next article this pipeline generates gets a full manual read, end to end,
+before merging, regardless of what the gates or `allSilent` say.** See
+"Any prompt.md change requires re-running the acceptance discipline"
+above.
+
+**Queue action.** PR #42 was closed unmerged (releasing the topic, per the
+symmetric rule above) and the PCOR topic was moved from index 21 to the
+end of `topics.json`. `pickNextAvailableTopic()` is first-available in
+array order, so leaving it in place would have handed the same topic to
+the next cron firing while the fix was still unproven. The topic is
+**not** retired — it is queued behind everything else so that the first
+real test of the new prompt happens on a fresh topic, and PCOR gets its
+third draw only after the fix has a track record. No marker was committed
+to `main`, so nothing blocks it permanently.
+
+**Still open, same root cause: PR #39 (2026-08-29) is still open** and its
+topic ("How Interest Rates Affect Home Affordability for Buyers") is
+therefore still spoken for. It was rejected for the partial identity block
+described above — a failure the fixed prompt addresses directly. Closing
+it unmerged releases the topic for a clean re-draw under the new rules;
+that is a one-click owner decision, deliberately not taken here.
+
+## Layer 2 false-positive tally (running record, opened 2026-09-03)
+
+Layer 1 has a measured hit rate on this writer's output (see "Layer 1's
+real-world hit rate" above, which drove the demotion of two
+subcategories). Layer 2 had no equivalent running record — its false
+positives were each written up in their own section and never counted
+against each other. This tally is that record. **It exists to answer one
+question with evidence rather than impression: does any Layer 2 check have
+poor enough precision on this writer's output to justify the same
+treatment Layer 1's `exclusivity:*` subcategories got?** Two entries is not
+yet an answer; the point is to stop losing the data.
+
+Entries are back-filled from the write-ups that already exist in this
+file, so the count starts complete rather than starting at today.
+
+| # | Date | Run / PR | Check | Flagged text (abbreviated) | Verdict | Outcome |
+|---|---|---|---|---|---|---|
+| 1 | 2026-08-03 | `30831867535` / PR #23 | `competitor_mention` | "...new construction in growing communities like Sommers Bend and Heirloom Farms..." | **False positive** — neighborhood/master-planned-community names read as competing businesses | Draft discarded; check rescoped in `llmClaimGate.mjs` (see section above) |
+| 2 | 2026-09-01 | `33537219946` / PR #41 | `uncited_statistic` | The Proposition 19 / 2021 date | **False positive** — the date *was* cited (California Constitution, Article XIII A) and self-review had already verified and kept it | Draft discarded; topic released after the marker PR's accidental merge was cleaned up. **No code change** — a single occurrence on a check whose strictness is wanted; recorded here for the tally, not acted on |
+
+**Standing rule for this tally:** log every Layer 2 trip that a human
+judges to be a false positive, including ones where the decision is to
+change nothing. A rescope or demotion needs a *pattern* — the Layer 1
+precedent required five distinct false-positive shapes across four
+consecutive draws before anything was demoted, and that bar applies here
+too. One entry against a check is a data point, never grounds to loosen
+it: Layer 2 is the layer that has produced this pipeline's real catches.
+
 ## Acceptance discipline for the rollout itself
 
 **The first THREE articles this pipeline ever produces get a full manual
