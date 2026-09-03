@@ -403,6 +403,74 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
 // against the current working tree.
 // ---------------------------------------------------------------------------
 
+// GAP CLOSED 2026-09-03 ("no unfired paths" hardening order, path GEN-02).
+// Layer 1's TRIP path had no end-to-end forcing test through main() -- only
+// a handleTrippedGate() unit test fed a synthetic report with
+// layer1.tripped preset to true. Layers 2 and 3 both had real end-to-end
+// trips; Layer 1's was believed, not forced. The distinction matters
+// because Layer 1 is the only layer whose trip decision runs through
+// GENERATOR_LOG_ONLY_FINDING_KEYS demotion -- a wiring mistake there (e.g.
+// passing the demotion set where it shouldn't be, or dropping it) makes
+// this layer silently stop gating, and nothing downstream would notice.
+// The fixture uses a `tenure` finding specifically: it is an ENFORCE
+// category, never one of the two demoted exclusivity subcategories, so
+// this test fails if the demotion set ever widens to swallow it.
+describe('main() — Layer 1 regex-scanner trip, full path (2026-09-03, gap closed)', () => {
+  test('a Layer 1 tenure finding trips the gate end-to-end: exits non-zero, writes no article, writes a marker carrying the layer1 finding', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    // Layer 2 stays deliberately CLEAN -- this isolates Layer 1 as the sole
+    // cause of the trip, so a green Layer 2 can never be what's actually
+    // carrying this test.
+    mockAnthropicRouter({
+      checklist: CLEAN_CHECKLIST,
+      extraContentHtml: ' George has spent over a decade helping buyers in Temecula.',
+    });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.equal(process.exitCode, 1, 'a Layer 1 trip must exit non-zero');
+    process.exitCode = undefined;
+
+    const topLevelFiles = fs.existsSync(generatedDir)
+      ? fs.readdirSync(generatedDir).filter((f) => f !== '.rejected')
+      : [];
+    assert.deepEqual(topLevelFiles, [], 'no real article file may be written when Layer 1 trips');
+
+    const rejectedDir = path.join(generatedDir, '.rejected');
+    assert.ok(fs.existsSync(rejectedDir), 'a rejected-attempt marker must be written');
+    const markerFiles = fs.readdirSync(rejectedDir);
+    assert.equal(markerFiles.length, 1);
+    const marker = JSON.parse(fs.readFileSync(path.join(rejectedDir, markerFiles[0]), 'utf8'));
+    assert.equal(marker.failureClass, 'gate_trip');
+    assert.equal(marker.layer1.tripped, true, 'the marker must record Layer 1 as the tripping layer');
+    assert.equal(marker.layer2.tripped, false, 'Layer 2 must be clean -- Layer 1 alone caused this');
+    assert.ok(
+      marker.layer1.findings.some((f) => f.category === 'tenure'),
+      `expected a tenure finding, got: ${JSON.stringify(marker.layer1.findings)}`,
+    );
+    assert.equal('title' in marker, false, 'identity-withholding rule applies to a Layer 1 trip too');
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'skipped');
+    assert.equal(report.layer1.tripped, true);
+  });
+
+  test('the same fixture WITHOUT the tenure sentence generates normally -- proving the sentence is what trips it, not the harness', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
+    process.exitCode = undefined;
+
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+
+    assert.notEqual(process.exitCode, 1, 'the control run must NOT trip');
+    process.exitCode = undefined;
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.outcome, 'generated');
+    assert.equal(report.layer1.tripped, false);
+  });
+});
+
 describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
   test('both gates pass but schema validation fails: exits non-zero, writes no real article, DOES write a rejected marker, marker carries failureClass + schemaErrors, report withholds article identity', async () => {
     const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();

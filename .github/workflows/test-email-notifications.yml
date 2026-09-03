@@ -29,6 +29,7 @@ on:
           - rejected-pr
           - published
           - failure
+          - marker-merged
           - checkgen-structured
           - checkgen-log
           - checkgen-log-ambiguous
@@ -39,12 +40,12 @@ jobs:
     name: Build + send test email(s)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
@@ -181,6 +182,30 @@ jobs:
       # happens, but isolated paths cost nothing and rule it out by
       # construction anyway).
       # ----------------------------------------------------------------
+      # marker-merged (added 2026-09-03, "no unfired paths" hardening order,
+      # path EM-08). This was the ONE email template with no drill kind
+      # here at all -- the only proof it rendered was its unit test, while
+      # its calling job (publish-on-merge.yml's
+      # notify-marker-merged-by-mistake) has never executed its body in
+      # production either. Two unfired layers stacked on the same path.
+      # pipeline-drill.yml exercises this same template weekly from a REAL
+      # git detection; this step is the on-demand version.
+      - name: Build + send — marker-merged
+        if: github.event.inputs.kind == 'marker-merged' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        id: marker_merged
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs             --kind=marker-merged             --topic="[ТЕСТ] Пример темы отклонённой попытки"             --marker-file="src/data/generated-articles/.rejected/test-fixture.json"             --pr-url=https://github.com/drstas-cyber/IGOR_r/pull/0
+      - name: Notify (email) — test marker-merged
+        if: github.event.inputs.kind == 'marker-merged' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ] ${{ steps.marker_merged.outputs.subject }}"
+          html_body: ${{ steps.marker_merged.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
       - name: Fixture + check — checkgen-structured (precedence 1)
         if: github.event.inputs.kind == 'checkgen-structured' || github.event.inputs.kind == 'all' || github.event.inputs.kind == ''
         continue-on-error: true

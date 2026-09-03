@@ -1155,6 +1155,393 @@ consecutive draws before anything was demoted, and that bar applies here
 too. One entry against a check is a data point, never grounds to loosen
 it: Layer 2 is the layer that has produced this pipeline's real catches.
 
+## NO UNFIRED PATHS — the standing standard, 2026-09-03
+
+This section supersedes incident-driven patching as this pipeline's
+hardening model. The old model was: something breaks in production, we fix
+that thing, we write down why. It produced a genuinely well-tested system
+with a specific blind spot — **every guard was written after the incident
+it guards against, so any path that had not yet failed had nothing
+watching it.** Two of those bit within four days of each other:
+
+- **2026-08-31, publish-on-merge (run 33363712388).** A `fetch-depth: 1`
+  checkout left `git diff <sha>~1 <sha>` with no parent to resolve, so the
+  workflow threw on the first real merge it ever saw. Every unit test
+  passed — they all inject `exec` and never run git.
+- **2026-09-03, prompt rule 10.** `identityCompletenessGate.mjs` was
+  fail-closed on all four identity elements from 2026-08-25 while
+  `prompt.md` said the block was optional. Two topics burned before anyone
+  looked at the pair rather than at the drafts.
+
+Neither was a hard bug. Both were code that had only ever been reasoned
+about. The standard is now:
+
+> **Every path through the pipeline has something that executes it, and
+> anything that cannot be executed has a watchdog that detects its
+> failure. Nothing is "believed."**
+
+### Where the table lives, and why it is not in this file
+
+The authoritative enumeration is **`tools/blog-generator/pipelinePaths.mjs`** —
+data, not prose. The tables below are generated from it by
+`node tools/blog-generator/renderPathTable.mjs`; do not hand-edit them here.
+
+A markdown table maintained by hand rots silently, which is the exact
+failure mode this whole section exists to retire.
+`pipelinePaths.test.mjs` makes rot a red test instead:
+
+1. **Structural** — every row has an id, a category, and *exactly one* of
+   `forcing` or `watchdog`. A row with neither is an unfired path hiding
+   in the table, and the test says so in those words.
+2. **The forcing test really exists** — every `forcing.test` string is
+   searched for in the file `forcing.file` names. A renamed or deleted
+   test cannot leave a row claiming coverage it no longer has.
+3. **Coverage against real source** — every `report.outcome = '...'`
+   literal in `generate.mjs`, every early-exit `outcome:`, every
+   `kind === '...'` branch in `buildNotificationEmailCli.mjs`, and every
+   entry in `handleTrippedGate()`'s `FAILURE_CLASSES` must appear in the
+   table. **Add a branch to the code without enumerating it and the suite
+   goes red.** This is the one that matters — the other two keep the table
+   honest about what it already claims; this one stops the pipeline
+   quietly growing a new unfired path six months from now.
+
+There is also a deliberate tripwire: a test asserts the unforceable set is
+*exactly* `HUM-05, CRON-02, CRON-03, CRON-05`. If that set changes, it is
+either real progress (something became forceable) or a regression
+(something forced became unforceable), and either way it must be a
+decision someone made, not a drift someone allowed.
+
+### Proof kinds are not interchangeable
+
+`forcing.kind` records what kind of proof exists, in descending strength:
+
+| Kind | What it means |
+|---|---|
+| `e2e` | Runs `main()` for real against a mocked API. Strongest available offline. |
+| `unit` | Pure function, injected dependencies. |
+| `drill` | A real workflow run against fixtures — real git, real SMTP. |
+| `static` | Asserts workflow YAML text. **Not proof of execution.** |
+| `observed` | Ran in production on a real date; cannot be re-run on demand. |
+
+Two rows are `static` only — `PUB-06` (the fetch-depth guard) and `EM-10`
+(the no-SMTP-secrets no-op) — and both carry a mandatory `STATIC ONLY`
+note saying what does *not* get executed and what covers it instead. A
+test enforces that note exists. "Has a test" and "is executed" are
+different claims and this table refuses to blur them.
+
+### The table
+
+<!-- GENERATED — edit pipelinePaths.mjs, then re-run renderPathTable.mjs -->
+
+**54 paths enumerated. 50 have something that executes them. 4 cannot be forced and have watchdogs instead.**
+
+Weakest-proof rows (`static` — asserts text, does not execute): PUB-06, EM-10.
+Unforceable rows: HUM-05, CRON-02, CRON-03, CRON-05.
+Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
+
+| # | Path | Forced by | Kind | Last observed |
+|---|---|---|---|---|
+| | **Generation outcomes** | | | |
+| GEN-01 | Clean run — both gates pass, article written, outcome "generated" | a clean run (both gates pass) exits zero and writes a real article, no rejected marker | `e2e` | 2026-09-03 |
+| GEN-02 | Layer 1 regex scanner trips (enforce category) — draft discarded [^GEN-02] | a Layer 1 tenure finding trips the gate end-to-end | `e2e` | 2026-09-03 |
+| GEN-03 | Layer 2 independent LLM claim review trips — draft discarded | a Layer 2 trip exits non-zero, writes no real article file, and DOES write a rejected marker | `e2e` | 2026-09-03 |
+| GEN-04 | Layer 3 citation resolution — FAILED (dead link) trips | a citation that 404s trips the gate | `e2e` | 2026-09-03 |
+| GEN-05 | Layer 3 — RESOLVED_UNSUPPORTED (URL resolves, cited content absent) trips | a citation that resolves 200 but fails body verification trips the gate as RESOLVED_UNSUPPORTED | `e2e` | 2026-09-03 |
+| GEN-06 | Layer 3 — inconclusive (403 bot-block) does NOT trip, host logged | a citation that 403s does NOT trip | `e2e` | 2026-09-03 |
+| GEN-07 | Schema validation fails — draft discarded | both gates pass but schema validation fails | `e2e` | 2026-09-03 |
+| GEN-08 | Internal-link gate fails (hallucinated URL) — draft discarded | an invented internal link discards the run | `e2e` | 2026-09-03 |
+| GEN-09 | Identity-completeness gate fails — draft discarded | a draft missing the identity block discards the run | `e2e` | 2026-09-03 |
+| GEN-10 | Topic queue exhausted — no report written, ::error:: sentinel in the log | the queue-exhausted path is UNCHANGED by this pass | `e2e` | 2026-09-03 |
+| GEN-11 | Early exit — ANTHROPIC_API_KEY missing | missing ANTHROPIC_API_KEY: exits 1 | `e2e` | 2026-09-03 |
+| GEN-12 | Early exit — GITHUB_REPOSITORY missing | missing GITHUB_REPOSITORY: exits 1 | `e2e` | 2026-09-03 |
+| GEN-13 | Uncaught exception during topic selection — try/catch boundary writes a report | a fail-closed throw during topic selection | `e2e` | 2026-09-03 |
+| GEN-14 | Self-review over-strips a valid internal link — deterministic restore backstop fires | self-review wrongly strips a valid known-route link | `e2e` | 2026-09-03 |
+| GEN-15 | Layer 1 log-only demotion — an uncited-claim candidate is reported but does NOT trip | an uncited number appears in the report but does NOT trip the gate | `e2e` | 2026-09-03 |
+| GEN-16 | Self-review receives no Known-live-routes list (2026-08-31 root fix holds) | the self-review request never offers a "Known live routes" list | `e2e` | 2026-09-03 |
+| | **Topic selection** | | | |
+| TOP-01 | A real article file on main marks its topic attempted | a real generated-article file with sourceTopic is included | `unit` | 2026-09-03 |
+| TOP-02 | A rejected marker on main blocks its topic permanently | a rejected-attempt marker under .rejected/ is included too | `unit` | 2026-09-03 |
+| TOP-03 | gh pr list failure is fail-closed — throws rather than guessing the queue is empty | gh pr list failure THROWS, does not silently return empty | `unit` | 2026-09-03 |
+| | **PR opening** | | | |
+| PR-01 | Article PR opens (has_new_article=true path in generate-article.yml) [^PR-01] | Open PR with the generated article | `observed` | 2026-08-31 |
+| PR-02 | Rejected-marker PR opens (has_rejected_marker=true path) [^PR-02] | Open PR for rejected attempt | `observed` | 2026-09-03 |
+| PR-03 | checkRejectedMarker three-state: marker present -> "true" | directory exists with a new untracked marker file -> "true" | `unit` | 2026-09-03 |
+| PR-04 | checkRejectedMarker three-state: no marker -> "false" | directory exists but genuinely has no new untracked files -> "false" | `unit` | 2026-09-03 |
+| PR-05 | checkRejectedMarker three-state: directory absent -> "unknown", never a confident false | directory does not exist at all -> "unknown" | `unit` | 2026-09-03 |
+| | **Human actions** | | | |
+| HUM-01 | Human MERGES an article PR -> publish-on-merge publish job runs [^HUM-01] | Publish the merged article | `observed` | 2026-08-31 |
+| HUM-02 | Human CLOSES an article PR unmerged -> topic released, no workflow body runs [^HUM-02] | gh pr list failure THROWS, does not silently return empty | `unit` | 2026-09-03 |
+| HUM-03 | Human MERGES a rejection marker PR by mistake -> notify-marker-merged-by-mistake fires [^HUM-03] | marker-merged | `drill` | never (see note) |
+| HUM-04 | Human CLOSES a rejection marker PR -> both publish-on-merge jobs skip, topic released [^HUM-04] | Notify — a rejection marker PR was merged instead of closed | `observed` | 2026-09-03 |
+| HUM-05 | Human IGNORES a PR — it goes stale and silently holds its topic hostage [^HUM-05] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | n/a — this is a non-event, it cannot be forced |
+| | **Publish-on-merge** | | | |
+| PUB-01 | Publish success — flips published:true, inserts the _headers cache pair | a not-yet-published article: flips published:true and inserts the _headers pair | `unit` | 2026-09-03 |
+| PUB-02 | Idempotent re-run — already fully published, clean no-op, writes nothing | an ALREADY fully-published article | `unit` | 2026-09-03 |
+| PUB-03 | Slug ambiguity (zero or two added article files) — throws, refuses to guess | two added article files -> throws, refuses to guess which one | `unit` | 2026-09-03 |
+| PUB-04 | git diff itself fails — throws, no slug, failure email says so instead of naming one | onSlugKnown never fires when slug resolution itself fails | `unit` | 2026-09-03 |
+| PUB-05 | _headers 100-rule cap-guard trips — propagates, article stranded merged-but-unpublished | the _headers 100-rule cap-guard failure propagates as a real thrown error | `unit` | 2026-09-03 |
+| PUB-06 | Checkout is not shallow — the 2026-08-31 fetch-depth regression cannot return [^PUB-06] | the checkout step declares an explicit fetch-depth of 0 or >= 2 | `static` | 2026-09-03 |
+| | **Emails** | | | |
+| EM-01 | article-pr email | article-pr | `drill` | 2026-08-31 |
+| EM-02 | rejected-pr email | rejected-pr | `drill` | 2026-08-31 |
+| EM-03 | published email | published | `drill` | 2026-08-31 |
+| EM-04 | failure email — precedence 1, structured report | checkgen-structured | `drill` | 2026-08-31 |
+| EM-05 | failure email — precedence 2, captured log with the queue-exhausted sentinel | checkgen-log | `drill` | 2026-08-31 |
+| EM-06 | failure email — precedence 2, log with no recognized signal (cause not pinned down) | checkgen-log-ambiguous | `drill` | 2026-08-31 |
+| EM-07 | failure email — precedence 3, neutral (no report, no log) | checkgen-neutral | `drill` | 2026-08-31 |
+| EM-08 | marker-merged email — "you merged a marker, nothing was published" [^EM-08] | marker-merged | `drill` | 2026-09-03 |
+| EM-09 | publish-on-merge red-run email — reads the real captured log, never a hardcoded guess | buildFailureDetail | `unit` | 2026-09-03 |
+| EM-10 | No SMTP secrets configured — clean no-op with a log line, never a failure [^EM-10] | skipping email notification (clean no-op, not a failure) | `static` | 2026-09-03 |
+| | **Cron** | | | |
+| CRON-01 | generate-article cron fires on schedule (odd days, 13:23 UTC) [^CRON-01] | cron: '23 13 */2 * *' | `observed` | 2026-09-03 |
+| CRON-02 | generate-article cron fires LATE (GitHub scheduler backlog) [^CRON-02] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | 2026-08-03 (2h22m late — the worst observed) |
+| CRON-03 | generate-article cron is DROPPED entirely (GitHub silently skips the firing) [^CRON-03] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | n/a — cannot be forced, GitHub owns the scheduler |
+| CRON-04 | weekly-retro cron fires on schedule (Mondays) [^CRON-04] | schedule | `observed` | 2026-08-31 |
+| CRON-05 | weekly-retro cron is DROPPED (no Monday audit, no signal) | watchdog: `cron-watchdog` | ⚠️ **unforceable** | n/a — cannot be forced |
+| | **Weekly retro** | | | |
+| RETRO-01 | Retro verdict CLEAR — nothing found | nothing found -> CLEAR, zero reasons | `unit` | 2026-09-03 |
+| RETRO-02 | Retro verdict NEEDS-FIX — a demoted/inconclusive finding only | only a log-only (demoted) prohibited claim -> NEEDS-FIX, not REJECT | `unit` | 2026-09-03 |
+| RETRO-03 | Retro verdict REJECT — a hard finding (missing identity, dead citation, incomplete publish) | a missing identity element -> REJECT | `unit` | 2026-09-03 |
+| RETRO-04 | Retro worst-of aggregation — REJECT beats NEEDS-FIX beats CLEAR across articles | overall verdict is the worst of any single article | `unit` | 2026-09-03 |
+
+[^GEN-02]: GAP CLOSED 2026-09-03. Previously believed-only: Layer 1 trips were exercised solely by feeding handleTrippedGate() a synthetic report with layer1.tripped preset. Layers 2 and 3 both already had real end-to-end trips.
+[^PR-01]: Real production run 33428265910 -> PR #40. Also exercised by the weekly drill (DRILL-01).
+[^PR-02]: Real production run 33782401146 -> PR #42.
+[^HUM-01]: Run 33429714215, PR #40 -> commit 182b732. Also drilled weekly (DRILL-02).
+[^HUM-02]: The release itself is the absence of the closed PR from `gh pr list --state open`; the workflow inertness is shared with HUM-04, observed live 2026-09-03.
+[^HUM-03]: UNFIRED IN PRODUCTION. The job was added 2026-09-01 in commit 05ec104, AFTER the only real mistaken merge (PR #41, the same day) — so its body has never executed, only its skip condition. This is the exact class of the 2026-08-31 fetch-depth bug. Now drilled.
+[^HUM-04]: Run 33810731565 (my close of PR #42): both jobs skipped, confirming the close path is inert by construction.
+[^HUM-05]: REAL, CURRENT INSTANCE: PR #39 sat open from 2026-08-29 holding its topic out of the queue with zero signal. Nothing in the pipeline noticed for five days.
+[^PUB-06]: STATIC ONLY — asserts YAML text, does not execute the checkout. The executing proof is HUM-01 (observed) and DRILL-02.
+[^EM-08]: GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production.
+[^EM-10]: STATIC ONLY — the secrets are present in this repo, so the no-op branch cannot be forced without removing them. Detection story: its absence would show as a failing notify step, which every call site already wraps in continue-on-error.
+[^CRON-01]: 16 of the last 30 runs were schedule-triggered; typical delay 14-25 min.
+[^CRON-02]: Not forceable: GitHub decides. Tolerated up to the watchdog window, alerted past it.
+[^CRON-03]: The whole reason the watchdog exists. Before it, a dropped cron produced no run, no PR, no email, and no signal of any kind.
+[^CRON-04]: Fired exactly once by schedule since creation (run 33437191369), 5h39m late against a :00 cron — the same hour-boundary contention generate-article was moved off on 2026-08-31. Minute moved off :00 in this pass for the same reason.
+
+### Prompt↔gate consistency audit
+
+Item 3 of the order, and the direct generalisation of the rule-10 defect.
+The bug class: **a gate is fail-closed on a condition, and `prompt.md`
+states the same rule conditionally — or not at all.** The writer follows
+the prompt, the gate discards the result, and it looks like a
+model-quality problem for as long as nobody thinks to compare the two.
+
+The drift is invisible from either side alone. The gate's own tests pass
+(it correctly rejects bad input). The prompt reads sensibly (it says
+something reasonable). Only the *pair* is wrong.
+
+`tools/blog-generator/promptGatePairs.mjs` holds the audit;
+`promptGatePairs.test.mjs` enforces it against the real `prompt.md` in
+both directions:
+
+- every `promptAnchor` must be **present** — the rule is still stated;
+- every `forbidden` string must be **absent** — a retired formulation
+  cannot come back. PGP-01 freezes both sentences that caused the
+  2026-09-03 incident, and they were mutation-checked against the pre-fix
+  text, so that test genuinely fails against the prompt as it stood that
+  morning.
+
+A further test asserts every fail-closed gate module in the directory is
+represented by at least one pair — guarding against the audit going stale
+by omission, which is exactly how the rule-10 gap opened
+(`identityCompletenessGate.mjs` landed with no prompt-side review of
+whether `prompt.md` agreed with it).
+
+| # | Fail-closed gate | prompt.md rule | Consistent? |
+|---|---|---|---|
+| PGP-01 | identityCompletenessGate.mjs — all four identity elements (DRE, brokerage, phone, email) present in content_html [^PGP-01] | Rule 10 — closing identity block<br>`UNCONDITIONAL…` | ✅ yes |
+| PGP-02 | identityCompletenessGate.mjs — the block must be COMPLETE, not partial (all four, any three fails) [^PGP-02] | Rule 10 — "All four, not a subset"<br>`All four, not a subset…` | ✅ yes |
+| PGP-03 | internalLinkGate.mjs — every internal href must exactly match a Known live route [^PGP-03] | Internal linking — "Rules for these links, no exceptions"<br>`Rules for these links, no exceptions…` | ✅ yes |
+| PGP-04 | schema.js getCitationHostPolicyErrors — citation host must be on the closed allowlist [^PGP-04] | Rule 6 — closed host list<br>`Cite only from this exact, closed list of hosts …` | ✅ yes |
+| PGP-05 | schema.js getCitationHostPolicyErrors — sourceType must be valid FOR that host [^PGP-05] | Rule 6 — sourceType/host pairing<br>`pairing and will reject a mismatch even when the…` | ✅ yes |
+| PGP-06 | schema.js — a citation URL that is a bare host root is rejected | Rule 6 — cite the specific page, never a homepage<br>`Cite the specific page that carries the fact, ne…` | ✅ yes |
+| PGP-07 | schema.js — citation URL must never be the competitor domain [^PGP-07] | Rule 7 — never cite temeculavalleyhomes.com<br>`under any    circumstances.**…` | ✅ yes |
+| PGP-08 | schema.js getCitationConsistencyErrors — every data-cite marker has an entry and vice versa | Rule 5 — marker/entry pairing<br>`place an inline marker immediately after the cla…` | ✅ yes |
+| PGP-09 | schema.js — citations may be empty, but never a placeholder/invented entry [^PGP-09] | Rule 5 — zero citations is a valid output<br>`never a placeholder or invented entry with nothi…` | ✅ yes |
+| PGP-10 | schema.js — meta_description length bounds (70-160) | Output contract<br>`a meta description between 70 and 160 characters…` | ✅ yes |
+| PGP-11 | schema.js — sourceTopic must be present (topicAvailability ground truth depends on it) [^PGP-11] | (none — assembled by generate.mjs, never by the model)<br>_(none — see note)_ | ✅ yes |
+| PGP-12 | llmClaimGate.mjs (Layer 2) tenure_claim + Layer 1 tenure category | Rule 1 — never a tenure claim<br>`Never make any tenure or years-of-experience cla…` | ✅ yes |
+| PGP-13 | llmClaimGate.mjs uniqueness_claim (Layer 1 exclusivity is DEMOTED to log-only for this writer) [^PGP-13] | Rule 2 — never a uniqueness/superlative claim<br>`Never make any uniqueness or superlative claim a…` | ✅ yes |
+| PGP-14 | llmClaimGate.mjs review_rating_claim + Layer 1 reviews-ratings category | Rule 3 — never invent a review/rating/client count<br>`Never invent a review, rating, star count, clien…` | ✅ yes |
+| PGP-15 | llmClaimGate.mjs uncited_statistic [^PGP-15] | Rule 4 — cite the number or omit it, never hedge<br>`must EITHER carry a citation OR be omitted entir…` | ✅ yes |
+| PGP-16 | llmClaimGate.mjs competitor_mention (rescoped 2026-08-03) | Rule 9 — never name or reference a competitor<br>`Never name or reference a competitor…` | ✅ yes |
+| PGP-17 | llmClaimGate.mjs legal_duty_overstated | Rule 8 — state a legal duty no more strongly than the source does<br>`State a legal duty, requirement, or obligation n…` | ✅ yes |
+| PGP-18 | llmClaimGate.mjs contact_mismatch + Layer 1 wrong-dre/brokerage/phone/email categories [^PGP-18] | Rule 10 — the four values are fixed and verbatim<br>`and never any other    identity information…` | ✅ yes |
+| PGP-19 | citationResolver.mjs (Layer 3) — every citation URL must resolve, and its page must actually support the claim [^PGP-19] | Rule 6 — a page that actually exists and actually discusses the claim<br>`it must be a page that    actually exists and ac…` | ✅ yes |
+| PGP-20 | selfReviewSchema.mjs / self-review pass — must not strip internal links, must restore a missing identity block [^PGP-20] | Self-review pass instructions<br>`closing identity block is not yours to remove…` | ✅ yes |
+
+[^PGP-01]: THE ORIGINAL DEFECT, fixed 2026-09-03. The gate has been fail-closed since 2026-08-25; the prompt made the block optional until this pass. Both retired sentences are frozen as `forbidden` so the exact regression cannot recur.
+[^PGP-02]: A separate pair from PGP-01 on purpose: PR #39 carried phone and email but not DRE or brokerage, so "the block is required" and "the block must be complete" are two distinct claims the prompt has to make, and only one of them was missing before.
+[^PGP-03]: Consistent in the direction that matters. The gate only validates links that are PRESENT; it never requires a link to exist. So the prompt is free to say links are optional ("only when a link is genuinely useful") without contradicting a fail-closed gate — this is a conditional prompt rule paired with a conditional gate, which is agreement, not drift. Contrast rule 10, where a conditional prompt was paired with an unconditional gate.
+[^PGP-04]: "nothing else, ever" is the unconditional formulation the fail-closed gate requires.
+[^PGP-05]: The prompt names the gate and its consequence explicitly, which is the strongest form of agreement: the writer is told not just the rule but that it is machine-enforced.
+[^PGP-07]: Stated unconditionally in the prompt AND enforced in two independent places (schema.js citation check, and Layer 1 scanning citation URLs as text). Defense in depth on the one string that is a single character away from the real domain.
+[^PGP-09]: Worth an explicit pair because the failure mode here is the writer inventing citations to avoid an empty array — the opposite direction from most gate pressure, and one the prompt has to actively counteract rather than merely permit.
+[^PGP-11]: DELIBERATELY UNPAIRED, and safe. sourceTopic is written by assembleArticle() from the selected topic, never produced by the model, so there is no prompt rule for it to contradict. Recorded rather than omitted so a future audit does not have to re-derive that this gap is intentional.
+[^PGP-13]: The Layer 1 demotion (2026-07-27, five FP shapes across four draws) does NOT weaken this pair: the prompt rule stays unconditional and Layer 2 still enforces it. Only the regex subcategory was demoted, and only for this writer. A demoted LAYER is not a relaxed RULE — that distinction is the whole reason this row exists.
+[^PGP-15]: This is the check that produced the 2026-09-01 Prop 19 false positive (entry 2 in the Layer 2 FP tally). The PAIR is consistent — the prompt states the rule exactly as the gate enforces it; the FP was the reviewer model misjudging whether a citation was present, not a prompt/gate disagreement. Logged here so a future reader does not mistake a model-judgment FP for a consistency defect.
+[^PGP-18]: The COMPLEMENT of PGP-01: that pair is "the block must be present," this one is "when present, the values must be exactly these and nothing else." Both were always in rule 10; only the presence half was broken.
+[^PGP-19]: Also carries the rivcoacr.org-specific narrowing (two verified-live URLs only, after three invented paths 404ed across three runs) — a case where the prompt is STRICTER than the gate on purpose. Prompt-stricter-than-gate is safe; gate-stricter-than-prompt is the rule-10 defect.
+[^PGP-20]: Added 2026-09-03. The self-review pass is not a fail-closed gate, but it is the one component that can DELETE gate-required content after the draft pass produced it correctly — proven twice on internal links (PR #32: six, PR #38: nine). It is audited here because "what can silently remove gate-required output" belongs in the same table as "what requires it".
+
+### Watchdogs — for the four paths that cannot be forced
+
+Three of the four are non-events owned by someone else, and produce no
+run, no PR, no email, no annotation. They are indistinguishable from a
+healthy quiet day. The fourth is a human not doing something.
+
+**`cron-watchdog.yml` — daily, 18:07 UTC.** Covers CRON-02, CRON-03,
+CRON-05 and HUM-05. The time is chosen, not arbitrary: 4h44m after
+generate-article's nominal 13:23 slot, roughly double the worst delay ever
+observed on this repo (2h22m, 2026-08-03), so a normal scheduler backlog
+never trips it but a genuinely dropped firing is caught the same day.
+Weekly-retro's 15:17 slot is deliberately *not* double-covered — a retro
+delayed past 18:07 produces one false alarm rather than letting a dropped
+Monday audit go unnoticed for a week. For a weekly job that trade is
+correct and is stated here as a decision.
+
+It **never emails on a healthy day.** `runWatchdog()` returns
+`healthy: true` and the workflow sends nothing. A watchdog that pings
+daily gets filtered into a folder within a week, and then it is not a
+watchdog. Silence means "checked, fine."
+
+HUM-05 deserves its own note, because it is the one that was actively
+biting while this order was being carried out: **PR #39 sat open from
+2026-08-29 to 2026-09-03 holding its topic out of the queue, and nothing
+noticed.** An open generator PR marks its topic attempted via
+`getOpenPrAttemptedTopics()`. An ignored PR therefore shrinks the
+available topic set silently and permanently. The watchdog flags any open
+`blog-generator/*` PR older than three days — deliberately just past one
+full generation cycle, so a PR still open after the *next* article has
+already been generated is one nobody is coming back to — and the email
+names the topic-blocking consequence explicitly, plus Close-not-Merge for
+a marker PR.
+
+**`pipeline-drill.yml` — weekly, Saturday 09:41 UTC.** The synthetic
+full-cycle drill. What it proves and what it does not, stated precisely:
+
+- **Proven** — `publishOnMerge.mjs` and `markerMerged.mjs` against **real
+  git**, in a throwaway repo with real commits and a real parent. This is
+  the layer the unit suite structurally cannot reach: injecting `exec` is
+  what makes those tests fast and exactly what made them blind to the
+  fetch-depth bug.
+- **Proven** — all five email templates render and send over real SMTP,
+  `marker-merged` included.
+- **Proven** — `peter-evans/create-pull-request` really opens a PR from
+  this repo with these permissions.
+- **NOT proven** — a real merge of a real generator PR into `main`. The
+  only honest way to drill that is to actually write to production weekly,
+  which trades a bigger risk than it retires. HUM-01 stays `observed`.
+
+Safety is three independent guarantees, not one: all git writes happen in
+`$RUNNER_TEMP` sandboxes; the drill PR uses a `drill/` prefix, which
+`getOpenPrAttemptedTopics()` and both `publish-on-merge.yml` jobs ignore
+by prefix, so it can never hold a topic hostage or trigger a publish; and
+cleanup runs `if: always()`. A step also asserts `git status --porcelain`
+on the real checkout is clean before cleanup. Every email is prefixed
+`[ТЕСТ-DRILL]`.
+
+### The unfired path this order actually found
+
+`publish-on-merge.yml`'s `notify-marker-merged-by-mistake` job **had never
+executed its body.** It was added 2026-09-01 in commit `05ec104` — *after*
+the only real mistaken merge it exists to catch (PR #41, the same day). Its
+skip condition has been observed; its body had not run once. Same shape as
+the fetch-depth bug: code that had only ever been reasoned about, sitting
+in the path of a rare event, with a dedicated email template
+(`marker-merged`) that likewise had no drill kind in
+`test-email-notifications.yml`. Two unfired layers stacked on the same
+path. Both are now drilled weekly, and `marker-merged` gained an on-demand
+kind in `test-email-notifications.yml`.
+
+### CI — a suite nobody runs is not a suite
+
+Until this pass, **no workflow ran the test suite.** ~620 unit and
+end-to-end tests executed only when a human remembered to type
+`node --test` locally. Every regression guard in `tools/blog-generator/` —
+the fetch-depth assertion written after the 2026-08-31 incident, the
+fail-closed topic-availability tests, the prompt/gate freeze written the
+same morning as this order — was a guard that could not fail a push.
+
+`build-check.yml` now has two independent jobs: `unit` (full suite +
+`eslint tools/`) and `build` (production build + route assertions).
+Independent on purpose — a red suite must not be masked by a green build,
+and vice versa.
+
+All workflows moved to `actions/checkout@v5` / `actions/setup-node@v5`
+(the v4 pins were being force-migrated onto Node 24 by the runner with a
+deprecation warning) and to `node-version: '22'`, matching `.nvmrc`, which
+was bumped from the EOL 20.19.1. Node 22 rather than 24 deliberately: 22 is
+where all 621 tests are actually verified to pass, and an unverified
+runtime is not an upgrade.
+
+**The version bump immediately caught something.** `publishOnMergeWorkflow
+.test.mjs`'s fetch-depth guard hardcoded `actions/checkout@v4` in its own
+matcher and went red on the bump. It failed loudly, which is correct — but
+it exposed the real hazard: a slightly looser regex would have made that
+guard silently match nothing and pass while guarding nothing at all. A
+pinned major version inside a regression guard's own matcher is a
+liability. It is now version-agnostic, and a companion test asserts the
+matcher finds a real checkout step so it cannot pass vacuously.
+
+### Cron minutes
+
+`weekly-retro.yml` moved from `0 15 * * 1` to `17 15 * * 1`. It has fired
+by schedule exactly once since creation (2026-08-31, run 33437191369) and
+that firing was **5h39m late** against a `:00` cron — the same
+hour-boundary contention that produced three documented incidents on
+`generate-article.yml` and moved it to `:23` on 2026-08-31. Identical
+cause, identical fix, applied before a fourth incident rather than after.
+`cronWatchdog.test.mjs` asserts both crons stay off `:00` and that their
+day fields still match what the watchdog assumes — a watchdog that
+disagrees with the schedule it watches reports confidently and wrongly,
+which is worse than silence.
+
+### Sweep — state as of 2026-09-03
+
+- **Open generator PRs: zero.** PR #42 (PCOR, `identity_incomplete`) and
+  PR #39 (interest rates, partial identity block) both closed unmerged,
+  releasing both topics.
+- **Rejected markers on `main`: exactly one** — Mello-Roos. Every other
+  marker in the repo exists only on stale closed-PR branches, which
+  topic selection ignores (it reads *open* PRs only). No cleanup needed.
+- **Mello-Roos is NOT resolved — it is still blocking, and that may be
+  correct.** The marker reached `main` because PR #36 was tapped Merge by
+  mistake on 2026-08-25, not by decision. But reading the marker changes
+  the picture: Layer 2 flagged `legal_duty_overstated` with this evidence
+  — *"California law requires sellers to disclose known special
+  assessments" — the cited source (Government Code §53311 et seq.) does
+  not establish a seller disclosure duty; it establishes the CFD creation
+  framework. The actual requirement comes from Civil Code §1102 et seq.,
+  which the article does not cite, and uses conditional language.* That is
+  a **true positive**, and a precise one — arguably the best catch this
+  pipeline has produced. It does **not** go in the Layer 2 FP tally.
+  The topic is fine; that *draft* was not, and a regenerate would likely
+  pass. Unblocking remains a reviewed `git rm` PR per the documented
+  procedure — a decision for the owner, deliberately not taken inside this
+  hardening pass.
+- **weekly-retro is firing on schedule** (once, Monday 2026-08-31, 5h39m
+  late). Cron minute fixed and watchdog coverage added, above.
+
+### What remains unforceable, and how each is detected
+
+Stated plainly, because the honest list is the point of the exercise:
+
+| Path | Why it cannot be forced | Detection |
+|---|---|---|
+| CRON-02 | GitHub decides when a schedule fires. | `cron-watchdog`, daily 18:07 UTC |
+| CRON-03 | A dropped firing produces no artifact of any kind. | `cron-watchdog`, daily 18:07 UTC |
+| CRON-05 | Same, for the Monday retro. | `cron-watchdog`, daily 18:07 UTC |
+| HUM-05 | A human not acting is a non-event. | `cron-watchdog`, open `blog-generator/*` PR older than 3 days |
+| HUM-01 (partial) | A real merge to `main` can only be drilled by writing to production. | `observed` (2026-08-31) + the drill's real-git slug resolution |
+| EM-10 (partial) | The no-SMTP branch needs the secrets removed to reach. | `static` + every call site is `continue-on-error` |
+
+After this order, failures still happen — GitHub will still drop crons.
+The claim is narrower and it is the one that matters: **nothing fails
+silently, and nothing fails twice.**
+
 ## Acceptance discipline for the rollout itself
 
 **The first THREE articles this pipeline ever produces get a full manual

@@ -1,0 +1,304 @@
+name: pipeline-drill
+
+# WEEKLY SYNTHETIC FULL-CYCLE DRILL.
+#
+# Created 2026-09-03 under the "no unfired paths" hardening order. The
+# lesson being institutionalised is the 2026-08-31 publish-on-merge
+# failure (run 33363712388): a `fetch-depth: 1` checkout meant
+# `git diff <sha>~1 <sha>` had no parent commit to diff against, so
+# getMergedArticleSlug() threw on the very first real merge the workflow
+# ever saw. Every unit test passed, because every unit test injects `exec`
+# and never runs git at all. ONE forced execution against real git would
+# have caught it before it reached production. This workflow is that
+# execution, run every week so the answer is never older than seven days.
+#
+# WHAT THIS DRILL ACTUALLY PROVES, stated precisely so nobody reads more
+# into a green run than it earns:
+#
+#   PROVEN — the publish and marker-merged scripts against REAL git, in a
+#   real repository with real commits and real parent history. This is the
+#   layer the unit suite structurally cannot reach, because injecting
+#   `exec` is exactly what makes those tests fast and exactly what makes
+#   them blind to this bug class.
+#
+#   PROVEN — all five email templates render and actually send over real
+#   SMTP, including `marker-merged`, whose calling job has never once
+#   executed in production (added 2026-09-01, after the only real mistaken
+#   merge, which was the same day).
+#
+#   PROVEN — peter-evans/create-pull-request really opens a PR from this
+#   repo with these permissions.
+#
+#   NOT PROVEN — a real merge of a real generator PR into main. That is
+#   deliberately out of scope: the only honest way to drill it is to
+#   actually write to main, and a weekly automated write to production
+#   trades a bigger risk than the one it retires. That path stays
+#   `observed` in the path table (HUM-01, last seen 2026-08-31), and this
+#   comment is why.
+#
+# SAFETY — three independent guarantees, not one:
+#
+#   1. All git write operations happen inside a throwaway repository under
+#      $RUNNER_TEMP, created by this workflow. The real checkout is never
+#      committed to, and a final step asserts `git status --porcelain` on
+#      the real working tree is empty.
+#   2. The drill PR uses a `drill/` branch prefix, NOT `blog-generator/`.
+#      This matters more than it looks: getOpenPrAttemptedTopics() filters
+#      on `branch.startsWith('blog-generator/')`, so a drill PR is
+#      invisible to topic selection and cannot hold a topic hostage. It
+#      is equally invisible to publish-on-merge.yml, whose two jobs are
+#      scoped to `blog-generator/auto-` and `blog-generator/rejected-`.
+#   3. The drill PR is closed and its branch deleted in an `if: always()`
+#      cleanup step, so an aborted run cannot leave one behind.
+#
+# Every email this workflow sends is prefixed [ТЕСТ-DRILL] so it can never
+# be mistaken for a real pipeline notification.
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Saturday 09:41 UTC. Deliberately on an EVEN-weekday slot away from
+    # generate-article's 13:23 and weekly-retro's Monday 15:17, and off
+    # the hour boundary for the same contention reason as both of those.
+    - cron: '41 9 * * 6'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pipeline-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: Full-cycle drill against fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # fetch-depth: 0 here for the same reason publish-on-merge.yml
+          # needs it -- and so this drill's own environment matches the
+          # one it is drilling.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ---------------------------------------------------------------
+      # DRILL 1 — publish-on-merge against REAL git (path PUB-01/PUB-04).
+      #
+      # Builds a throwaway repo with a real commit history: a base commit,
+      # then a "merge" commit that ADDS one generated-article file. Then
+      # runs the real publishOnMerge.mjs against it with no injected exec,
+      # so getMergedArticleSlug() shells out to real git with a real
+      # parent. This is the exact operation fetch-depth: 1 broke.
+      # ---------------------------------------------------------------
+      - name: 'Drill 1: publish-on-merge slug resolution against real git'
+        id: drill_publish
+        run: |
+          set -euo pipefail
+          SANDBOX="$RUNNER_TEMP/drill-publish"
+          rm -rf "$SANDBOX"
+          mkdir -p "$SANDBOX/src/data/generated-articles" "$SANDBOX/public"
+          cd "$SANDBOX"
+          git init -q
+          git config user.email drill@example.com
+          git config user.name "pipeline drill"
+
+          # Base commit -- a parent must exist, or ~1 has nothing to
+          # resolve to. That absence IS the 2026-08-31 bug.
+          echo '[]' > src/data/blog-articles.json
+          printf '/blog/seed/\n  Cache-Control: public\n' > public/_headers
+          git add -A && git commit -q -m "drill base"
+
+          # The "merge" commit: adds exactly one article file.
+          cat > src/data/generated-articles/drill-fixture-article.json <<'JSON'
+          {
+            "slug": "drill-fixture-article",
+            "title": "[ТЕСТ-DRILL] Fixture article",
+            "sourceTopic": "[ТЕСТ-DRILL] Fixture topic",
+            "published": false,
+            "content_html": "<p>drill fixture</p>",
+            "citations": []
+          }
+          JSON
+          git add -A && git commit -q -m "drill: add generated article"
+          MERGE_SHA=$(git rev-parse HEAD)
+          echo "resolved merge sha: $MERGE_SHA"
+
+          # Real script, real git, no injected exec.
+          cd "$GITHUB_WORKSPACE"
+          SLUG=$(node -e "
+            import('./tools/blog-generator/publishOnMerge.mjs').then(m => {
+              process.chdir('$SANDBOX');
+              console.log(m.getMergedArticleSlug({ mergeSha: '$MERGE_SHA' }));
+            });
+          ")
+          echo "slug=$SLUG"
+          if [ "$SLUG" != "drill-fixture-article" ]; then
+            echo "::error::drill 1 FAILED — expected slug 'drill-fixture-article', got '$SLUG'"
+            exit 1
+          fi
+          echo "[drill 1] PASS — getMergedArticleSlug resolved a real slug from real git history."
+
+      # ---------------------------------------------------------------
+      # DRILL 2 — the marker-merged path (HUM-03 / EM-08).
+      #
+      # THE HEADLINE PATH OF THIS WHOLE WORKFLOW. publish-on-merge.yml's
+      # notify-marker-merged-by-mistake job has NEVER executed its body in
+      # production: it was added 2026-09-01, after the only real mistaken
+      # merge (PR #41, that same day). Its skip condition has been
+      # observed; its body has not. Same shape as the fetch-depth bug --
+      # code that has only ever been reasoned about.
+      # ---------------------------------------------------------------
+      - name: 'Drill 2: marker-merged detection against real git'
+        id: drill_marker
+        run: |
+          set -euo pipefail
+          SANDBOX="$RUNNER_TEMP/drill-marker"
+          rm -rf "$SANDBOX"
+          mkdir -p "$SANDBOX/src/data/generated-articles/.rejected"
+          cd "$SANDBOX"
+          git init -q
+          git config user.email drill@example.com
+          git config user.name "pipeline drill"
+          echo '[]' > src/data/blog-articles.json
+          git add -A && git commit -q -m "drill base"
+
+          cat > src/data/generated-articles/.rejected/drill-fixture-topic.json <<'JSON'
+          {
+            "sourceTopic": "[ТЕСТ-DRILL] Fixture rejected topic",
+            "rejectedAt": "2026-01-01T00:00:00.000Z",
+            "failureClass": "identity_incomplete",
+            "layer1": { "tripped": false, "findings": [] },
+            "layer2": { "tripped": false, "checklist": {} },
+            "layer3": { "tripped": false, "results": [] },
+            "schemaErrors": [],
+            "internalLinkErrors": [],
+            "identityErrors": ["[ТЕСТ-DRILL] fixture identity error"]
+          }
+          JSON
+          git add -A && git commit -q -m "drill: merge a rejection marker by mistake"
+          MERGE_SHA=$(git rev-parse HEAD)
+
+          cd "$GITHUB_WORKSPACE"
+          RESULT=$(node -e "
+            import('./tools/blog-generator/markerMerged.mjs').then(m => {
+              process.chdir('$SANDBOX');
+              const files = m.getMergedMarkerFiles({ mergeSha: '$MERGE_SHA' });
+              const topic = files.length === 1 ? m.readMarkerTopic({ filePath: files[0] }) : null;
+              console.log(JSON.stringify({ files, topic }));
+            });
+          ")
+          echo "marker detection result: $RESULT"
+          echo "$RESULT" | grep -q 'drill-fixture-topic.json' || { echo "::error::drill 2 FAILED — marker file not detected"; exit 1; }
+          echo "$RESULT" | grep -q 'Fixture rejected topic' || { echo "::error::drill 2 FAILED — sourceTopic not read back"; exit 1; }
+          echo "[drill 2] PASS — the never-fired marker-merged detection works against real git."
+
+          # Carry the real detected values into the email drill below, so
+          # the email is built from a genuine detection rather than a
+          # hand-typed string that could differ from what production sees.
+          echo "marker_file=src/data/generated-articles/.rejected/drill-fixture-topic.json" >> "$GITHUB_OUTPUT"
+          echo "topic=[ТЕСТ-DRILL] Fixture rejected topic" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------
+      # DRILL 3 — the marker-merged EMAIL, built from drill 2's real
+      # detection output and actually sent over SMTP (EM-08).
+      # ---------------------------------------------------------------
+      - name: 'Drill 3: build the marker-merged email'
+        id: drill_marker_email
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/buildNotificationEmailCli.mjs \
+            --kind=marker-merged \
+            --topic="${{ steps.drill_marker.outputs.topic }}" \
+            --marker-file="${{ steps.drill_marker.outputs.marker_file }}" \
+            --pr-url=https://github.com/${{ github.repository }}/pull/0
+
+      - name: 'Drill 3: send the marker-merged email'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: "[ТЕСТ-DRILL] ${{ steps.drill_marker_email.outputs.subject }}"
+          html_body: ${{ steps.drill_marker_email.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # ---------------------------------------------------------------
+      # DRILL 4 — PR creation really works from this repo with these
+      # permissions (PR-01/PR-02's mechanism). Opens on a `drill/` branch,
+      # which topic selection and publish-on-merge both ignore by prefix.
+      # ---------------------------------------------------------------
+      - name: 'Drill 4: stage a throwaway change for the PR'
+        run: |
+          mkdir -p .drill
+          echo "Pipeline drill run ${{ github.run_id }} at $(date -u +%FT%TZ). Safe to delete." > .drill/last-drill.txt
+
+      - name: 'Drill 4: open a drill PR'
+        id: drill_pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "drill: pipeline drill run ${{ github.run_id }} (auto-closed)"
+          branch: "drill/pipeline-${{ github.run_id }}"
+          title: "[ТЕСТ-DRILL] Pipeline drill — auto-closed, do not merge"
+          body: |
+            Automated weekly pipeline drill. This PR exists only to prove that
+            PR creation works from this repository with these permissions.
+
+            It is closed automatically by the same workflow run that opened it.
+            The `drill/` branch prefix keeps it invisible to
+            `getOpenPrAttemptedTopics()` and to both `publish-on-merge.yml`
+            jobs, so it can never hold a topic hostage or trigger a publish.
+
+            If you are reading this and it is still open, the drill run was
+            interrupted — close it, nothing else is needed.
+          add-paths: .drill/
+
+      - name: 'Drill 4: assert the PR actually opened'
+        run: |
+          if [ -z "${{ steps.drill_pr.outputs.pull-request-number }}" ]; then
+            echo "::error::drill 4 FAILED — create-pull-request produced no PR number"
+            exit 1
+          fi
+          echo "[drill 4] PASS — opened PR #${{ steps.drill_pr.outputs.pull-request-number }}"
+
+      # ---------------------------------------------------------------
+      # SAFETY ASSERTION — the drill wrote nothing to the real tree that
+      # it did not intend. Runs before cleanup so a violation is visible.
+      # ---------------------------------------------------------------
+      - name: Assert no unintended changes to the real working tree
+        run: |
+          UNEXPECTED=$(git status --porcelain | grep -v '^?? .drill/' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::the drill modified the real working tree unexpectedly:"
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          echo "[safety] PASS — no unintended changes to the real checkout."
+
+      - name: Cleanup — close the drill PR and delete its branch
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ steps.drill_pr.outputs.pull-request-number }}"
+          if [ -n "$PR" ]; then
+            gh pr close "$PR" --repo ${{ github.repository }} --delete-branch --comment "Drill complete — closing automatically." || true
+            echo "[cleanup] closed drill PR #$PR and deleted its branch."
+          else
+            echo "[cleanup] no drill PR was opened; nothing to close."
+          fi
+          # Belt and braces: delete the branch even if the PR close path
+          # above failed for any reason.
+          git push origin --delete "drill/pipeline-${{ github.run_id }}" 2>/dev/null || true
+
+      - name: Cleanup — remove drill sandboxes
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/drill-publish" "$RUNNER_TEMP/drill-marker" .drill

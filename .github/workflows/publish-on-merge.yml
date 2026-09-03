@@ -61,15 +61,15 @@ jobs:
       # also work and is more robust against a future change to what this
       # workflow diffs, but costs a full clone for no reason THIS specific
       # need requires -- not chosen.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 2
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
@@ -237,15 +237,15 @@ jobs:
       # markerMerged.mjs's getMergedMarkerFiles() runs the same
       # `git diff <merge-sha>~1 <merge-sha>` shape and needs the merge
       # commit's parent present in the shallow clone.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 2
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies

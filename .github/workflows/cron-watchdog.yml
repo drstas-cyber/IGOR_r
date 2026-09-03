@@ -1,0 +1,94 @@
+name: cron-watchdog
+
+# WATCHDOG for the paths that cannot be forced.
+#
+# Created 2026-09-03 under the "no unfired paths" hardening order. Every
+# other path through this pipeline has a test that executes it. Three do
+# not, and cannot, because they are non-events owned by someone else:
+#
+#   CRON-03  GitHub silently DROPS a scheduled generate-article firing.
+#   CRON-05  GitHub silently drops the Monday weekly-retro firing.
+#   HUM-05   A human opens the PR list, does nothing, and the topic that
+#            PR holds stays out of the queue indefinitely.
+#
+# None of the three produces a run, a PR, an email, an annotation, or any
+# other artifact. They are indistinguishable from a healthy quiet day. So
+# they get detection instead of execution -- that is the whole design, and
+# it is stated plainly rather than dressed up as coverage. See
+# tools/blog-generator/pipelinePaths.mjs, which enumerates exactly these
+# four rows (CRON-02 delay included) as the unforceable set, and asserts
+# that set does not silently grow.
+#
+# 18:07 UTC daily. The time is chosen, not arbitrary:
+#   - 4h44m after generate-article's nominal 13:23 slot. The worst delay
+#     ever observed on this repo was 2h22m (2026-08-03), so this window is
+#     roughly double the worst real case -- late enough that a normal
+#     backlog never trips it, early enough that a genuinely dropped firing
+#     is caught the same day it was dropped.
+#   - 2h50m after weekly-retro's 15:17 slot, which has its own observed
+#     5h39m delay on record. That one is deliberately NOT double-covered:
+#     a retro delayed past 18:07 will produce one false alarm rather than
+#     let a genuinely dropped Monday audit go unnoticed for a week. Stated
+#     as a decision -- for a weekly job, a rare false positive is cheaper
+#     than a silently skipped week.
+#   - :07, not :00. Same hour-boundary contention that has now cost this
+#     repo four documented delay incidents across two workflows.
+#
+# THE WATCHDOG NEVER EMAILS ON A HEALTHY DAY. runWatchdog() returns
+# healthy: true and this workflow sends nothing. A watchdog that pings
+# daily gets filtered into a folder within a week and then it is not a
+# watchdog. Silence means "checked, fine."
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '7 18 * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: cron-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Check for dropped crons and stale PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The CLI shell writes healthy/subject/html_body straight to
+      # $GITHUB_OUTPUT and always exits 0 -- see cronWatchdog.mjs's own
+      # header. A red watchdog run would be a second, competing signal
+      # next to the email it just built; the email IS the signal.
+      - name: Run the watchdog
+        id: watchdog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node tools/blog-generator/cronWatchdog.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Notify (email) — watchdog findings
+        if: steps.watchdog.outputs.healthy == 'false'
+        continue-on-error: true
+        uses: ./.github/actions/notify-email
+        with:
+          subject: ${{ steps.watchdog.outputs.subject }}
+          html_body: ${{ steps.watchdog.outputs.html_body }}
+          smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
+          smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      - name: Healthy — say so in the log and send nothing
+        if: steps.watchdog.outputs.healthy == 'true'
+        run: echo "[cron-watchdog] all watched schedules fired and no generator PR is stale. No email sent, by design."

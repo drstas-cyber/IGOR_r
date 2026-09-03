@@ -13,15 +13,30 @@ name: weekly-retro
 # commit subjects on main -- NOT jsonLd.datePublished, which is generation
 # time and can predate the actual publish flip by days on a held PR).
 #
-# Monday, 15:00 UTC / 8am Pacific -- comfortably after generate-article
+# Monday, 15:17 UTC / ~8:17am Pacific -- comfortably after generate-article
 # .yml's own slot on the days it fires (13:23 UTC as of 2026-08-31, moved
 # off the hour boundary -- see that workflow's own header comment; was
 # 14:00 UTC), so this always audits a full settled week rather than racing
 # a same-morning publish.
+#
+# MINUTE MOVED OFF :00, 2026-09-03 ("no unfired paths" hardening order,
+# item 6). This workflow has fired by schedule exactly once since it was
+# created (2026-08-31, run 33437191369) and that firing was 5h39m LATE
+# against the old '0 15' cron -- the same hour-boundary contention that
+# produced three documented incidents on generate-article.yml and got that
+# workflow moved to :23 on 2026-08-31. Identical cause, identical fix,
+# applied here before it produced a fourth incident rather than after.
+# The exact minute (:17) is arbitrary beyond being off the boundary and
+# not colliding with the other two schedules in this repo.
+#
+# cronWatchdog.test.mjs asserts this minute stays off :00 and that the
+# day-of-week field stays Monday -- the watchdog in cron-watchdog.yml
+# hardcodes "a retro run must exist on Mondays" and would report
+# confidently and wrongly if this line changed without it.
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 15 * * 1'
+    - cron: '17 15 * * 1'
 
 permissions:
   contents: write
@@ -35,12 +50,12 @@ jobs:
     name: Weekly retrospective audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies

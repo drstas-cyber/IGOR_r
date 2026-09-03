@@ -1,5 +1,23 @@
 name: build-check
 
+# Two jobs, deliberately parallel rather than sequential:
+#
+#   unit   — the full node:test suite (all *.test.mjs under tools/)
+#   build  — the production build + route assertions
+#
+# WHY `unit` EXISTS (added 2026-09-03, "no unfired paths" hardening order,
+# item 4). Until this commit, this repo had ~470 unit and end-to-end tests
+# that NO workflow ever ran. They were executed only when a human
+# remembered to type `node --test` locally. Every regression guard in
+# tools/blog-generator/ -- the fetch-depth assertion written after the
+# 2026-08-31 publish incident, the prompt/gate freeze written after the
+# 2026-09-03 rule-10 incident, the fail-closed topic-availability tests --
+# was a guard that could not fail a push. A suite nobody runs is not a
+# suite; it is documentation with a misleading file extension.
+#
+# The two jobs are independent on purpose: a red unit suite must not be
+# masked by a green build, and a broken build must not be masked by green
+# tests. Both are required for the push to be green.
 on:
   push:
     branches: [main]
@@ -7,16 +25,43 @@ on:
     branches: [main]
 
 jobs:
+  unit:
+    name: Unit + end-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The glob form, not `node --test tools/`. Node 22+ on some platforms
+      # fails to resolve a bare directory argument here ("Cannot find
+      # module"); the glob is what the local workflow uses and what is
+      # actually verified to work. Both test directories are named
+      # explicitly rather than globbing the repo, so a stray *.test.mjs
+      # somewhere unexpected does not silently join the required suite.
+      - name: Run the full test suite
+        run: node --test "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
+
+      - name: Lint the tooling (not the vendored 001_web bundle)
+        run: npx eslint tools/ --quiet
+
   build:
     name: Build on push & PR
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
