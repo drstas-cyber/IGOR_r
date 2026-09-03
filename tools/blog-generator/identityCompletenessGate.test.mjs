@@ -59,7 +59,8 @@ describe('validateIdentityCompleteness — plumbing (judgment already proven at 
 // each pattern below is the specific thing whose absence reintroduces the
 // defect.
 describe('prompt.md states the identity block as unconditional (the contract this gate enforces)', () => {
-  const prompt = fs.readFileSync(PROMPT_PATH, 'utf8');
+  // Normalised to LF -- see promptGatePairs.test.mjs for why.
+  const prompt = fs.readFileSync(PROMPT_PATH, 'utf8').replace(/\r\n/g, '\n');
 
   test('rule 10 states the block is unconditional, not conditional on the article "needing" one', () => {
     assert.match(prompt, /UNCONDITIONAL/, 'rule 10 must state the block is unconditional');

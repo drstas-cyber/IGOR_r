@@ -27,7 +27,8 @@ import {
 } from './cronWatchdog.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const WF = (name) => fs.readFileSync(path.join(PROJECT_ROOT, '.github', 'workflows', name), 'utf8');
+// Normalised to LF -- see promptGatePairs.test.mjs for why.
+const WF = (name) => fs.readFileSync(path.join(PROJECT_ROOT, '.github', 'workflows', name), 'utf8').replace(/\r\n/g, '\n');
 
 // 2026-09-03 is a Thursday and an ODD day of month -> generate-article
 // should have fired, weekly-retro should not.

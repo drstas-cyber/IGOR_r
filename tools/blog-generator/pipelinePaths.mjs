@@ -425,6 +425,23 @@ export const PIPELINE_PATHS = [
     note: 'STATIC ONLY — the secrets are present in this repo, so the no-op branch cannot be forced without removing them. Detection story: its absence would show as a failing notify step, which every call site already wraps in continue-on-error.',
   },
 
+  {
+    id: 'EM-11',
+    category: 'email',
+    name: 'buildNotificationEmailCli writes to $GITHUB_OUTPUT (the branch every real invocation uses)',
+    forcing: { kind: 'e2e', file: 'generate.test.mjs', test: 'with GITHUB_OUTPUT set (the real Actions environment) it writes subject and a delimited html_body to that file' },
+    lastObserved: SUITE_DATE,
+    note: 'GAP CLOSED 2026-09-03, found BY the new CI job on its first run. writeOutputs() only prints JSON to stdout when GITHUB_OUTPUT is unset. The existing test inherited process.env, so on a developer machine it silently exercised the stdout FALLBACK while believing it covered the real path -- and failed the moment the suite ran under Actions (run 33812791564). The production branch now has its own test, and the fallback test pins GITHUB_OUTPUT undefined instead of depending on the ambient environment.',
+  },
+  {
+    id: 'EM-12',
+    category: 'email',
+    name: 'The email body is NOT double-printed to stdout when $GITHUB_OUTPUT is set',
+    forcing: { kind: 'e2e', file: 'generate.test.mjs', test: 'the body must NOT also be printed to stdout when GITHUB_OUTPUT is set' },
+    lastObserved: SUITE_DATE,
+    note: 'The complement of EM-11 and the reason both branches need testing rather than one: a writeOutputs() change that wrote to BOTH sinks would leak every notification body into the public job log and no other test would notice.',
+  },
+
   // -------------------------------------------------------------------- cron
   {
     id: 'CRON-01',

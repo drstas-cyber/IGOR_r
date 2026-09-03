@@ -23,7 +23,15 @@ import { fileURLToPath } from 'node:url';
 import { PROMPT_GATE_PAIRS, AUDIT_DATE, inconsistentPairs, unpairedGates } from './promptGatePairs.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PROMPT = fs.readFileSync(path.join(HERE, 'prompt.md'), 'utf8');
+// NORMALISED to LF before matching (2026-09-03). Several anchors below
+// deliberately span a line break -- they pin the wrapped form of a rule so
+// a reflow that changes its meaning is caught, not just a deletion. Git
+// checks prompt.md out with CRLF on Windows and LF on the Linux CI runner,
+// so an un-normalised read makes those anchors pass in CI and fail on a
+// developer machine. Same environment-dependence class as the
+// GITHUB_OUTPUT bug this session's CI job caught on its first run: a test
+// whose result depends on where it runs is not a test.
+const PROMPT = fs.readFileSync(path.join(HERE, 'prompt.md'), 'utf8').replace(/\r\n/g, '\n');
 
 describe('prompt↔gate pairs — structure', () => {
   test('every pair has a unique id, a gate, and an explicit consistent verdict', () => {

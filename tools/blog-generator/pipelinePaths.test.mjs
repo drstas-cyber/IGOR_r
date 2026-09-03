@@ -43,7 +43,9 @@ function readSource(relOrBare) {
   const candidate = relOrBare.includes('/')
     ? path.join(PROJECT_ROOT, relOrBare)
     : path.join(HERE, relOrBare);
-  return fs.readFileSync(candidate, 'utf8');
+  // Normalised to LF -- see promptGatePairs.test.mjs for why (CRLF on a
+  // Windows checkout, LF on the CI runner; a matcher must not care).
+  return fs.readFileSync(candidate, 'utf8').replace(/\r\n/g, '\n');
 }
 
 describe('pipelinePaths — structural integrity', () => {

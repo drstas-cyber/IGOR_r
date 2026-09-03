@@ -1149,7 +1149,20 @@ describe('report.article.firstParagraphText — survives the article file vanish
       `--report=${reportPath}`,
       '--preview-url=https://example.igor-r.pages.dev',
       '--pr-url=https://github.com/drstas-cyber/IGOR_r/pull/40',
-    ], { encoding: 'utf8' });
+    ], {
+      encoding: 'utf8',
+      // GITHUB_OUTPUT DELIBERATELY UNSET (2026-09-03). spawnSync inherits
+      // process.env, and buildNotificationEmailCli's writeOutputs() only
+      // falls back to printing JSON on stdout when GITHUB_OUTPUT is
+      // absent. Under GitHub Actions that variable is always set, so this
+      // test passed on every developer machine and FAILED the moment the
+      // suite first ran in CI (run 33812791564) -- it was silently
+      // asserting on the fallback branch while believing it tested the
+      // real one. Caught within minutes of wiring the suite into CI,
+      // which is precisely the argument for having done so. The
+      // production branch now has its own test immediately below.
+      env: { ...process.env, GITHUB_OUTPUT: undefined },
+    });
 
     assert.doesNotMatch(result.stderr || '', /ENOENT/, 'must not fail trying to re-read the vanished article file');
     // stdout is the pretty-printed {subject, html} JSON block followed by a
@@ -1159,6 +1172,49 @@ describe('report.article.firstParagraphText — survives the article file vanish
     // rather than parsing the whole stream.
     assert.match(result.stdout, /Understanding HOA Fees/);
     assert.match(result.stdout, /HOA fees fund shared community amenities/);
+  });
+
+  // THE PRODUCTION OUTPUT BRANCH (path EM-11, added 2026-09-03). Every
+  // real invocation of this CLI runs under GitHub Actions with
+  // GITHUB_OUTPUT set, so the $GITHUB_OUTPUT file branch is the one that
+  // actually ships -- and until this test it had never been exercised at
+  // all, in CI or locally. The stdout fallback above is the branch that
+  // only ever runs on a developer machine.
+  test('with GITHUB_OUTPUT set (the real Actions environment) it writes subject and a delimited html_body to that file, not to stdout', async () => {
+    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
+    process.exitCode = undefined;
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    process.exitCode = undefined;
+
+    const outputPath = path.join(path.dirname(reportPath), 'github-output.txt');
+    fs.writeFileSync(outputPath, '', 'utf8');
+
+    const cliPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'buildNotificationEmailCli.mjs');
+    const result = spawnSync(process.execPath, [
+      cliPath,
+      '--kind=article-pr',
+      `--report=${reportPath}`,
+      '--preview-url=https://example.igor-r.pages.dev',
+      '--pr-url=https://github.com/drstas-cyber/IGOR_r/pull/40',
+    ], { encoding: 'utf8', env: { ...process.env, GITHUB_OUTPUT: outputPath } });
+
+    assert.doesNotMatch(result.stderr || '', /ENOENT/);
+    const written = fs.readFileSync(outputPath, 'utf8');
+
+    assert.match(written, /^subject=/m, 'a subject= line must be written for the workflow step to read');
+    assert.match(written, /Understanding HOA Fees/);
+    // The multiline body uses GitHub's random-delimiter heredoc form.
+    const delim = written.match(/^html_body<<(EMAIL_BODY_\w+)$/m);
+    assert.ok(delim, `html_body must use the delimited multiline form, got:
+${written}`);
+    assert.match(written, new RegExp(`^${delim[1]}$`, 'm'), 'the closing delimiter must be present, or the workflow output is truncated');
+    assert.match(written, /HOA fees fund shared community amenities/, 'the real first-paragraph text must reach the file');
+
+    // And nothing but the log line goes to stdout in this mode -- the
+    // fallback must not double-print, which would leak the whole body
+    // into the job log.
+    assert.doesNotMatch(result.stdout, /HOA fees fund shared community amenities/, 'the body must NOT also be printed to stdout when GITHUB_OUTPUT is set');
   });
 });
 
