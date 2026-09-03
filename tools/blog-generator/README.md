@@ -1231,9 +1231,9 @@ different claims and this table refuses to blur them.
 
 ### The table
 
-<!-- GENERATED — edit pipelinePaths.mjs, then re-run renderPathTable.mjs -->
+<!-- BEGIN GENERATED: paths — edit pipelinePaths.mjs, then run `node tools/blog-generator/renderPathTable.mjs`. readmeInSync.test.mjs fails if this block drifts. -->
 
-**54 paths enumerated. 50 have something that executes them. 4 cannot be forced and have watchdogs instead.**
+**56 paths enumerated. 52 have something that executes them. 4 cannot be forced and have watchdogs instead.**
 
 Weakest-proof rows (`static` — asserts text, does not execute): PUB-06, EM-10.
 Unforceable rows: HUM-05, CRON-02, CRON-03, CRON-05.
@@ -1292,6 +1292,8 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | EM-08 | marker-merged email — "you merged a marker, nothing was published" [^EM-08] | marker-merged | `drill` | 2026-09-03 |
 | EM-09 | publish-on-merge red-run email — reads the real captured log, never a hardcoded guess | buildFailureDetail | `unit` | 2026-09-03 |
 | EM-10 | No SMTP secrets configured — clean no-op with a log line, never a failure [^EM-10] | skipping email notification (clean no-op, not a failure) | `static` | 2026-09-03 |
+| EM-11 | buildNotificationEmailCli writes to $GITHUB_OUTPUT (the branch every real invocation uses) [^EM-11] | with GITHUB_OUTPUT set (the real Actions environment) it writes subject and a delimited html_body to that file | `e2e` | 2026-09-03 |
+| EM-12 | The email body is NOT double-printed to stdout when $GITHUB_OUTPUT is set [^EM-12] | the body must NOT also be printed to stdout when GITHUB_OUTPUT is set | `e2e` | 2026-09-03 |
 | | **Cron** | | | |
 | CRON-01 | generate-article cron fires on schedule (odd days, 13:23 UTC) [^CRON-01] | cron: '23 13 */2 * *' | `observed` | 2026-09-03 |
 | CRON-02 | generate-article cron fires LATE (GitHub scheduler backlog) [^CRON-02] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | 2026-08-03 (2h22m late — the worst observed) |
@@ -1315,10 +1317,14 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 [^PUB-06]: STATIC ONLY — asserts YAML text, does not execute the checkout. The executing proof is HUM-01 (observed) and DRILL-02.
 [^EM-08]: GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production.
 [^EM-10]: STATIC ONLY — the secrets are present in this repo, so the no-op branch cannot be forced without removing them. Detection story: its absence would show as a failing notify step, which every call site already wraps in continue-on-error.
+[^EM-11]: GAP CLOSED 2026-09-03, found BY the new CI job on its first run. writeOutputs() only prints JSON to stdout when GITHUB_OUTPUT is unset. The existing test inherited process.env, so on a developer machine it silently exercised the stdout FALLBACK while believing it covered the real path -- and failed the moment the suite ran under Actions (run 33812791564). The production branch now has its own test, and the fallback test pins GITHUB_OUTPUT undefined instead of depending on the ambient environment.
+[^EM-12]: The complement of EM-11 and the reason both branches need testing rather than one: a writeOutputs() change that wrote to BOTH sinks would leak every notification body into the public job log and no other test would notice.
 [^CRON-01]: 16 of the last 30 runs were schedule-triggered; typical delay 14-25 min.
 [^CRON-02]: Not forceable: GitHub decides. Tolerated up to the watchdog window, alerted past it.
 [^CRON-03]: The whole reason the watchdog exists. Before it, a dropped cron produced no run, no PR, no email, and no signal of any kind.
 [^CRON-04]: Fired exactly once by schedule since creation (run 33437191369), 5h39m late against a :00 cron — the same hour-boundary contention generate-article was moved off on 2026-08-31. Minute moved off :00 in this pass for the same reason.
+
+<!-- END GENERATED: paths -->
 
 ### Prompt↔gate consistency audit
 
@@ -1348,6 +1354,8 @@ represented by at least one pair — guarding against the audit going stale
 by omission, which is exactly how the rule-10 gap opened
 (`identityCompletenessGate.mjs` landed with no prompt-side review of
 whether `prompt.md` agreed with it).
+
+<!-- BEGIN GENERATED: pairs -->
 
 | # | Fail-closed gate | prompt.md rule | Consistent? |
 |---|---|---|---|
@@ -1385,6 +1393,8 @@ whether `prompt.md` agreed with it).
 [^PGP-18]: The COMPLEMENT of PGP-01: that pair is "the block must be present," this one is "when present, the values must be exactly these and nothing else." Both were always in rule 10; only the presence half was broken.
 [^PGP-19]: Also carries the rivcoacr.org-specific narrowing (two verified-live URLs only, after three invented paths 404ed across three runs) — a case where the prompt is STRICTER than the gate on purpose. Prompt-stricter-than-gate is safe; gate-stricter-than-prompt is the rule-10 defect.
 [^PGP-20]: Added 2026-09-03. The self-review pass is not a fail-closed gate, but it is the one component that can DELETE gate-required content after the draft pass produced it correctly — proven twice on internal links (PR #32: six, PR #38: nine). It is audited here because "what can silently remove gate-required output" belongs in the same table as "what requires it".
+
+<!-- END GENERATED: pairs -->
 
 ### Watchdogs — for the four paths that cannot be forced
 
