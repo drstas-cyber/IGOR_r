@@ -157,8 +157,8 @@ something works"), and organized with clear headings a reader can scan.
    They do; find it. There is no topic for which omitting this block is
    the correct output.
 
-   The block carries all four of these, verbatim, and never any other
-   identity information:
+   Contact identity is fixed — use these exact details if any are
+   included, and never any other identity information:
    - DRE: 02034120
    - Brokerage: Allison James Estates & Homes
    - Phone: 619-277-2766
