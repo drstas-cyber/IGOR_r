@@ -17,13 +17,30 @@ export const GENERATED_DIR = path.join(PROJECT_ROOT, 'src', 'data', 'generated-a
 // published:true during PR review for it to ever reach this filter as
 // eligible. This mirrors the exact convention fetch-blog-data.js already
 // uses for BabyLoveGrowth articles.
-export function loadGeneratedArticles() {
-  if (!fs.existsSync(GENERATED_DIR)) return [];
-  const files = fs.readdirSync(GENERATED_DIR).filter((f) => f.endsWith('.json'));
+// generatedDir (2026-09-04, Phase 6B2a) -- optional, defaults to
+// GENERATED_DIR, so every production caller is byte-identical to before:
+// fetch-blog-data.js calls loadGeneratedArticles() with no argument and
+// reads exactly the same directory it always has. The parameter exists
+// solely so tests can point at a temp fixture directory instead of the
+// real one.
+//
+// WHY THAT MATTERS MORE THAN TEST HYGIENE: merge.test.mjs used to write
+// its fixtures into the REAL src/data/generated-articles/ and unlink them
+// afterwards. One of those fixtures carries published: true. An
+// interrupted run (Ctrl+C, a killed CI step) left it behind in the exact
+// directory this function feeds into fetch-blog-data.js's build --
+// mergeArticleSources -> compliance filter -> src/data/blog-articles.json.
+// The next build would then either ship a junk article titled
+// "Generated: pub" to the live blog or fail on footnote rendering. That is
+// a live path from a cancelled test to production content, which is why
+// the fix is a real parameter here rather than more careful cleanup there.
+export function loadGeneratedArticles(generatedDir = GENERATED_DIR) {
+  if (!fs.existsSync(generatedDir)) return [];
+  const files = fs.readdirSync(generatedDir).filter((f) => f.endsWith('.json'));
   const articles = [];
   for (const file of files) {
     try {
-      const article = JSON.parse(fs.readFileSync(path.join(GENERATED_DIR, file), 'utf8'));
+      const article = JSON.parse(fs.readFileSync(path.join(generatedDir, file), 'utf8'));
       articles.push(article);
     } catch (err) {
       console.warn(`[loadGenerated] failed to parse ${file}: ${err.message} — skipping.`);
