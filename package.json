@@ -7,7 +7,11 @@
     "dev": "vite --host :: --port 3000",
     "build": "node tools/run-build.mjs",
     "preview": "vite preview --host :: --port 3000",
-    "lint": "eslint . --quiet"
+    "lint": "npm run lint:ci",
+    "lint:src": "eslint src --quiet",
+    "lint:tools": "eslint tools --quiet",
+    "lint:ci": "npm run lint:src && npm run lint:tools",
+    "lint:all": "eslint . --quiet"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

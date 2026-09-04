@@ -77,8 +77,24 @@ jobs:
       - name: Run the full test suite
         run: node --test tools/build-chain.test.mjs tools/fetch-blog-data.test.mjs tools/seo-prerender.test.mjs tools/silentDropGuard.test.mjs "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
 
-      - name: Lint the tooling (not the vendored 001_web bundle)
-        run: npx eslint tools/ --quiet
+      # Runs the PACKAGE SCRIPT, not a raw eslint invocation, so the string
+      # CI executes and the string a developer types are literally the same
+      # one. Before 2026-09-04 they were not: CI ran `eslint tools/` while
+      # `npm run lint` ran `eslint .`, which failed on the tracked 001_web/
+      # archive. A developer running the documented command got a different
+      # answer than CI, which is how a lint-scope bug survives.
+      #
+      # .mjs coverage is the substance of Phase 6C. eslint.config.mjs only
+      # matched **/*.js and **/*.jsx, so .mjs files received ZERO rules and
+      # this step passed vacuously over 83 of the 95 files in tools/ (plus 7
+      # in src/). Enabling it surfaced no findings -- the code was already
+      # clean -- but the check now actually inspects what it claims to.
+      #
+      # Repo-wide audit, including 001_web/, stays available locally via
+      # `npm run lint:all`. It is deliberately not the CI gate: 001_web/ is a
+      # tracked archive of the pre-React static site and is ignored by config.
+      - name: Lint src and tooling (same command developers run)
+        run: npm run lint:ci
 
   build:
     name: Build on push & PR
