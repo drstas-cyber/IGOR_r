@@ -47,36 +47,35 @@ jobs:
       # explicitly rather than globbing the repo, so a stray *.test.mjs
       # somewhere unexpected does not silently join the required suite.
       #
-      # TOP-LEVEL tools tests, added 2026-09-04 (Phase 6B1). Until this
-      # change, tools/*.test.mjs ran in NO workflow -- they were green
-      # only when a human remembered to type `node --test` locally. That
-      # made every guard in them inert in CI, including the Phase 6A1
+      # TOP-LEVEL tools tests, added 2026-09-04 (Phase 6B1, completed by
+      # 6B3). Until 6B1, tools/*.test.mjs ran in NO workflow -- they were
+      # green only when a human remembered to type `node --test` locally.
+      # That made every guard in them inert in CI, including the Phase 6A1
       # guards in build-chain.test.mjs that exist to stop the shell-
       # dependent `|| true` build script from coming back.
       #
-      # The three safe files are named EXPLICITLY rather than swept in
-      # with a `tools/*.test.mjs` glob, for the same reason the two
-      # directories above are: a glob would silently enlist every future
-      # top-level test with no review, and would pull in the one file
-      # deliberately left out below.
+      # All four are named EXPLICITLY rather than swept in with a
+      # `tools/*.test.mjs` glob, for the same reason the two directories
+      # above are: a glob would silently enlist every future top-level test
+      # with no review. Keep listing them one by one.
       #
-      # tools/fetch-blog-data.test.mjs is deliberately excluded for now: it
-      # writes/restores tracked src/data/blog-articles.json and creates a
-      # synthetic article under src/data/generated-articles/. It is careful
-      # (snapshot/restore, collision assertion, cleanup in finally), and on
-      # an ephemeral CI runner it would be harmless, but an interrupted run
-      # leaves debris in a tracked directory, and it spawns the real
-      # fetch-blog-data.js rather than an injected stand-in. Move it to
-      # isolated temp fixtures in a later 6B2 batch before adding it to CI.
+      # tools/fetch-blog-data.test.mjs joined last (2026-09-04, Phase 6B3).
+      # It was held out of 6B1 because it snapshotted and restored the
+      # TRACKED src/data/blog-articles.json and wrote a published:true
+      # synthetic article into the real src/data/generated-articles/ -- an
+      # interrupted run left debris in the directory the production build
+      # reads. 6B2b isolated it: every spawn now redirects its outputs to
+      # temp paths via TVH_BLOG_OUT_PATH / TVH_BLOG_COMPLIANCE_REPORT_PATH,
+      # and its synthetic fixture goes to a temp input dir via
+      # TVH_GENERATED_DIR. It writes no tracked path at all, and carries its
+      # own guard asserting the synthetic never appears in the real corpus
+      # directory.
       #
-      # Note for that batch: writing into the real src/data/generated-
-      # articles/ is NOT unique to it -- tools/blog-generator/merge.test.mjs
-      # does the same and is already in CI here. So temp-fixture isolation
-      # is a codebase-wide cleanup, not a precondition unique to
-      # fetch-blog-data. The gap still matters: fetch-blog-data.js is a
-      # FATAL build step with no CI-enforced regression cover until it lands.
+      # This is the entry that closes the series: fetch-blog-data.js is the
+      # FIRST and FATAL step of every build, and until now it had no
+      # CI-enforced regression cover.
       - name: Run the full test suite
-        run: node --test tools/build-chain.test.mjs tools/seo-prerender.test.mjs tools/silentDropGuard.test.mjs "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
+        run: node --test tools/build-chain.test.mjs tools/fetch-blog-data.test.mjs tools/seo-prerender.test.mjs tools/silentDropGuard.test.mjs "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
 
       - name: Lint the tooling (not the vendored 001_web bundle)
         run: npx eslint tools/ --quiet
