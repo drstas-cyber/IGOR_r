@@ -46,8 +46,37 @@ jobs:
       # actually verified to work. Both test directories are named
       # explicitly rather than globbing the repo, so a stray *.test.mjs
       # somewhere unexpected does not silently join the required suite.
+      #
+      # TOP-LEVEL tools tests, added 2026-09-04 (Phase 6B1). Until this
+      # change, tools/*.test.mjs ran in NO workflow -- they were green
+      # only when a human remembered to type `node --test` locally. That
+      # made every guard in them inert in CI, including the Phase 6A1
+      # guards in build-chain.test.mjs that exist to stop the shell-
+      # dependent `|| true` build script from coming back.
+      #
+      # The three safe files are named EXPLICITLY rather than swept in
+      # with a `tools/*.test.mjs` glob, for the same reason the two
+      # directories above are: a glob would silently enlist every future
+      # top-level test with no review, and would pull in the one file
+      # deliberately left out below.
+      #
+      # tools/fetch-blog-data.test.mjs is deliberately excluded for now: it
+      # writes/restores tracked src/data/blog-articles.json and creates a
+      # synthetic article under src/data/generated-articles/. It is careful
+      # (snapshot/restore, collision assertion, cleanup in finally), and on
+      # an ephemeral CI runner it would be harmless, but an interrupted run
+      # leaves debris in a tracked directory, and it spawns the real
+      # fetch-blog-data.js rather than an injected stand-in. Move it to
+      # isolated temp fixtures in a later 6B2 batch before adding it to CI.
+      #
+      # Note for that batch: writing into the real src/data/generated-
+      # articles/ is NOT unique to it -- tools/blog-generator/merge.test.mjs
+      # does the same and is already in CI here. So temp-fixture isolation
+      # is a codebase-wide cleanup, not a precondition unique to
+      # fetch-blog-data. The gap still matters: fetch-blog-data.js is a
+      # FATAL build step with no CI-enforced regression cover until it lands.
       - name: Run the full test suite
-        run: node --test "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
+        run: node --test tools/build-chain.test.mjs tools/seo-prerender.test.mjs tools/silentDropGuard.test.mjs "tools/blog-generator/*.test.mjs" "tools/blog-compliance/*.test.mjs"
 
       - name: Lint the tooling (not the vendored 001_web bundle)
         run: npx eslint tools/ --quiet
