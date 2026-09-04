@@ -2,11 +2,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 const CLEAN_CONTENT_REGEX = {
-  comments: /\/\*[\s\S]*?\*\/|\/\/.*$/gm,
-  templateLiterals: /`[\s\S]*?`/g,
-  strings: /'[^']*'|"[^"]*"/g,
   jsxExpressions: /\{.*?\}/g,
   htmlEntities: {
     quot: /&quot;/g,
@@ -18,21 +16,14 @@ const CLEAN_CONTENT_REGEX = {
 };
 
 const EXTRACTION_REGEX = {
-  route: /<Route\s+[^>]*>/g,
+  route: /<Route\b[\s\S]*?element=\{<\w+\b[^>]*\/>\}\s*\/?>/g,
   path: /path=["']([^"']+)["']/,
-  element: /element=\{<(\w+)[^}]*\/?\s*>\}/,
+  element: /element=\{<(\w+)\b[^>]*\/>\}/,
   helmet: /<Helmet[^>]*?>([\s\S]*?)<\/Helmet>/i,
   helmetTest: /<Helmet[\s\S]*?<\/Helmet>/i,
   title: /<title[^>]*?>\s*(.*?)\s*<\/title>/i,
   description: /<meta\s+name=["']description["']\s+content=["'](.*?)["']/i
 };
-
-function cleanContent(content) {
-  return content
-    .replace(CLEAN_CONTENT_REGEX.comments, '')
-    .replace(CLEAN_CONTENT_REGEX.templateLiterals, '""')
-    .replace(CLEAN_CONTENT_REGEX.strings, '""');
-}
 
 function cleanText(text) {
   if (!text) return text;
@@ -82,13 +73,13 @@ function extractRoutes(appJsxPath) {
 }
 
 function findReactFiles(dir) {
-  return fs.readdirSync(dir).map(item => path.join(dir, item));
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && /\.(?:jsx|tsx)$/.test(entry.name))
+    .map(entry => path.join(dir, entry.name));
 }
 
 function extractHelmetData(content, filePath, routes) {
-  const cleanedContent = cleanContent(content);
-  
-  if (!EXTRACTION_REGEX.helmetTest.test(cleanedContent)) {
+  if (!EXTRACTION_REGEX.helmetTest.test(content)) {
     return null;
   }
   
@@ -101,9 +92,14 @@ function extractHelmetData(content, filePath, routes) {
   
   const title = cleanText(titleMatch?.[1]);
   const description = cleanText(descMatch?.[1]);
+
+  // llms.txt is a static page index. Dynamic Helmet values cannot be
+  // resolved safely from source text, so omit them instead of publishing
+  // placeholder metadata.
+  if (!title || !description) return null;
   
   const fileName = path.basename(filePath, path.extname(filePath));
-  const url = routes.length && routes.has(fileName) 
+  const url = routes.size && routes.has(fileName)
     ? routes.get(fileName) 
     : generateFallbackUrl(fileName);
   
@@ -145,17 +141,26 @@ function processPageFile(filePath, routes) {
 }
 
 function main() {
-  const pagesDir = path.join(process.cwd(), 'src', 'pages');
+  const sourceRoot = path.join(process.cwd(), 'src');
+  const pageDirs = ['pages', 'components']
+    .map(dir => path.join(sourceRoot, dir))
+    .filter(dir => fs.existsSync(dir));
   const appJsxPath = path.join(process.cwd(), 'src', 'App.jsx');
 
   let pages = [];
   
-  if (!fs.existsSync(pagesDir)) {
+  if (pageDirs.length === 0) {
     pages.push(processPageFile(appJsxPath, []))
     pages = pages.filter(Boolean);
   } else {
     const routes = extractRoutes(appJsxPath);
-    const reactFiles = findReactFiles(pagesDir);
+    const reactFiles = pageDirs
+      .flatMap(findReactFiles)
+      .filter(filePath => {
+        const componentName = path.basename(filePath, path.extname(filePath));
+        const routePath = routes.get(componentName);
+        return routePath && routePath !== '*' && !routePath.includes(':');
+      });
 
     pages = reactFiles
       .map(filePath => processPageFile(filePath, routes))
@@ -175,7 +180,9 @@ function main() {
   fs.writeFileSync(outputPath, llmsTxtContent, 'utf8');
 }
 
-const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+const isMainModule = process.argv[1]
+  ? import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+  : false;
 
 if (isMainModule) {
   main();
