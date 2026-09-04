@@ -1,7 +1,8 @@
-import { test, describe, before, after } from 'node:test';
+import { test, describe, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadGeneratedArticles, isGeneratedArticle, GENERATED_DIR } from './blog-generator/loadGenerated.js';
@@ -17,29 +18,55 @@ import { scanArticle, GENERATOR_LOG_ONLY_FINDING_KEYS } from './blog-compliance/
 // whether a key happens to be present -- only BLOG_INCLUDE_BLG='true' can
 // re-enter that path at all.
 //
-// These tests spawn the real tools/fetch-blog-data.js against the real
-// src/data/generated-articles/ directory (never mocked -- that's the point:
-// prove the actual default path in this actual repo), and back up/restore
-// the two files it writes so the test suite leaves no side effects.
+// These tests spawn the real tools/fetch-blog-data.js (never mocked --
+// that's the point: prove the actual default path in this actual repo).
+//
+// ISOLATION (2026-09-04, Phase 6B2b). They used to snapshot and restore
+// the two files the script writes, including the TRACKED
+// src/data/blog-articles.json. An interrupted run left the repo's real
+// article data in whatever state a test produced; restoring afterwards
+// cannot fix that, because the failure mode is never reaching the restore.
+// Every spawn now redirects both outputs into a temp directory via
+// TVH_BLOG_OUT_PATH / TVH_BLOG_COMPLIANCE_REPORT_PATH, so no tracked file
+// is written at all and there is nothing to restore.
+//
+// The INPUT directory is deliberately NOT redirected everywhere. The
+// real-corpus test below compares the script's output against
+// loadGeneratedArticles() over the actual repo, and that coupling is the
+// whole value of the test -- pointing it at an empty temp dir would make
+// it assert nothing. TVH_GENERATED_DIR is set only where a test seeds its
+// own synthetic article.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const OUT_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
 const REPORT_PATH = path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json');
 
-function snapshot(p) {
-  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
-}
-function restore(p, contents) {
-  if (contents === null) {
-    if (fs.existsSync(p)) fs.rmSync(p);
-  } else {
-    fs.writeFileSync(p, contents, 'utf8');
-  }
+// makeTempOutputs -- a fresh temp directory per call, holding the two
+// files the script writes. Returned paths are fed to the spawn as env
+// overrides so the real OUT_PATH/REPORT_PATH are never touched.
+function makeTempOutputs() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fetch-blog-data-out-'));
+  return {
+    dir,
+    outPath: path.join(dir, 'blog-articles.json'),
+    reportPath: path.join(dir, 'last-report.json'),
+  };
 }
 
-function runFetchBlogData(envOverrides) {
-  const env = { ...process.env, ...envOverrides };
+function readIfExists(p) {
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+}
+
+// runFetchBlogData -- ALWAYS redirects both outputs. `envOverrides` can add
+// TVH_GENERATED_DIR on top when a test supplies its own input corpus.
+function runFetchBlogData(envOverrides, outputs) {
+  const env = {
+    ...process.env,
+    TVH_BLOG_OUT_PATH: outputs.outPath,
+    TVH_BLOG_COMPLIANCE_REPORT_PATH: outputs.reportPath,
+    ...envOverrides,
+  };
   return spawnSync('node', ['tools/fetch-blog-data.js'], {
     cwd: PROJECT_ROOT,
     env,
@@ -48,25 +75,26 @@ function runFetchBlogData(envOverrides) {
 }
 
 describe('fetch-blog-data.js -- BLG retired by default (regression for eac8380)', () => {
-  let outBefore;
-  let reportBefore;
+  let outputs;
 
   before(() => {
-    outBefore = snapshot(OUT_PATH);
-    reportBefore = snapshot(REPORT_PATH);
+    outputs = makeTempOutputs();
   });
 
   after(() => {
-    restore(OUT_PATH, outBefore);
-    restore(REPORT_PATH, reportBefore);
+    // Tidiness only. Nothing about repository safety depends on this
+    // running -- the directory is outside the repo.
+    fs.rmSync(outputs.dir, { recursive: true, force: true });
   });
 
   test('no BLOG_INCLUDE_BLG, no BABYLOVE_API_KEY: writes all published generated articles', () => {
+    // TVH_GENERATED_DIR intentionally UNSET: this test's value is that it
+    // compares the script's real output against the real repo corpus.
     const result = runFetchBlogData({
       BABYLOVE_API_KEY: undefined,
       BLOG_INCLUDE_BLG: undefined,
       BLOG_COMPLIANCE_FIXTURE: undefined,
-    });
+    }, outputs);
 
     assert.equal(result.status, 0, `expected exit 0 on the default generated-only path; stderr: ${result.stderr}`);
     assert.match(result.stdout, /BLG retired/i);
@@ -74,7 +102,7 @@ describe('fetch-blog-data.js -- BLG retired by default (regression for eac8380)'
     const expected = loadGeneratedArticles(); // real published generated-articles/, same call fetch-blog-data.js makes
     assert.ok(expected.length > 0, 'test fixture assumption: repo must have at least one published generated article');
 
-    const written = JSON.parse(fs.readFileSync(OUT_PATH, 'utf8'));
+    const written = JSON.parse(fs.readFileSync(outputs.outPath, 'utf8'));
     assert.equal(written.length, expected.length, 'must not silently drop or duplicate published generated articles');
     assert.deepEqual(
       written.map((a) => a.slug).sort(),
@@ -91,7 +119,7 @@ describe('fetch-blog-data.js -- BLG retired by default (regression for eac8380)'
       BABYLOVE_API_KEY: 'leftover-test-key-should-be-ignored',
       BLOG_INCLUDE_BLG: undefined,
       BLOG_COMPLIANCE_FIXTURE: undefined,
-    });
+    }, outputs);
 
     assert.equal(result.status, 0, `expected exit 0; stderr: ${result.stderr}`);
     assert.match(result.stdout, /BLG retired/i);
@@ -178,14 +206,35 @@ describe('demotion parity -- fetch-blog-data.js\'s batch filter now matches gene
 
 describe('fetch-blog-data.js -- silent-drop guard, full pipeline (2026-08-12)', () => {
   const SYNTHETIC_SLUG = 'zz-test-synthetic-dropped-article-do-not-commit';
-  const syntheticPath = path.join(GENERATED_DIR, `${SYNTHETIC_SLUG}.json`);
+  let inputDir;
+  let outputs;
 
-  test('a published generated article that trips the (non-demoted) compliance filter fails the build loudly, names the article, and leaves blog-articles.json untouched', () => {
-    assert.equal(fs.existsSync(syntheticPath), false, 'test fixture collision -- a file at this synthetic path already exists, aborting rather than risk clobbering something real');
-    const outBefore = snapshot(OUT_PATH);
+  // The synthetic article now lands in a TEMP input directory, not the real
+  // src/data/generated-articles/. Previously it was written into the real one
+  // and removed in a finally block -- a published:true fixture sitting in the
+  // directory the production build reads, for the duration of the test. An
+  // interrupted run left it there, and the next build would pick it up. Same
+  // defect class 6B2a fixed in merge.test.mjs.
+  //
+  // One genuine published article is copied in alongside it so the corpus is
+  // realistic and non-empty: the second test's "clean build once the synthetic
+  // is gone" assertion is only meaningful against a corpus that actually
+  // produces articles.
+  function seedInputDir({ withSynthetic }) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fetch-blog-data-in-'));
+    const realFiles = fs.readdirSync(GENERATED_DIR).filter((f) => f.endsWith('.json'));
+    const donor = realFiles.find((f) => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(GENERATED_DIR, f), 'utf8')).published !== false;
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(donor, 'fixture assumption: the repo must have at least one published generated article to copy');
+    fs.copyFileSync(path.join(GENERATED_DIR, donor), path.join(dir, donor));
 
-    try {
-      fs.writeFileSync(syntheticPath, JSON.stringify({
+    if (withSynthetic) {
+      fs.writeFileSync(path.join(dir, SYNTHETIC_SLUG + '.json'), JSON.stringify({
         id: 'local-test-synthetic',
         title: 'Synthetic Test Article (DO NOT COMMIT)',
         slug: SYNTHETIC_SLUG,
@@ -203,34 +252,84 @@ describe('fetch-blog-data.js -- silent-drop guard, full pipeline (2026-08-12)', 
         published: true,
         sourceTopic: 'Synthetic Test Topic (DO NOT COMMIT)',
       }, null, 2), 'utf8');
-
-      const result = runFetchBlogData({
-        BABYLOVE_API_KEY: undefined,
-        BLOG_INCLUDE_BLG: undefined,
-        BLOG_COMPLIANCE_FIXTURE: undefined,
-      });
-
-      assert.notEqual(result.status, 0, 'a silently-dropped published generated article must fail the build, not exit 0');
-      const combinedOutput = `${result.stdout}\n${result.stderr}`;
-      assert.match(combinedOutput, /FATAL/);
-      assert.match(combinedOutput, /did not make it into/);
-      assert.match(combinedOutput, new RegExp(SYNTHETIC_SLUG));
-      assert.match(combinedOutput, /Synthetic Test Article \(DO NOT COMMIT\)/);
-
-      const outAfter = snapshot(OUT_PATH);
-      assert.equal(outAfter, outBefore, 'blog-articles.json must be left untouched on this FATAL -- never ship a half-written state');
-    } finally {
-      if (fs.existsSync(syntheticPath)) fs.rmSync(syntheticPath);
     }
+    return dir;
+  }
+
+  afterEach(() => {
+    // Tidiness only -- both directories are outside the repo, so nothing about
+    // repository safety depends on this running.
+    if (inputDir) fs.rmSync(inputDir, { recursive: true, force: true });
+    if (outputs) fs.rmSync(outputs.dir, { recursive: true, force: true });
   });
 
-  test('the same synthetic article, once removed, no longer affects the build (cleanup verification)', () => {
-    assert.equal(fs.existsSync(syntheticPath), false, 'the previous test must have cleaned up its synthetic file');
+  test('a published generated article that trips the (non-demoted) compliance filter fails the build loudly, names the article, and leaves blog-articles.json untouched', () => {
+    inputDir = seedInputDir({ withSynthetic: true });
+    outputs = makeTempOutputs();
+    const outBefore = readIfExists(outputs.outPath);
+
     const result = runFetchBlogData({
       BABYLOVE_API_KEY: undefined,
       BLOG_INCLUDE_BLG: undefined,
       BLOG_COMPLIANCE_FIXTURE: undefined,
-    });
-    assert.equal(result.status, 0, `expected a clean build once the synthetic article is gone; stderr: ${result.stderr}`);
+      TVH_GENERATED_DIR: inputDir,
+    }, outputs);
+
+    assert.notEqual(result.status, 0, 'a silently-dropped published generated article must fail the build, not exit 0');
+    const combinedOutput = result.stdout + '\n' + result.stderr;
+    assert.match(combinedOutput, /FATAL/);
+    assert.match(combinedOutput, /did not make it into/);
+    assert.match(combinedOutput, new RegExp(SYNTHETIC_SLUG));
+    assert.match(combinedOutput, /Synthetic Test Article \(DO NOT COMMIT\)/);
+
+    const outAfter = readIfExists(outputs.outPath);
+    assert.equal(outAfter, outBefore, 'blog-articles.json must be left untouched on this FATAL -- never ship a half-written state');
+  });
+
+  test('the same synthetic article, once removed, no longer affects the build (cleanup verification)', () => {
+    inputDir = seedInputDir({ withSynthetic: false });
+    outputs = makeTempOutputs();
+    assert.equal(fs.existsSync(path.join(inputDir, SYNTHETIC_SLUG + '.json')), false);
+
+    const result = runFetchBlogData({
+      BABYLOVE_API_KEY: undefined,
+      BLOG_INCLUDE_BLG: undefined,
+      BLOG_COMPLIANCE_FIXTURE: undefined,
+      TVH_GENERATED_DIR: inputDir,
+    }, outputs);
+    assert.equal(result.status, 0, 'expected a clean build once the synthetic article is gone; stderr: ' + result.stderr);
+  });
+
+  // GUARD: the synthetic fixture must never appear in the REAL corpus dir.
+  test('the synthetic fixture is never written into the real src/data/generated-articles/', () => {
+    assert.equal(
+      fs.existsSync(path.join(GENERATED_DIR, SYNTHETIC_SLUG + '.json')),
+      false,
+      'this suite must never write into the real generated-articles directory -- an interrupted run would leave a published:true fixture where the production build reads it',
+    );
+  });
+});
+
+// DEFAULT PRESERVATION. fetch-blog-data.js is the FIRST and FATAL step of every
+// build, so the one thing that must never break is its behavior with no
+// environment overrides set at all.
+describe('fetch-blog-data.js -- path defaults with no env overrides (Phase 6B2b)', () => {
+  const src = fs.readFileSync(path.join(PROJECT_ROOT, 'tools', 'fetch-blog-data.js'), 'utf8');
+
+  test('each override falls back to the exact prior production expression', () => {
+    assert.match(src, /process\.env\.TVH_BLOG_OUT_PATH/);
+    assert.match(src, /process\.env\.TVH_BLOG_COMPLIANCE_REPORT_PATH/);
+    assert.match(src, /\|\|\s*path\.join\(PROJECT_ROOT, 'src', 'data', 'blog-articles\.json'\)/);
+    assert.match(src, /\|\|\s*path\.join\(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report\.json'\)/);
+    assert.match(src, /loadGeneratedArticles\(process\.env\.TVH_GENERATED_DIR \|\| undefined\)/);
+  });
+
+  test('the real production paths this test file computes match what the script falls back to', () => {
+    // Asserted structurally rather than by execution: actually running the
+    // script with no overrides would rewrite the tracked
+    // src/data/blog-articles.json, which is exactly what this batch exists to
+    // stop the test suite from doing.
+    assert.equal(OUT_PATH, path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json'));
+    assert.equal(REPORT_PATH, path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json'));
   });
 });

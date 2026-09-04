@@ -40,14 +40,31 @@ import { assertNoGeneratedArticleSilentlyDropped } from './silentDropGuard.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const OUT_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
+// PATH OVERRIDES (2026-09-04, Phase 6B2b). Each defaults to the exact
+// expression it replaced, so an environment with none of these set is
+// byte-identical to before -- which matters more here than anywhere else
+// in the repo: this script is the FIRST and FATAL step of every build.
+//
+// They exist so fetch-blog-data.test.mjs can point the script at temp
+// directories instead of writing the real src/data/blog-articles.json.
+// Before this, that test snapshotted and restored a TRACKED file around
+// every spawn; an interrupted run left the repo's real article data in
+// whatever state the test had produced. Restoring afterwards cannot fix
+// that, because the failure mode is the run never reaching the restore.
+// Same reasoning as 6B2a's fix to merge.test.mjs.
+//
+// NOT read anywhere else, and deliberately not wired into run-build.mjs
+// or package.json: production never sets them.
+const OUT_PATH = process.env.TVH_BLOG_OUT_PATH
+  || path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
 
 function writeArticles(articles) {
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
   fs.writeFileSync(OUT_PATH, `${JSON.stringify(articles, null, 2)}\n`, 'utf8');
 }
 
-const COMPLIANCE_REPORT_PATH = path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json');
+const COMPLIANCE_REPORT_PATH = process.env.TVH_BLOG_COMPLIANCE_REPORT_PATH
+  || path.join(PROJECT_ROOT, 'tools', 'blog-compliance', 'last-report.json');
 
 // Shared tail end of both runFromFixture/runFromApi (and their early-exit
 // branches): merges in locally-generated articles, runs the compliance
@@ -56,7 +73,13 @@ const COMPLIANCE_REPORT_PATH = path.join(PROJECT_ROOT, 'tools', 'blog-compliance
 // generated articles aren't silently dropped just because BabyLoveGrowth had
 // nothing to contribute this build.
 function buildAndWrite(babyLoveArticles) {
-  const generated = loadGeneratedArticles();
+  // TVH_GENERATED_DIR: undefined re-selects loadGeneratedArticles's own
+  // default (GENERATED_DIR), so production reads exactly the directory it
+  // always has. The parameter already exists from 6B2a; this is the first
+  // caller to use it. loadGenerated.js itself is untouched -- putting the
+  // env read there would change the constant for every consumer,
+  // including merge.test.mjs's guard that asserts against the real path.
+  const generated = loadGeneratedArticles(process.env.TVH_GENERATED_DIR || undefined);
   if (generated.length > 0) console.log(`[fetch-blog-data] ${generated.length} locally-generated article(s) eligible (published:true) from src/data/generated-articles/`);
   const combined = mergeArticleSources(babyLoveArticles, generated);
   const surviving = runComplianceFilter(combined);
@@ -76,7 +99,7 @@ function buildAndWrite(babyLoveArticles) {
   }
   assertNoGeneratedArticleSilentlyDropped(combined, rendered, path.relative(PROJECT_ROOT, COMPLIANCE_REPORT_PATH));
   writeArticles(rendered);
-  console.log(`[fetch-blog-data] wrote ${rendered.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to src/data/blog-articles.json`);
+  console.log(`[fetch-blog-data] wrote ${rendered.length} of ${combined.length} combined articles (${babyLoveArticles.length} BabyLoveGrowth + ${generated.length} generated) to ${path.relative(PROJECT_ROOT, OUT_PATH)}`);
 }
 
 // Scans every article, logs every finding loudly (matched sentence, not just
