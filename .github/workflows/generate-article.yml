@@ -180,7 +180,16 @@ jobs:
         if: success() && steps.check.outputs.has_new_article == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT so generated article PRs trigger build-check.
+          # PRs created with GITHUB_TOKEN produced check runs with zero jobs
+          # and cannot satisfy future required status checks. Observed live:
+          # every pull_request run of build-check on a bot branch concluded
+          # 'failure' with total_count: 0 jobs (GitHub loop-prevention), so
+          # neither 'Unit + end-to-end tests' nor 'Build on push & PR' ever
+          # appeared on the PR head commit. Both create-pull-request steps
+          # need this -- they are mutually exclusive per run, so changing
+          # only one would leave about half of all runs check-less.
+          token: ${{ secrets.TVH_BOT_PR_PAT }}
           commit-message: "blog: add generated article draft"
           branch: "blog-generator/auto-${{ github.run_id }}"
           title: "[Blog draft] New generated article — review and edit before merging"
@@ -326,7 +335,16 @@ jobs:
         if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT so generated article PRs trigger build-check.
+          # PRs created with GITHUB_TOKEN produced check runs with zero jobs
+          # and cannot satisfy future required status checks. Observed live:
+          # every pull_request run of build-check on a bot branch concluded
+          # 'failure' with total_count: 0 jobs (GitHub loop-prevention), so
+          # neither 'Unit + end-to-end tests' nor 'Build on push & PR' ever
+          # appeared on the PR head commit. Both create-pull-request steps
+          # need this -- they are mutually exclusive per run, so changing
+          # only one would leave about half of all runs check-less.
+          token: ${{ secrets.TVH_BOT_PR_PAT }}
           commit-message: "blog: record rejected generation attempt (no article content)"
           branch: "blog-generator/rejected-${{ github.run_id }}"
           title: "⛔ DO NOT MERGE — close to release topic back to queue"
