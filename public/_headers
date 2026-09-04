@@ -128,6 +128,10 @@
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 /blog/purchase-agreement-contingencies-explained-california
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/how-interest-rates-affect-home-affordability/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/how-interest-rates-affect-home-affordability
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
