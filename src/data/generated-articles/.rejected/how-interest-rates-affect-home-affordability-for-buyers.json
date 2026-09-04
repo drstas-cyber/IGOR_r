@@ -1,0 +1,53 @@
+{
+  "sourceTopic": "How Interest Rates Affect Home Affordability for Buyers",
+  "rejectedAt": "2026-09-04T00:17:29.543Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "dollar-amount",
+        "matchedText": "$500,000",
+        "sentence": "uy in the first place. Two buyers looking at the exact same $500,000 house can have very different monthly payments and very dif"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "year-count",
+        "matchedText": "30 years",
+        "sentence": "cipal and interest, calculated over the loan term (commonly 30 years, though other terms exist). The interest rate determines ho"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "commonly 30 years, though other terms exist",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [],
+    "resolved": [],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
