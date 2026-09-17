@@ -1,0 +1,74 @@
+{
+  "sourceTopic": "How Riverside County Property Tax Assessment Appeals Work",
+  "rejectedAt": "2026-09-17T17:40:35.007Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": []
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "Riverside County property tax bills are mailed and due in two installments, with the first installment due December 10 and the second due April 10",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, General Tax Information",
+        "url": "https://www.rivcoacr.org/GeneralTaxInformation",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, General Tax Information",
+        "url": "https://www.rivcoacr.org/GeneralTaxInformation",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
