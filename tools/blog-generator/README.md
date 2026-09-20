@@ -1,5 +1,52 @@
 # Self-hosted blog generator (Phase 1)
 
+## Phase 2 inert lifecycle and quarantine contracts (not active)
+
+Phase 2 adds pure, tested infrastructure for a future approved publication
+buffer without changing the pipeline that runs today:
+
+- `articleLifecycle.mjs` defines optional `approved_at`, `approval_pr`,
+  `approval_merge_sha`, and `published_at` validation plus immutable approval,
+  first-publication, and substantive-modification transitions. Its
+  `validateOptionalLifecycleMetadata()` function is imported by `schema.js`
+  and runs through `validateArticleSchema()` during live generation validation;
+  the transition helpers themselves are not wired into production. Current
+  `assembleArticle()` output has a fixed key set that emits none of the four
+  lifecycle fields, so generated drafts follow the unchanged legacy/no-metadata
+  validation path. Legacy published articles remain valid with all four fields
+  absent; no historical migration is required.
+- `published:false` means only "not published." It does **not** mean approved.
+  Future buffer eligibility requires complete, valid approval provenance.
+- `approvedBuffer.mjs` is a pure, read-only scanner. It fails closed on
+  malformed or ambiguous records, orders eligible records by `approved_at`
+  then slug, and reports buffer depth. It has no production caller and cannot
+  publish or mutate an article.
+- `topic-quarantine.json` is the future tracked quarantine store and is
+  intentionally empty. `quarantineState.mjs` and `retryBackoff.mjs` provide
+  pure parsing, validation, transition, and injected-policy helpers. The
+  repository-owned canonical retry policy is frozen at 7 days after the first
+  rejection, 14 after the second, 30 after the third, and 60 after the fourth
+  and every later rejection (a permanent 60-day cap). Quarantine remains
+  inactive: `topicAvailability.mjs` does not read this state, and existing
+  open-PR/rejected-marker hold and release semantics remain authoritative.
+- Rejected PRs #54 and #55 must remain open until a separately approved
+  quarantine cutover creates and verifies their durable state. This phase does
+  not seed either record or migrate the rejected marker already on main.
+- There is no daily publisher. Strict `published === true` public filtering,
+  daily generation/publication, rejected-PR closure, writer concurrency,
+  `_headers` scalability changes, and Cloudflare configuration are all
+  explicitly deferred to later reviewed cutovers.
+- The frozen future `_headers` direction is Option D, implemented only in a
+  separately approved Batch F: atomically replace current per-slug article
+  Cache-Control rules with `/blog/:slug` and `/blog/:slug/`. **Never use
+  `/blog/*` for article Cache-Control.** Cloudflare Pages concatenates header
+  values from overlapping `_headers` matches instead of applying a "most
+  specific wins" override, so that wildcard can stack with article-specific
+  Cache-Control and recreate the previously observed broken caching behavior.
+  Option D is not implemented here; `public/_headers` remains unchanged, and
+  preview deployment verification of both trailing- and non-trailing-slash
+  behavior is mandatory before production.
+
 Replaces BabyLoveGrowth as a content *source*, on our own terms, because
 it's the only way to actually control the compliance problem at the root
 instead of filtering after the fact. It does **not** fix the underlying
@@ -2744,4 +2791,3 @@ the real CI environment.
 waits for the two secrets plus the next real cron/merge event** — not yet
 exercised in production, same disclosed-limit pattern as items 1-3 of the
 prior hardening batch before their own first live runs.
-

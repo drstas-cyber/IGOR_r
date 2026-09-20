@@ -1,6 +1,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateArticleSchema, META_DESCRIPTION_MIN, META_DESCRIPTION_MAX, CITATION_SOURCE_TYPES } from './schema.js';
+import { validateOptionalLifecycleMetadata } from './articleLifecycle.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const GENERATED_ARTICLES_DIR = path.resolve(HERE, '..', '..', 'src', 'data', 'generated-articles');
 
 function validArticle(overrides = {}) {
   return {
@@ -416,5 +423,71 @@ describe('validateArticleSchema — bare-root citation rejection (2026-07-27)', 
     }));
     assert.equal(result.valid, false);
     assert.match(result.errors.join(), /is a bare host root/);
+  });
+});
+
+describe('validateArticleSchema — optional lifecycle metadata', () => {
+  const approval = {
+    approved_at: '2026-09-02T12:00:00.000Z',
+    approval_pr: 57,
+    approval_merge_sha: '0123456789abcdef0123456789abcdef01234567',
+  };
+
+  test('accepts complete future approval metadata on an unpublished article', () => {
+    const result = validateArticleSchema(validArticle({ ...approval, published_at: null }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('rejects partial approval provenance', () => {
+    for (const partial of [
+      { approved_at: approval.approved_at },
+      { approval_pr: approval.approval_pr },
+      { approval_merge_sha: approval.approval_merge_sha },
+      { approved_at: approval.approved_at, approval_pr: approval.approval_pr },
+    ]) {
+      const result = validateArticleSchema(validArticle(partial));
+      assert.equal(result.valid, false);
+      assert.match(result.errors.join(' '), /atomic approval-provenance group/);
+    }
+  });
+
+  test('rejects malformed lifecycle values and non-UTC timestamp forms', () => {
+    assert.equal(validateArticleSchema(validArticle({ ...approval, approved_at: '2026-09-02T05:00:00-07:00' })).valid, false);
+    assert.equal(validateArticleSchema(validArticle({ ...approval, approval_pr: 0 })).valid, false);
+    assert.equal(validateArticleSchema(validArticle({ ...approval, approval_merge_sha: 'not-a-sha' })).valid, false);
+    assert.equal(validateArticleSchema(validArticle({ published_at: '2026-09-03T12:00:00' })).valid, false);
+  });
+
+  test('rejects published:false with non-null published_at', () => {
+    const result = validateArticleSchema(validArticle({ ...approval, published_at: '2026-09-03T12:00:00.000Z' }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(' '), /published:false/);
+  });
+
+  test('requires published_at for a future-metadata published article', () => {
+    const result = validateArticleSchema(validArticle({ ...approval, published: true, published_at: null }));
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join(' '), /published:true/);
+  });
+
+  test('continues to accept legacy published articles with all new fields absent', () => {
+    const result = validateArticleSchema(validArticle({ published: true }));
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+  });
+
+  test('the lifecycle extension accepts every current generated article without historical migration', () => {
+    const files = fs.readdirSync(GENERATED_ARTICLES_DIR).filter((file) => file.endsWith('.json'));
+    assert.ok(files.length > 0, 'expected the tracked generated-article corpus to be non-empty');
+    const failures = [];
+    for (const file of files) {
+      const article = JSON.parse(fs.readFileSync(path.join(GENERATED_ARTICLES_DIR, file), 'utf8'));
+      // Two early historical files predate unrelated citation-schema rules
+      // and already fail those modern checks. This regression isolates the
+      // new optional lifecycle contract: it must add zero migration burden
+      // without weakening any existing citation validation.
+      const result = validateOptionalLifecycleMetadata(article);
+      if (!result.valid) failures.push(`${file}: ${result.errors.join('; ')}`);
+    }
+    assert.deepEqual(failures, []);
   });
 });

@@ -3,6 +3,8 @@
 // BlogIndexPage.jsx, BlogPostPage.jsx, and tools/seo-prerender.js). Pure, no
 // I/O — unit-testable in isolation.
 
+import { validateOptionalLifecycleMetadata } from './articleLifecycle.mjs';
+
 export const META_DESCRIPTION_MIN = 70;
 export const META_DESCRIPTION_MAX = 160;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -196,6 +198,7 @@ export function validateArticleSchema(article) {
   if (typeof article.published !== 'boolean') {
     errors.push('published must be a boolean');
   }
+  errors.push(...validateOptionalLifecycleMetadata(article).errors);
   if (typeof article.sourceTopic !== 'string' || article.sourceTopic.trim().length === 0) {
     errors.push('sourceTopic must be a non-empty string — the exact topics.json "topic" text this article was generated from, used by topicAvailability.mjs to avoid regenerating the same topic. Added 2026-07-26.');
   }
