@@ -20,15 +20,40 @@
 // open generator PR (real draft or rejected-attempt marker) means its
 // topic is spoken for. Closing that PR without merging releases the topic
 // -- deliberate, symmetric in both directions, documented in README.md.
-// A rejected marker that gets MERGED to main (e.g. by mistake) blocks its
-// topic PERMANENTLY, same as a real article would -- there is no special
-// case for main vs. PR-branch content here on purpose. Recovery from an
-// accidental merge is a manual, reviewed deletion of that file, not an
-// automatic un-block.
+//
+// PHASE 3 / MODEL A (this change). A rejected marker that gets MERGED to
+// main used to block its topic PERMANENTLY, with recovery only by a
+// manual `git rm` of the marker file. That is retired. Under Model A the
+// three ACTIVE availability holds are:
+//
+//   1. a real generated article (topic consumed, permanent)
+//   2. an open generator PR (held while pending, released on close)
+//   3. an ACTIVE quarantine record in topic-quarantine.json
+//
+// A merged `.rejected/` marker is AUDIT / HISTORY ONLY -- it records that
+// a rejection happened, and it no longer subtracts from availability by
+// itself. What holds the topic after a merge is the quarantine record
+// that travelled in the same PR, and that record EXPIRES on the canonical
+// 7/14/30/60-day policy. The whole point of the change is that a rejected
+// topic can actually come back.
+//
+// The one thing that must never happen is a merged marker silently
+// releasing a topic because its quarantine record went missing. A merged
+// marker whose sourceTopic has no matching valid quarantine record is an
+// AMBIGUOUS MIGRATION STATE and fails closed -- see
+// assertMergedMarkersAreQuarantined() below. That is the same fail-closed
+// standard getOpenPrAttemptedTopics() already holds for `gh pr list`:
+// never guess, never silently degrade.
+//
+// `now` is INJECTED, never read from a global clock in here. Eligibility
+// is a pure function of (topics, holds, quarantine, now), which is what
+// keeps the tests deterministic across timezones and machines.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { isValidIsoUtc } from './articleLifecycle.mjs';
+import { isRetryEligible } from './quarantineState.mjs';
 
 const GENERATED_DIR_REPO_PATH = 'src/data/generated-articles';
 
@@ -49,15 +74,42 @@ function readSourceTopicsFromDir(dirAbsPath) {
   return topics;
 }
 
-// Local ground truth: real articles + rejected markers, both directly under
-// the given generated-articles directory (main's checked-out copy, in
-// generate.mjs's normal flow).
-export function getLocallyAttemptedTopics(generatedDir) {
-  const topics = readSourceTopicsFromDir(generatedDir);
-  for (const t of readSourceTopicsFromDir(path.join(generatedDir, '.rejected'))) {
-    topics.add(t);
+// Local ground truth, MODEL A: topics CONSUMED by a real generated article
+// on main. Permanent -- an article that exists was generated, full stop.
+//
+// Deliberately does NOT include `.rejected/` markers any more. Before
+// Phase 3 this function unioned them in, which is what made a merged
+// marker a permanent hold. Markers are now audit history and are read
+// separately by getMergedMarkerTopics() for the consistency check only.
+export function getConsumedTopics(generatedDir) {
+  return readSourceTopicsFromDir(generatedDir);
+}
+
+// Merged rejected-attempt markers on main. AUDIT ONLY -- this set is never
+// unioned into the attempted/blocked set. It exists so the caller can
+// prove every merged marker still has a quarantine record backing it.
+export function getMergedMarkerTopics(generatedDir) {
+  return readSourceTopicsFromDir(path.join(generatedDir, '.rejected'));
+}
+
+// FAIL-CLOSED consistency guard. Every merged marker topic must have a
+// quarantine record. If one does not, we are either mid-migration or
+// someone hand-edited state, and the honest answer is "I cannot tell
+// whether this topic is held" -- which must stop the run, not silently
+// release the topic into the queue.
+export function assertMergedMarkersAreQuarantined(mergedMarkerTopics, quarantineRecords) {
+  const quarantined = new Set(
+    (quarantineRecords || []).map((r) => (r && typeof r.topic === 'string' ? r.topic : null)).filter(Boolean)
+  );
+  const orphans = [...mergedMarkerTopics].filter((t) => !quarantined.has(t));
+  if (orphans.length > 0) {
+    throw new Error(
+      `[topicAvailability] ${orphans.length} merged rejected-marker topic(s) have no quarantine record: `
+      + `${orphans.map((t) => JSON.stringify(t)).join(', ')}. Under Model A a merged marker is audit history and the `
+      + 'quarantine record is the hold, so a marker with no record is an ambiguous state. Refusing to guess whether '
+      + 'these topics are available -- seed the missing record(s) in tools/blog-generator/topic-quarantine.json.'
+    );
   }
-  return topics;
 }
 
 // FAIL-CLOSED: throws on any failure anywhere in this function -- the gh
@@ -135,6 +187,61 @@ export function getOpenPrAttemptedTopics({ repo, exec = execSync } = {}) {
 // attempted (queue exhausted — not an error). Exact-string match: editing
 // a topic's wording in topics.json makes it newly-eligible, deliberately —
 // see README.md.
+//
+// Kept as the low-level primitive. Callers that need Model A's full hold
+// composition use pickNextEligibleTopic() below instead.
 export function pickNextAvailableTopic(topics, attemptedTopics) {
   return topics.find((t) => !attemptedTopics.has(t.topic)) || null;
+}
+
+// Pure. The set of topics an ACTIVE quarantine currently blocks at `now`.
+// A record blocks while now < next_eligible_retry_at. At exact equality
+// the quarantine has expired and the topic is eligible again -- the
+// boundary is inclusive on the eligible side, matching isRetryEligible().
+//
+// Validation of the records themselves (shape, exact topic identity,
+// duplicates, case-only collisions, monotonic timestamps) belongs to
+// quarantineState.mjs and must already have run before this is called.
+export function quarantineBlockedTopics(quarantineRecords, now) {
+  if (!isValidIsoUtc(now)) {
+    throw new Error(`[topicAvailability] now must be a canonical ISO-8601 UTC timestamp ending in Z, got: ${JSON.stringify(now)}`);
+  }
+  const blocked = new Set();
+  for (const record of quarantineRecords || []) {
+    if (!isRetryEligible(record, now)) blocked.add(record.topic);
+  }
+  return blocked;
+}
+
+// MODEL A, composed. The single place the full eligibility rule lives:
+//
+//   eligible(topic, now) =
+//         NOT consumed by a real generated article
+//     AND NOT held by an open generator PR
+//     AND ( no quarantine record OR now >= next_eligible_retry_at )
+//
+// Merged `.rejected/` markers are deliberately absent from that rule. They
+// are passed in only so the fail-closed consistency guard can run: every
+// merged marker must still have a quarantine record behind it.
+//
+// Pure and `now`-injected, so the caller (generate.mjs) owns the clock.
+export function pickNextEligibleTopic({
+  topics,
+  consumedTopics,
+  openPrTopics,
+  mergedMarkerTopics,
+  quarantineRecords,
+  now,
+} = {}) {
+  if (!Array.isArray(topics)) {
+    throw new Error('[topicAvailability] pickNextEligibleTopic: topics must be an array');
+  }
+  assertMergedMarkersAreQuarantined(mergedMarkerTopics || new Set(), quarantineRecords || []);
+
+  const blocked = new Set([
+    ...(consumedTopics || new Set()),
+    ...(openPrTopics || new Set()),
+    ...quarantineBlockedTopics(quarantineRecords || [], now),
+  ]);
+  return pickNextAvailableTopic(topics, blocked);
 }

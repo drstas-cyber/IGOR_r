@@ -157,18 +157,43 @@ describe('buildMarkerMergedEmail', () => {
     prUrl: 'https://github.com/drstas-cyber/IGOR_r/pull/41',
   };
 
-  test('subject names the topic and warns nothing was published', () => {
+  // PHASE 3 / MODEL A: merging a rejection PR is the NORMAL action, so
+  // this template is a confirmation, not a warning. The three retired
+  // claims — merge was a mistake, the topic is blocked forever, `git rm`
+  // the marker to release it — are asserted ABSENT, not just replaced, so
+  // a future edit cannot quietly bring them back.
+  test('subject reports the rejection was recorded, not that the operator erred', () => {
     const { subject } = buildMarkerMergedEmail(base);
-    assert.match(subject, /Вы смержили маркер/);
+    assert.match(subject, /Отклонение записано/);
     assert.match(subject, /How California's Preliminary Change of Ownership Report Works/);
+    assert.doesNotMatch(subject, /смержили маркер/, 'must not frame the merge as a mistake');
   });
 
-  test('body includes the topic, marker file path, git rm instructions, and the PR link', () => {
+  test('body includes the topic, marker file path as history, and the PR link', () => {
     const { html } = buildMarkerMergedEmail(base);
     assert.match(html, /How California's Preliminary Change of Ownership Report Works/);
     assert.match(html, /how-california-s-preliminary-change-of-ownership-report-works\.json/);
-    assert.match(html, /git rm/);
     assert.match(html, /pull\/41/);
+  });
+
+  test('retired wording is GONE: no permanent block, no git rm recovery, no "mistake" framing', () => {
+    const { html } = buildMarkerMergedEmail(base);
+    assert.doesNotMatch(html, /заблокирована навсегда/, 'no permanent-block claim');
+    assert.doesNotMatch(html, /git rm/, 'no git rm recovery instruction');
+    assert.doesNotMatch(html, /смержили маркер/, 'no "you merged it by mistake" framing');
+    assert.doesNotMatch(html, /по ошибке/, 'no "by mistake" framing');
+    // Positively assert the replacement message: the merge is expected.
+    assert.match(html, /а не ошибка/, 'states plainly that the merge is expected, not an error');
+  });
+
+  test('confirmation reports the attempt number and the next eligible retry timestamp', () => {
+    const { html } = buildMarkerMergedEmail({
+      ...base,
+      rejectionCount: 2,
+      nextEligibleRetryAt: '2026-09-24T00:00:00.000Z',
+    });
+    assert.match(html, /Попытка №:<\/strong> 2/);
+    assert.match(html, /2026-09-24T00:00:00\.000Z/);
   });
 
   test('a missing topic still renders a clean, non-blank body with a fallback note', () => {
@@ -381,5 +406,54 @@ describe('buildFailureDetail — reports what happened, never asserts a cause it
     const log = 'y'.repeat(MAX_FAILURE_DETAIL_LENGTH);
     const detail = buildFailureDetail(log);
     assert.equal(detail, log);
+  });
+});
+
+// PHASE 3 / MODEL A — the rejected-PR CREATED email must present the
+// MERGE/CLOSE decision. The retired contract told the operator "DO NOT
+// MERGE"; asserting that string's absence is what stops it returning.
+describe('buildRejectedPrEmail — Phase 3 MERGE/CLOSE decision copy', () => {
+  const base = {
+    topic: 'Some Rejected Topic',
+    failureClassLabel: 'ворота соответствия',
+    findingsSummaryLines: ['layer2: uncited_statistic'],
+    prUrl: 'https://github.com/drstas-cyber/IGOR_r/pull/99',
+  };
+
+  test('explains that MERGE records the quarantine and CLOSE overrides it', () => {
+    const { html } = buildRejectedPrEmail(base);
+    assert.match(html, /СМЕРЖИТЬ/);
+    assert.match(html, /карантин/);
+    assert.match(html, /ЗАКРЫТЬ без мержа/);
+    assert.match(html, /возвращается в очередь/);
+  });
+
+  test('states plainly that merging is the normal action', () => {
+    const { html } = buildRejectedPrEmail(base);
+    assert.match(html, /Оба варианта допустимы/);
+    assert.match(html, /обычное действие/);
+  });
+
+  test('the retired "DO NOT MERGE" / close-to-release instruction is absent', () => {
+    const { html, subject } = buildRejectedPrEmail(base);
+    assert.doesNotMatch(html, /DO NOT MERGE/i);
+    assert.doesNotMatch(subject, /DO NOT MERGE/i);
+    assert.doesNotMatch(html, /не мержить/i);
+  });
+
+  test('when the quarantine transition is known, it names the retry date and attempt number', () => {
+    const { html } = buildRejectedPrEmail({
+      ...base,
+      rejectionCount: 3,
+      nextEligibleRetryAt: '2026-10-19T00:00:00.000Z',
+    });
+    assert.match(html, /2026-10-19T00:00:00\.000Z/);
+    assert.match(html, /попытка №3/);
+  });
+
+  test('without quarantine detail it still renders the decision cleanly', () => {
+    const { html } = buildRejectedPrEmail(base);
+    assert.match(html, /канонической политике повтора/);
+    assert.doesNotMatch(html, /undefined|null/);
   });
 });

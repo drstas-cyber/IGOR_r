@@ -118,16 +118,35 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
     };
   }
 
+  // PHASE 3: handleTrippedGate now also records the quarantine transition,
+  // so it requires isolated quarantine state plus the topics list the
+  // production contract validates exact topic identity against. `topics`
+  // is derived from whatever is already in this fixture's quarantine file
+  // plus the report's own topic -- mirroring production, where topics.json
+  // contains every topic any record can name. Fixture-only: the
+  // fail-closed contract itself is untouched.
+  function tripGate(report, dir) {
+    // Sibling of generatedDir, never inside it -- one of these tests
+    // asserts generatedDir contains nothing but .rejected/, and quarantine
+    // state is repo-level anyway. Deterministic per dir so repeated trips
+    // on the same fixture accumulate into the same file, as production does.
+    const quarantinePath = `${dir}-quarantine.json`;
+    if (!fs.existsSync(quarantinePath)) fs.writeFileSync(quarantinePath, '[]\n', 'utf8');
+    const existing = JSON.parse(fs.readFileSync(quarantinePath, 'utf8'));
+    const topics = [...new Set([...existing.map((r) => r.topic), report.topic.topic])].map((topic) => ({ topic }));
+    return handleTrippedGate(report, { generatedDir: dir, quarantinePath, topics });
+  }
+
   test('writes the marker under <generatedDir>/.rejected/<slugified-topic>.json', () => {
     const dir = isolatedDir();
-    const { markerPath } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    const { markerPath } = tripGate(sampleReport(), dir);
     assert.equal(markerPath, path.join(dir, '.rejected', 'what-first-time-buyers-should-know-about-home-inspections.json'));
     assert.ok(fs.existsSync(markerPath));
   });
 
   test('marker contains EXACTLY sourceTopic, rejectedAt, failureClass, layer1, layer2, layer3, schemaErrors, internalLinkErrors, identityErrors — no title/slug/content_html', () => {
     const dir = isolatedDir();
-    const { markerPath } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    const { markerPath } = tripGate(sampleReport(), dir);
     const written = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
     assert.deepEqual(
       new Set(Object.keys(written)),
@@ -140,64 +159,55 @@ describe('handleTrippedGate — rejected-attempt marker (2026-07-26)', () => {
 
   test('failureClass is "gate_trip" for outcome "skipped", "schema_invalid" for outcome "schema_invalid", "internal_link_invalid" for outcome "internal_link_invalid", "identity_incomplete" for outcome "identity_incomplete"', () => {
     const dir = isolatedDir();
-    const gateTrip = handleTrippedGate(sampleReport({ outcome: 'skipped' }), { generatedDir: dir });
+    const gateTrip = tripGate(sampleReport({ outcome: 'skipped' }), dir);
     assert.equal(gateTrip.marker.failureClass, 'gate_trip');
-    const schemaInvalid = handleTrippedGate(
-      sampleReport({ outcome: 'schema_invalid', schemaErrors: ['citations[]: host "x" is not an approved citation host'] }),
-      { generatedDir: dir }
-    );
+    const schemaInvalid = tripGate(sampleReport({ outcome: 'schema_invalid', schemaErrors: ['citations[]: host "x" is not an approved citation host'] }), dir);
     assert.equal(schemaInvalid.marker.failureClass, 'schema_invalid');
     assert.deepEqual(schemaInvalid.marker.schemaErrors, ['citations[]: host "x" is not an approved citation host']);
-    const linkInvalid = handleTrippedGate(
-      sampleReport({ outcome: 'internal_link_invalid', internalLinkErrors: ['https://temeculavalleyhomes.us/blog/invented-slug/'] }),
-      { generatedDir: dir }
-    );
+    const linkInvalid = tripGate(sampleReport({ outcome: 'internal_link_invalid', internalLinkErrors: ['https://temeculavalleyhomes.us/blog/invented-slug/'] }), dir);
     assert.equal(linkInvalid.marker.failureClass, 'internal_link_invalid');
     assert.deepEqual(linkInvalid.marker.internalLinkErrors, ['https://temeculavalleyhomes.us/blog/invented-slug/']);
-    const identityIncomplete = handleTrippedGate(
-      sampleReport({ outcome: 'identity_incomplete', identityErrors: ['identity block: DRE number (02034120) not found anywhere in content_html'] }),
-      { generatedDir: dir }
-    );
+    const identityIncomplete = tripGate(sampleReport({ outcome: 'identity_incomplete', identityErrors: ['identity block: DRE number (02034120) not found anywhere in content_html'] }), dir);
     assert.equal(identityIncomplete.marker.failureClass, 'identity_incomplete');
     assert.deepEqual(identityIncomplete.marker.identityErrors, ['identity block: DRE number (02034120) not found anywhere in content_html']);
   });
 
   test('schemaErrors defaults to an empty array when not on the report (the normal gate-trip case)', () => {
     const dir = isolatedDir();
-    const { marker } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    const { marker } = tripGate(sampleReport(), dir);
     assert.deepEqual(marker.schemaErrors, []);
   });
 
   test('sourceTopic matches report.topic.topic exactly', () => {
     const dir = isolatedDir();
     const report = sampleReport({ topic: { topic: 'Understanding HOA Fees', target_keyword: 'hoa fees' } });
-    const { marker } = handleTrippedGate(report, { generatedDir: dir });
+    const { marker } = tripGate(report, dir);
     assert.equal(marker.sourceTopic, 'Understanding HOA Fees');
   });
 
   test('rejectedAt is a valid, parseable ISO date string', () => {
     const dir = isolatedDir();
-    const { marker } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    const { marker } = tripGate(sampleReport(), dir);
     assert.ok(!Number.isNaN(new Date(marker.rejectedAt).getTime()));
   });
 
   test('layer1/layer2 findings snippets ARE carried through (accepted level of quoting — evidence, not the draft)', () => {
     const dir = isolatedDir();
-    const { marker } = handleTrippedGate(sampleReport(), { generatedDir: dir });
+    const { marker } = tripGate(sampleReport(), dir);
     assert.equal(marker.layer1.findings[0].matchedText, 'over a decade');
   });
 
   test('writes nothing directly under generatedDir — only under .rejected/', () => {
     const dir = isolatedDir();
-    handleTrippedGate(sampleReport(), { generatedDir: dir });
+    tripGate(sampleReport(), dir);
     const topLevelFiles = fs.readdirSync(dir).filter((f) => f !== '.rejected');
     assert.deepEqual(topLevelFiles, []);
   });
 
   test('two different topics produce two distinct marker files (no collision)', () => {
     const dir = isolatedDir();
-    const a = handleTrippedGate(sampleReport({ topic: { topic: 'Topic A', target_keyword: 'a' } }), { generatedDir: dir });
-    const b = handleTrippedGate(sampleReport({ topic: { topic: 'Topic B', target_keyword: 'b' } }), { generatedDir: dir });
+    const a = tripGate(sampleReport({ topic: { topic: 'Topic A', target_keyword: 'a' } }), dir);
+    const b = tripGate(sampleReport({ topic: { topic: 'Topic B', target_keyword: 'b' } }), dir);
     assert.notEqual(a.markerPath, b.markerPath);
     assert.ok(fs.existsSync(a.markerPath));
     assert.ok(fs.existsSync(b.markerPath));
@@ -319,19 +329,28 @@ function noOpenPrsExec(cmd) {
   throw new Error(`test exec: unexpected command "${cmd}"`);
 }
 
+// PHASE 3: every isolated fixture now carries its OWN quarantine state.
+// generate.mjs fails closed on a missing topic-quarantine.json, which is
+// the intended production contract -- so the fixture supplies a valid
+// empty one rather than the contract being softened to tolerate absence.
+// It must never fall back to the REAL seeded repository file: that file's
+// three topics are not in this fixture's one-topic topics.json, so exact
+// topic-identity validation would (correctly) reject them.
 function writeIsolatedRepoFixture() {
   const root = isolatedDir('generate-main-test-');
   const generatedDir = path.join(root, 'generated-articles');
   const topicsPath = path.join(root, 'topics.json');
   const reportPath = path.join(root, '.last-run-report.json');
   const citationHostLogPath = path.join(root, 'citation-host-log.json');
+  const quarantinePath = path.join(root, 'topic-quarantine.json');
   fs.writeFileSync(topicsPath, JSON.stringify([{ topic: 'Understanding HOA Fees', target_keyword: 'hoa fees' }]), 'utf8');
-  return { root, generatedDir, topicsPath, reportPath, citationHostLogPath };
+  fs.writeFileSync(quarantinePath, '[]\n', 'utf8');
+  return { root, generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath };
 }
 
 describe('main() — gate trip, full path (2026-07-26)', () => {
   test('a Layer 2 trip exits non-zero, writes no real article file, and DOES write a rejected marker', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: TRIPPING_CHECKLIST });
     process.exitCode = undefined;
 
@@ -341,6 +360,7 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -366,7 +386,7 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
   });
 
   test('a clean run (both gates pass) exits zero and writes a real article, no rejected marker', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
 
@@ -376,6 +396,7 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -417,7 +438,7 @@ describe('main() — gate trip, full path (2026-07-26)', () => {
 // this test fails if the demotion set ever widens to swallow it.
 describe('main() — Layer 1 regex-scanner trip, full path (2026-09-03, gap closed)', () => {
   test('a Layer 1 tenure finding trips the gate end-to-end: exits non-zero, writes no article, writes a marker carrying the layer1 finding', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     // Layer 2 stays deliberately CLEAN -- this isolates Layer 1 as the sole
     // cause of the trip, so a green Layer 2 can never be what's actually
     // carrying this test.
@@ -427,7 +448,7 @@ describe('main() — Layer 1 regex-scanner trip, full path (2026-09-03, gap clos
     });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1, 'a Layer 1 trip must exit non-zero');
     process.exitCode = undefined;
@@ -457,11 +478,11 @@ describe('main() — Layer 1 regex-scanner trip, full path (2026-09-03, gap clos
   });
 
   test('the same fixture WITHOUT the tenure sentence generates normally -- proving the sentence is what trips it, not the harness', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.notEqual(process.exitCode, 1, 'the control run must NOT trip');
     process.exitCode = undefined;
@@ -473,7 +494,7 @@ describe('main() — Layer 1 regex-scanner trip, full path (2026-09-03, gap clos
 
 describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
   test('both gates pass but schema validation fails: exits non-zero, writes no real article, DOES write a rejected marker, marker carries failureClass + schemaErrors, report withholds article identity', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     // A citation host not on CITATION_HOST_POLICY's allowlist -- resolves
     // fine (so Layer 3 doesn't trip and the run actually reaches schema
     // validation), but schema.js's getCitationHostPolicyErrors rejects it.
@@ -491,6 +512,7 @@ describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -530,7 +552,7 @@ describe('main() — schema-invalid discard, full path (2026-07-27)', () => {
 
 describe('main() — internal-link-invalid discard, full path (2026-08-08)', () => {
   test('an invented internal link discards the run: exits non-zero, writes no real article, DOES write a rejected marker with failureClass internal_link_invalid', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({
       checklist: CLEAN_CHECKLIST,
       citations: [],
@@ -544,6 +566,7 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -571,7 +594,7 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
   });
 
   test('a link to a real known route (the homepage) passes the gate and the run completes normally', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({
       checklist: CLEAN_CHECKLIST,
       citations: [],
@@ -585,6 +608,7 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -605,7 +629,7 @@ describe('main() — internal-link-invalid discard, full path (2026-08-08)', () 
 
 describe('main() — identity-incomplete discard, full path (2026-08-25)', () => {
   test('a draft missing the identity block discards the run: exits non-zero, writes no real article, DOES write a rejected marker with failureClass identity_incomplete', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: false });
     process.exitCode = undefined;
 
@@ -615,6 +639,7 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -641,7 +666,7 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
   });
 
   test('a draft carrying the full identity block passes the gate and the run completes normally', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: true });
     process.exitCode = undefined;
 
@@ -651,6 +676,7 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
       generatedDir,
       topicsPath,
       reportPath,
+      quarantinePath,
       exec: noOpenPrsExec,
     });
 
@@ -681,11 +707,11 @@ describe('main() — identity-incomplete discard, full path (2026-08-25)', () =>
 // ---------------------------------------------------------------------------
 describe('runGenerationPipeline try-catch boundary — a gate trip never also triggers the uncaught_exception catch (2026-08-31, tactical item 3c)', () => {
   test('an identity-gate trip: exactly one structured report on disk, outcome stays identity_incomplete, no errorMessage field', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], includeIdentityBlock: false });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -694,11 +720,11 @@ describe('runGenerationPipeline try-catch boundary — a gate trip never also tr
   });
 
   test('a Layer 2 compliance-gate trip (outcome: skipped): same guarantee holds for a different trip type', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: TRIPPING_CHECKLIST });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -707,7 +733,7 @@ describe('runGenerationPipeline try-catch boundary — a gate trip never also tr
   });
 
   test('a genuinely uncaught exception (topicAvailability throws): DOES reach the catch and write outcome: uncaught_exception -- the boundary works in the direction it is supposed to, not just refusing to fire when it should not', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
     const throwingExec = () => { throw new Error('[topicAvailability] gh pr list failed: simulated outage for the boundary test.'); };
@@ -734,7 +760,7 @@ describe('runGenerationPipeline try-catch boundary — a gate trip never also tr
 // ---------------------------------------------------------------------------
 describe('main() — early-exit reports (2026-08-31)', () => {
   test('missing ANTHROPIC_API_KEY: exits 1, writes NO real article, writes a minimal report with outcome missing_api_key', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     process.exitCode = undefined;
 
     await main({ apiKey: '', repo: 'owner/repo', generatedDir, topicsPath, reportPath });
@@ -747,7 +773,7 @@ describe('main() — early-exit reports (2026-08-31)', () => {
   });
 
   test('missing GITHUB_REPOSITORY: exits 1 after model verification succeeds, writes a minimal report with outcome missing_repository', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
 
@@ -760,7 +786,7 @@ describe('main() — early-exit reports (2026-08-31)', () => {
   });
 
   test('a fail-closed throw during topic selection (topicAvailability\'s own gh/git state gathering): exits 1, writes a report with outcome uncaught_exception and the real captured error message', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
     const throwingExec = () => { throw new Error('[topicAvailability] gh pr list failed: simulated CI outage. Refusing to guess which topics are already attempted.'); };
@@ -776,7 +802,7 @@ describe('main() — early-exit reports (2026-08-31)', () => {
   });
 
   test('the queue-exhausted path is UNCHANGED by this pass -- still no report written (detected via captured log text instead, see checkGenerateFailureReason.mjs)', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     // Exhaust the one topic writeIsolatedRepoFixture() seeds by pre-writing
     // a generated article for it, matching getLocallyAttemptedTopics()'s
     // own ground-truth check.
@@ -785,7 +811,7 @@ describe('main() — early-exit reports (2026-08-31)', () => {
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1);
     process.exitCode = undefined;
@@ -813,7 +839,7 @@ describe('main() — early-exit reports (2026-08-31)', () => {
 
 describe('self-review — internal-link validation (2026-08-12 fix, superseded 2026-08-31)', () => {
   test('the self-review API call does NOT include a Known live routes list (root fix, 2026-08-31) -- the draft pass still does', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     let selfReviewUserMessage = null;
     let draftUserMessage = null;
     globalThis.fetch = async (url, init = {}) => {
@@ -844,7 +870,7 @@ describe('self-review — internal-link validation (2026-08-12 fix, superseded 2
     };
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined);
     assert.ok(draftUserMessage, 'the draft pass must have been called');
@@ -854,7 +880,7 @@ describe('self-review — internal-link validation (2026-08-12 fix, superseded 2
   });
 
   test('two internal links matching known routes survive self-review intact -- the run generates normally with both links in content_html', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     // Real, stable static routes from tools/seo-prerender.js's ROUTES.
     const LINK_1 = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
     const LINK_2 = 'https://temeculavalleyhomes.us/sell-my-house/';
@@ -871,7 +897,7 @@ describe('self-review — internal-link validation (2026-08-12 fix, superseded 2
     });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined, 'two valid internal links must not discard the run');
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -898,7 +924,7 @@ describe('self-review — internal-link validation (2026-08-12 fix, superseded 2
 // ---------------------------------------------------------------------------
 describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (2026-08-19)', () => {
   test('self-review wrongly strips a valid known-route link (real router, draft and reviewed responses differ) -- main() restores it before writing the article', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     // Static route from seo-prerender.js's ROUTES -- always in knownRoutes
     // regardless of blog-articles.json's current content, same choice the
     // existing test above makes for the same reason.
@@ -943,7 +969,7 @@ describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (
     };
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined, 'a restored valid link must not discard the run');
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -985,7 +1011,7 @@ describe('link-restore backstop — the real PR #32 bug, reproduced end-to-end (
 // ---------------------------------------------------------------------------
 describe('self-review no longer re-validates internal links (2026-08-31, root fix)', () => {
   test('the self-review request never offers a "Known live routes" list -- nothing left for the model to (mis)judge against', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     const capturedMessages = [];
     globalThis.fetch = async (url, init = {}) => {
       const urlStr = String(url);
@@ -1025,7 +1051,7 @@ describe('self-review no longer re-validates internal links (2026-08-31, root fi
     };
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined);
     const draftCall = capturedMessages.find((m) => m.toolName === 'submit_article_draft');
@@ -1043,7 +1069,7 @@ describe('self-review no longer re-validates internal links (2026-08-31, root fi
   // entries AND zero restore actions (nothing needed restoring because
   // nothing was stripped).
   test('a real multi-link fixture: self-review leaves every internal link untouched -- zero phantom violations_found entries, zero restore actions needed', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     const LINK_A = 'https://temeculavalleyhomes.us/homes-for-sale-temecula/';
     const LINK_B = 'https://temeculavalleyhomes.us/contact/';
     const html = `<p>Start by browsing <a href="${LINK_A}">homes for sale in Temecula</a> today, or <a href="${LINK_B}">reach out with questions</a> any time.</p>${IDENTITY_BLOCK_HTML}`;
@@ -1070,7 +1096,7 @@ describe('self-review no longer re-validates internal links (2026-08-31, root fi
     };
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -1110,11 +1136,11 @@ describe('self-review no longer re-validates internal links (2026-08-31, root fi
 // ---------------------------------------------------------------------------
 describe('report.article.firstParagraphText — survives the article file vanishing from disk after PR creation (2026-08-31)', () => {
   test('a generated article\'s report carries firstParagraphText, extracted from the real content_html, computed once at write time', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -1126,10 +1152,10 @@ describe('report.article.firstParagraphText — survives the article file vanish
   });
 
   test('buildNotificationEmailCli.mjs --kind=article-pr builds a real email using ONLY the report -- even after the article file is gone from disk (the real-world create-pull-request cleanup scenario)', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
     process.exitCode = undefined;
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
     assert.equal(process.exitCode, undefined);
 
     // Simulates exactly the real-world failure: the article file is GONE
@@ -1181,10 +1207,10 @@ describe('report.article.firstParagraphText — survives the article file vanish
   // all, in CI or locally. The stdout fallback above is the branch that
   // only ever runs on a developer machine.
   test('with GITHUB_OUTPUT set (the real Actions environment) it writes subject and a delimited html_body to that file, not to stdout', async () => {
-    const { generatedDir, topicsPath, reportPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [] });
     process.exitCode = undefined;
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, quarantinePath, exec: noOpenPrsExec });
     process.exitCode = undefined;
 
     const outputPath = path.join(path.dirname(reportPath), 'github-output.txt');
@@ -1227,11 +1253,11 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
   const CITATION = { id: '1', sourceName: 'Example Statute', url: CITATION_URL_OK, sourceType: 'statute' };
 
   test('a citation that resolves 200 does not trip anything; article is generated', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 200 } });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -1242,11 +1268,11 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
   });
 
   test('a citation that 404s trips the gate — exits non-zero, no article file, rejected marker carries layer3', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 404 } });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1, 'a dead citation link must trip the gate exactly like any other trip');
     process.exitCode = undefined;
@@ -1267,11 +1293,11 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
   });
 
   test('a citation that 403s does NOT trip -- article still generates, host log gets an entry', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 403 } });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined, 'UNREACHABLE_LIKELY_BOT must never trip the gate on its own');
     const topLevelFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');
@@ -1291,16 +1317,16 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
   });
 
   test('host log entries accumulate across multiple runs rather than overwriting', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [CITATION], citationFetchStatuses: { [CITATION_URL_OK]: 429 } });
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
     // second run needs a fresh topic since the first is now attempted -- reuse the same log path with a second topic
     fs.writeFileSync(topicsPath, JSON.stringify([
       { topic: 'Understanding HOA Fees', target_keyword: 'hoa fees' },
       { topic: 'A Second Topic', target_keyword: 'second' },
     ]), 'utf8');
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     const hostLog = JSON.parse(fs.readFileSync(citationHostLogPath, 'utf8'));
     assert.equal(hostLog.length, 2, 'both runs\' inconclusive citations must be present, not just the latest');
@@ -1312,7 +1338,7 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
   // layer1/layer2 genuinely clean, isolating that RESOLVED_UNSUPPORTED
   // alone caused it.
   test('a citation that resolves 200 but fails body verification trips the gate as RESOLVED_UNSUPPORTED', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     const unsupportedCitation = { id: '1', sourceName: 'Example Statute (§ 100 et seq.)', url: CITATION_URL_OK, sourceType: 'statute' };
     mockAnthropicRouter({
       checklist: CLEAN_CHECKLIST,
@@ -1322,7 +1348,7 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
     });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, 1, 'a resolved-but-unsupported citation must trip the gate, same as a dead link');
     process.exitCode = undefined;
@@ -1342,11 +1368,11 @@ describe('main() — layer 3 citation URL resolution, full path (2026-07-26)', (
 
 describe('main() — findUncitedClaims wiring, LOG-ONLY end to end (2026-07-26)', () => {
   test('an uncited number appears in the report but does NOT trip the gate or block generation', async () => {
-    const { generatedDir, topicsPath, reportPath, citationHostLogPath } = writeIsolatedRepoFixture();
+    const { generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath } = writeIsolatedRepoFixture();
     mockAnthropicRouter({ checklist: CLEAN_CHECKLIST, citations: [], extraContentHtml: ' Rates rose 12% last year.' });
     process.exitCode = undefined;
 
-    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, exec: noOpenPrsExec });
+    await main({ apiKey: 'test-key', repo: 'owner/repo', generatedDir, topicsPath, reportPath, citationHostLogPath, quarantinePath, exec: noOpenPrsExec });
 
     assert.equal(process.exitCode, undefined, 'an uncited-claim candidate must never trip the gate -- log-only');
     const topLevelFiles = fs.readdirSync(generatedDir).filter((f) => f !== '.rejected');

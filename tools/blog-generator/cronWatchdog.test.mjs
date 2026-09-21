@@ -205,12 +205,28 @@ describe('renderWatchdogEmail', () => {
     assert.match(html_body, /gh workflow run generate-article\.yml/);
   });
 
-  test('a stale MARKER PR says Close, never Merge', () => {
+  // PHASE 3 / MODEL A. This test previously asserted the email said
+  // "не мержить" ("do not merge"), on the retired premise that merging a
+  // rejection marker blocked its topic forever. That advice is now
+  // actively harmful: merging is the NORMAL action that records the
+  // rejection, and closing instead is what discards the quarantine
+  // transition. The assertions below pin the replacement contract
+  // positively -- both actions named, neither forbidden, no permanent
+  // block claimed.
+  test('a stale REJECTION PR presents MERGE and CLOSE as the two valid actions, never a permanent block', () => {
     const { html_body } = renderWatchdogEmail([
       { type: 'stale_pr', number: 39, title: 'x', headRefName: 'blog-generator/rejected-1', ageDays: 5, isMarker: true },
     ]);
-    assert.match(html_body, /закрыть/i);
-    assert.match(html_body, /не мержить/i, 'merging a marker permanently blocks the topic — the email must say so');
+    // Both actions are offered, and merging is named as the normal one.
+    assert.match(html_body, /смержить/i, 'MERGE must be offered');
+    assert.match(html_body, /закрыть/i, 'CLOSE must be offered');
+    assert.match(html_body, /обычное действие/i, 'merging must be described as the normal action');
+    // Merging records the rejection and quarantines the topic temporarily.
+    assert.match(html_body, /карантин/i, 'must explain the merge records a quarantine');
+    assert.match(html_body, /next_eligible_retry_at/, 'must name what actually governs availability');
+    // The retired contract must not come back.
+    assert.doesNotMatch(html_body, /не мержить/i, 'must never tell the operator not to merge');
+    assert.doesNotMatch(html_body, /навсегда/i, 'must never claim a permanent block');
   });
 
   test('a stale ARTICLE PR does not tell the reader to close it without reading', () => {

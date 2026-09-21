@@ -43,8 +43,10 @@ name: generate-article
 # survives purely as an informational line in the PR body/report ("this
 # run would have qualified as silent") -- a quality signal for the human
 # reviewer, never a trigger. publish-on-merge.yml is the sole publish
-# mechanism: a human Merge there is what flips published:true, adds the
-# _headers cache entry, and rebuilds/deploys.
+# mechanism: a human Merge there is what flips published:true, validates
+# the article's coverage under the shared Option D placeholder rules in
+# public/_headers (no per-article insertion -- that file does not change
+# per publication), and rebuilds/deploys.
 on:
   workflow_dispatch: {}
   schedule:
@@ -124,6 +126,55 @@ jobs:
           else
             echo 'body=No report was written — the run failed before producing one. Check the job log above.' >> "$GITHUB_OUTPUT"
           fi
+
+          # PHASE 3 / MODEL A: the rejected-attempt PR gets its own body --
+          # the same rendered gate report, prefixed with the MERGE/CLOSE
+          # decision the operator now has to make. The ARTICLE PR body
+          # (`body` above) is deliberately untouched; only the rejected
+          # path changed contract. Retry date and attempt number are read
+          # from the quarantine transition this run just wrote, so the PR
+          # states the real consequence of merging rather than a
+          # placeholder. If either value is unavailable the block still
+          # renders, just without the specifics.
+          QUARANTINE_INFO=$(node -e "
+            const fs = require('fs');
+            try {
+              const report = JSON.parse(fs.readFileSync('tools/blog-generator/.last-run-report.json', 'utf8'));
+              const records = JSON.parse(fs.readFileSync('tools/blog-generator/topic-quarantine.json', 'utf8'));
+              const record = records.find((r) => r.topic === report.topic.topic);
+              if (record) console.log(record.next_eligible_retry_at + '|' + record.rejection_count);
+            } catch { /* leave empty — the block below degrades gracefully */ }
+          " 2>/dev/null || true)
+          RETRY_AT="${QUARANTINE_INFO%%|*}"
+          ATTEMPT_N="${QUARANTINE_INFO##*|}"
+          if [ -n "$QUARANTINE_INFO" ]; then
+            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines
+         the topic until ${RETRY_AT} (attempt #${ATTEMPT_N})."
+          else
+            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines
+         the topic per the canonical retry policy."
+          fi
+          {
+            echo 'rejected_body<<GENERATE_REJECTED_EOF'
+            echo 'This run was rejected by the compliance gates. No article was produced.'
+            echo ''
+            echo '```'
+            echo "$MERGE_LINE"
+            echo 'CLOSE  — override this rejection. Nothing is recorded; the topic returns'
+            echo '         to the queue immediately.'
+            echo '```'
+            echo ''
+            echo 'Both are valid. Merging is the normal action.'
+            echo ''
+            echo '---'
+            echo ''
+            if [ -f tools/blog-generator/.last-run-report.json ]; then
+              node tools/blog-generator/render-report-md.mjs
+            else
+              echo 'No report was written — the run failed before producing one. Check the job log above.'
+            fi
+            echo 'GENERATE_REJECTED_EOF'
+          } >> "$GITHUB_OUTPUT"
 
       # Excludes .rejected/ explicitly — a gate trip writes a marker there,
       # not a real article, and must never trigger this step (see
@@ -317,19 +368,23 @@ jobs:
       # job is already red from the generate step -- a failure here adds a
       # second red mark, never turns a trip green.
       #
-      # TITLE (2026-09-01, PR #41 incident) -- this PR's own Merge button
-      # looks identical to a real-article PR's, and a human tapping it from
-      # a mobile inbox has no other visual cue that this one is a trap: PR
-      # #41 (and #36 before it) were merged by mistake instead of closed.
-      # The old title ("[Blog draft] Rejected generation attempt — topic
-      # released if closed unmerged") read as a status report, not a
-      # warning, and buried the actual instruction in the second half of a
-      # long sentence. Retitled to lead with the warning glyph and the verb
-      # a human actually needs to act on -- see the new
-      # "notify-marker-merged-by-mistake" job in publish-on-merge.yml for
-      # the second half of this hardening (an email if it's merged anyway),
-      # and README.md's "Unblocking a topic after an accidentally-merged
-      # rejection" section for the manual recovery procedure.
+      # TITLE (rewritten at the Phase 3 cutover). History: the original
+      # title ("[Blog draft] Rejected generation attempt — topic released
+      # if closed unmerged") read as a status report, and PR #41 and #36
+      # were both merged when the contract of the day wanted them closed;
+      # it was then retitled "⛔ DO NOT MERGE — close to release topic back
+      # to queue" to make merging look like a trap.
+      #
+      # That whole framing is retired. Under Model A merging is the NORMAL
+      # action: it accepts the rejection and persists the audit marker plus
+      # the quarantine transition, and the topic returns automatically when
+      # the quarantine expires. Closing unmerged is an equally valid
+      # override that persists nothing. Neither is a mistake, so the title
+      # states both verbs instead of forbidding one -- and it still leads
+      # with the glyph, which is what made the previous title skimmable on
+      # a phone. See publish-on-merge.yml's "confirm-rejection-recorded"
+      # job for the confirmation email, and README.md's "The
+      # rejected-attempt PR is a DECISION" section for the full contract.
       - name: Open PR for rejected attempt (marker only — no article content)
         id: open_pr_rejected
         if: always() && steps.check_rejected.outputs.has_rejected_marker == 'true'
@@ -347,10 +402,25 @@ jobs:
           token: ${{ secrets.TVH_BOT_PR_PAT }}
           commit-message: "blog: record rejected generation attempt (no article content)"
           branch: "blog-generator/rejected-${{ github.run_id }}"
-          title: "⛔ DO NOT MERGE — close to release topic back to queue"
-          body: ${{ steps.report.outputs.body }}
+          # PHASE 3 / MODEL A: this PR is a DECISION, not a warning. The
+          # retired title said "DO NOT MERGE — close to release topic back
+          # to queue"; that contract is gone. MERGE now accepts the
+          # rejection and persists both the audit marker and the quarantine
+          # transition; CLOSE UNMERGED overrides the rejection and persists
+          # neither, returning the topic to the queue immediately. Merging
+          # is the normal action.
+          title: "⛔ REJECTED — merge to record quarantine, close to override"
+          body: ${{ steps.report.outputs.rejected_body }}
+          # topic-quarantine.json rides in THIS PR with the marker, by
+          # design: it is the single runtime quarantine writer's only
+          # delivery path (serialized by this workflow's `generate-article`
+          # concurrency group), so the state transition is reviewed
+          # alongside the evidence that justifies it and lands only if a
+          # human merges. If main moved meanwhile, this surfaces as an
+          # ordinary merge conflict rather than a silent overwrite.
           add-paths: |
             src/data/generated-articles/.rejected/
+            tools/blog-generator/topic-quarantine.json
             tools/blog-generator/citation-host-log.json
 
       - name: Build email content (rejected-attempt PR opened)
@@ -387,8 +457,11 @@ jobs:
       # carried at least one "correction," see item 2 of the same ruling
       # and README.md's decision record). publish-on-merge.yml is now the
       # SOLE publish mechanism for every article, silent or not: a human
-      # Merge there flips published:true, adds the _headers cache entry,
-      # and rebuilds/deploys. See README.md for the full decision record.
+      # Merge there flips published:true, validates the article's coverage
+      # under the shared Option D placeholder rules in public/_headers (no
+      # per-article insertion -- that file does not change per
+      # publication), and rebuilds/deploys. See README.md for the full
+      # decision record.
       # ----------------------------------------------------------------
 
       # ----------------------------------------------------------------

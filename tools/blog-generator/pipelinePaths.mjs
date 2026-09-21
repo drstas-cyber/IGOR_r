@@ -201,9 +201,10 @@ export const PIPELINE_PATHS = [
   {
     id: 'TOP-02',
     category: 'topic-selection',
-    name: 'A rejected marker on main blocks its topic permanently',
-    forcing: { kind: 'unit', file: 'topicAvailability.test.mjs', test: 'a rejected-attempt marker under .rejected/ is included too' },
+    name: 'A merged rejected marker is audit history only — the quarantine record is the hold (Model A)',
+    forcing: { kind: 'unit', file: 'topicAvailability.test.mjs', test: 'a merged rejected-attempt marker is NOT a consumed topic' },
     lastObserved: SUITE_DATE,
+    note: 'INVERTED at the Phase 3 cutover. This row used to read "blocks its topic permanently" and its forcing test asserted the marker WAS counted as attempted — which is exactly what made a merged marker an unrecoverable hold. Under Model A the marker is audit history, the quarantine record carries the hold, and that hold expires on the canonical 7/14/30/60 policy. A merged marker with no matching quarantine record fails closed instead.',
   },
   {
     id: 'TOP-03',
@@ -272,16 +273,16 @@ export const PIPELINE_PATHS = [
   {
     id: 'HUM-03',
     category: 'human-action',
-    name: 'Human MERGES a rejection marker PR by mistake -> notify-marker-merged-by-mistake fires',
+    name: 'Human MERGES a rejection PR (accepts the rejection) -> confirm-rejection-recorded fires',
     forcing: { kind: 'drill', file: '.github/workflows/pipeline-drill.yml', test: 'marker-merged' },
     lastObserved: 'never (see note)',
-    note: 'UNFIRED IN PRODUCTION. The job was added 2026-09-01 in commit 05ec104, AFTER the only real mistaken merge (PR #41, the same day) — so its body has never executed, only its skip condition. This is the exact class of the 2026-08-31 fetch-depth bug. Now drilled.',
+    note: 'REFRAMED at the Phase 3 cutover. This row used to read "merged a rejection marker PR by mistake" and its job was named notify-marker-merged-by-mistake, because a merged marker permanently blocked its topic. Under Model A merging is the NORMAL action: it accepts the rejection and persists both the audit marker and the quarantine transition, and the topic returns on the canonical 7/14/30/60 policy. The job is now a confirmation step. STILL UNFIRED IN PRODUCTION: added 2026-09-01 in commit 05ec104, after the only real merge of a marker (PR #41, the same day), so its body has never executed, only its skip condition. Drilled.',
   },
   {
     id: 'HUM-04',
     category: 'human-action',
-    name: 'Human CLOSES a rejection marker PR -> both publish-on-merge jobs skip, topic released',
-    forcing: { kind: 'observed', file: '.github/workflows/publish-on-merge.yml', test: 'Notify — a rejection marker PR was merged instead of closed' },
+    name: 'Human CLOSES a rejection PR unmerged (overrides the rejection) -> both publish-on-merge jobs skip, topic released',
+    forcing: { kind: 'observed', file: '.github/workflows/publish-on-merge.yml', test: 'Confirm — a rejection was recorded (marker + quarantine)' },
     lastObserved: '2026-09-03',
     note: 'Run 33810731565 (my close of PR #42): both jobs skipped, confirming the close path is inert by construction.',
   },
@@ -403,11 +404,11 @@ export const PIPELINE_PATHS = [
   {
     id: 'EM-08',
     category: 'email',
-    name: 'marker-merged email — "you merged a marker, nothing was published"',
+    name: 'marker-merged email — rejection recorded, attempt number + next retry date',
     emailKind: 'marker-merged',
     forcing: { kind: 'drill', file: '.github/workflows/test-email-notifications.yml', test: 'marker-merged' },
     lastObserved: SUITE_DATE,
-    note: 'GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production.',
+    note: 'GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production. COPY REPLACED at the Phase 3 cutover: it previously told the operator the merge was a mistake, the topic was blocked forever, and a `git rm` of the marker was the recovery. All three are false under Model A.',
   },
   {
     id: 'EM-09',

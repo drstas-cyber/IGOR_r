@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "topic": "Understanding Mello-Roos Taxes in Temecula Valley Communities",
+    "status": "quarantined",
+    "rejection_reason": "gate_trip",
+    "rejection_count": 1,
+    "last_rejected_at": "2026-08-25T14:38:39.617Z",
+    "next_eligible_retry_at": "2026-09-01T14:38:39.617Z"
+  },
+  {
+    "topic": "How Riverside County Property Tax Assessment Appeals Work",
+    "status": "quarantined",
+    "rejection_reason": "gate_trip",
+    "rejection_count": 1,
+    "last_rejected_at": "2026-09-17T17:40:35.007Z",
+    "next_eligible_retry_at": "2026-09-24T17:40:35.007Z"
+  },
+  {
+    "topic": "Understanding California's Fair Employment and Housing Act for Buyers and Sellers",
+    "status": "quarantined",
+    "rejection_reason": "gate_trip",
+    "rejection_count": 1,
+    "last_rejected_at": "2026-09-19T16:34:48.534Z",
+    "next_eligible_retry_at": "2026-09-26T16:34:48.534Z"
+  }
+]

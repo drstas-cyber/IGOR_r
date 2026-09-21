@@ -31,7 +31,9 @@ import { validateIdentityCompleteness } from './identityCompletenessGate.mjs';
 import { restoreStrippedInternalLinks } from './internalLinkRestore.mjs';
 import { getKnownSlugs, uniqueSlug, slugify } from './slugs.js';
 import { scanArticle, findUncitedClaims, GENERATOR_LOG_ONLY_FINDING_KEYS } from '../blog-compliance/scan.js';
-import { getLocallyAttemptedTopics, getOpenPrAttemptedTopics, pickNextAvailableTopic } from './topicAvailability.mjs';
+import { getConsumedTopics, getMergedMarkerTopics, getOpenPrAttemptedTopics, pickNextEligibleTopic } from './topicAvailability.mjs';
+import { parseQuarantineState, recordTopicRejection } from './quarantineState.mjs';
+import { intervalForRejectionCount } from './retryBackoff.mjs';
 import { resolveAllCitations, evaluateCitationResolution } from './citationResolver.mjs';
 import { appendHostLogEntries, buildHostLogEntries } from './citationHostLog.mjs';
 import { computeAllSilent } from './autoPublishGate.mjs';
@@ -44,6 +46,8 @@ const TOPICS_PATH = path.join(__dirname, 'topics.json');
 const PROMPT_PATH = path.join(__dirname, 'prompt.md');
 const GENERATED_DIR = path.join(PROJECT_ROOT, 'src', 'data', 'generated-articles');
 const REPORT_PATH = path.join(__dirname, '.last-run-report.json');
+// Tracked quarantine state (Phase 3, Model A). Missing = fail closed.
+const QUARANTINE_PATH = path.join(__dirname, 'topic-quarantine.json');
 const CITATION_HOST_LOG_PATH = path.join(__dirname, 'citation-host-log.json');
 const SITE = 'https://temeculavalleyhomes.us';
 
@@ -357,18 +361,22 @@ function writeReport(report, reportPath = REPORT_PATH) {
 //
 // This file (and the PR opened from it — see generate-article.yml) is what
 // makes getOpenPrAttemptedTopics() see the topic as "spoken for" while that
-// PR stays open, and what makes getLocallyAttemptedTopics() permanently
-// block the topic if that PR is ever merged to main. Both are deliberate
-// decisions (README.md), not emergent behavior: an open generator PR means
-// the topic is spoken for; closing it unmerged releases it; merging it
-// (rejection or real article) leaves a permanent record ground-truth
-// checking will always see. That guarantee now holds for a schema-invalid
-// discard exactly as it always has for a gate trip.
-export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {}) {
+// PR stays open.
+//
+// PHASE 3 / MODEL A: merging that PR no longer creates a permanent marker
+// hold. The marker becomes audit history, and the QUARANTINE TRANSITION
+// written alongside it (same PR, same commit) becomes the hold — one that
+// expires on the canonical 7/14/30/60 policy. The operator contract is
+// now explicit in both directions: MERGE accepts the rejection and records
+// the quarantine; CLOSE UNMERGED overrides it and persists nothing, which
+// is why this function writes into the run's working tree only and never
+// to main. Nothing here is authoritative until a human merges it.
+export function handleTrippedGate(report, { generatedDir = GENERATED_DIR, quarantinePath = QUARANTINE_PATH, topics, now } = {}) {
   const FAILURE_CLASSES = new Set(['schema_invalid', 'internal_link_invalid', 'identity_incomplete']);
+  const rejectedAt = now || new Date().toISOString();
   const marker = {
     sourceTopic: report.topic.topic,
-    rejectedAt: new Date().toISOString(),
+    rejectedAt,
     failureClass: FAILURE_CLASSES.has(report.outcome) ? report.outcome : 'gate_trip',
     layer1: report.layer1,
     layer2: report.layer2,
@@ -381,7 +389,81 @@ export function handleTrippedGate(report, { generatedDir = GENERATED_DIR } = {})
   fs.mkdirSync(rejectedDir, { recursive: true });
   const markerPath = path.join(rejectedDir, `${slugify(marker.sourceTopic)}.json`);
   fs.writeFileSync(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'utf8');
-  return { markerPath, marker };
+
+  // THE ONE RUNTIME QUARANTINE WRITER. Serialized by generate-article.yml's
+  // `concurrency: group: generate-article, cancel-in-progress: false`, and
+  // carried to review in the same rejected-attempt PR as the marker above.
+  // No other workflow, script, or code path writes this file at runtime;
+  // the 3-record Phase 3 migration seed was a one-time commit, not this.
+  // recordTopicRejection() handles both the first rejection (count 1) and
+  // a repeat of an already-quarantined topic (count N -> N+1, reason and
+  // timestamps replaced, retry date recomputed) against the SAME row.
+  const quarantineResult = recordQuarantineRejection({
+    quarantinePath,
+    topics,
+    topic: marker.sourceTopic,
+    rejectionReason: marker.failureClass,
+    rejectedAt,
+  });
+
+  return { markerPath, marker, quarantinePath, quarantineRecord: quarantineResult.record };
+}
+
+// Reads, transitions, and writes topic-quarantine.json. Kept next to
+// handleTrippedGate because it is part of the same rejected-run artifact
+// and shares its "local only until merged" property. The backoff interval
+// is NEVER recomputed locally — intervalForRejectionCount from
+// retryBackoff.mjs is the single canonical 7/14/30/60 policy, injected
+// here so a future edit cannot silently diverge from it.
+export function recordQuarantineRejection({ quarantinePath, topics, topic, rejectionReason, rejectedAt }) {
+  const existing = loadQuarantineState(quarantinePath);
+  const updated = recordTopicRejection(
+    existing,
+    { topic, rejectionReason, rejectedAt },
+    { intervalForCount: intervalForRejectionCount },
+    topics
+  );
+  fs.writeFileSync(quarantinePath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const record = updated.find((r) => r.topic === topic);
+  console.log(
+    `[generate] quarantine: "${topic}" attempt #${record.rejection_count}, retry eligible ${record.next_eligible_retry_at} `
+    + `(written to ${path.relative(PROJECT_ROOT, quarantinePath)} — persisted only if this rejected PR is MERGED).`
+  );
+  return { records: updated, record };
+}
+
+// FAIL-CLOSED loader. A MISSING file is an error, never an implicit empty
+// queue: topic-quarantine.json is tracked state, and "the file isn't
+// there" means something is wrong with the checkout, not that no topic is
+// quarantined. Treating absence as `[]` would silently release every
+// quarantined topic at once — the exact silent-degradation class this
+// pipeline keeps ruling out. Malformed JSON and any invalid record
+// (bad status/date/count/reason, duplicate topic, case-only collision,
+// non-monotonic timestamps) fail closed too, via parseQuarantineState.
+export function loadQuarantineState(quarantinePath = QUARANTINE_PATH) {
+  if (!fs.existsSync(quarantinePath)) {
+    throw new Error(
+      `[generate] quarantine state file not found at ${quarantinePath}. This file is tracked state — its absence is a `
+      + 'broken checkout, not "no topics are quarantined". Refusing to run rather than silently releasing every '
+      + 'quarantined topic.'
+    );
+  }
+  return parseQuarantineState(fs.readFileSync(quarantinePath, 'utf8'));
+}
+
+// Temporal consistency against the INJECTED now. Deliberately lives here,
+// at the impure edge, and not inside quarantineState.mjs — the pure layer
+// stays clock-free so its tests are deterministic. A record claiming it
+// was rejected in the future is either a clock problem or hand-edited
+// state; either way we cannot reason about its retry date, so we stop.
+export function assertQuarantineNotInFuture(records, now) {
+  const future = (records || []).filter((r) => Date.parse(r.last_rejected_at) > Date.parse(now));
+  if (future.length > 0) {
+    throw new Error(
+      `[generate] ${future.length} quarantine record(s) have last_rejected_at in the future relative to now=${now}: `
+      + `${future.map((r) => `${JSON.stringify(r.topic)} @ ${r.last_rejected_at}`).join(', ')}. Refusing to run.`
+    );
+  }
 }
 
 export async function main({
@@ -393,6 +475,8 @@ export async function main({
   citationHostLogPath = CITATION_HOST_LOG_PATH,
   blogArticlesPath, // passed through to getKnownRoutes; undefined = its own real blog-articles.json default
   exec, // passed through to getOpenPrAttemptedTopics; undefined = its own real execSync default
+  quarantinePath = QUARANTINE_PATH, // Phase 3 tracked quarantine state; injectable so tests use a fixture, never the real file
+  nowIso, // Phase 3: injectable single clock read. undefined = one real new Date() at selection time
 } = {}) {
   if (!apiKey) {
     console.error('[generate] ANTHROPIC_API_KEY not set. Refusing to run.');
@@ -411,7 +495,7 @@ export async function main({
   }
 
   try {
-    await runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec });
+    await runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec, quarantinePath, nowIso });
   } catch (err) {
     // ANY throw from runGenerationPipeline (verifyModel, topicAvailability's
     // own fail-closed gh/git state gathering -- see that module's header
@@ -433,7 +517,7 @@ export async function main({
 // try/catch without re-indenting this entire body -- every line below is
 // otherwise byte-identical in behavior, console output, and exit codes to
 // what main() did directly before this pass.
-async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec }) {
+async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, reportPath, citationHostLogPath, blogArticlesPath, exec, quarantinePath = QUARANTINE_PATH, nowIso }) {
     console.log(`[generate] verifying models against live API: writer=${WRITER_MODEL}, reviewer=${REVIEWER_MODEL}...`);
     await verifyModel(apiKey, WRITER_MODEL);
     await verifyModel(apiKey, REVIEWER_MODEL);
@@ -447,13 +531,34 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
     }
 
     const topics = loadTopics(topicsPath);
-  console.log('[generate] checking ground truth for already-attempted topics (local generated-articles/ + open generator PR branches)...');
-  const locallyAttempted = getLocallyAttemptedTopics(generatedDir);
+  console.log('[generate] checking ground truth for topic availability (real articles + open generator PRs + quarantine)...');
+  // ONE clock read for the whole run, taken here at the impure edge and
+  // injected downstream. Pure selection never reads a clock — that is what
+  // keeps eligibility deterministic and its tests timezone-independent.
+  const now = nowIso || new Date().toISOString();
+  const consumed = getConsumedTopics(generatedDir);
+  const mergedMarkerTopics = getMergedMarkerTopics(generatedDir);
   const prAttempted = getOpenPrAttemptedTopics({ repo, exec }); // throws (fail-closed) on any failure — never falls back to topics.json state
-  const attempted = new Set([...locallyAttempted, ...prAttempted]);
-  console.log(`[generate] ${attempted.size} topic(s) already attempted (local: ${locallyAttempted.size}, open PRs: ${prAttempted.size}).`);
+  // Fail closed on a missing/malformed/invalid quarantine file, then on any
+  // record claiming a rejection in the future relative to this run's `now`.
+  const quarantineRecords = loadQuarantineState(quarantinePath);
+  assertQuarantineNotInFuture(quarantineRecords, now);
+  console.log(
+    `[generate] holds — consumed: ${consumed.size}, open PRs: ${prAttempted.size}, quarantine records: ${quarantineRecords.length} `
+    + `(merged audit markers: ${mergedMarkerTopics.size}, now=${now}).`
+  );
 
-  const topic = pickNextAvailableTopic(topics, attempted);
+  // MODEL A. Merged `.rejected/` markers are audit history and do NOT
+  // block here; they are passed in only so the fail-closed guard can prove
+  // each one still has a quarantine record behind it.
+  const topic = pickNextEligibleTopic({
+    topics,
+    consumedTopics: consumed,
+    openPrTopics: prAttempted,
+    mergedMarkerTopics,
+    quarantineRecords,
+    now,
+  });
   if (!topic) {
     // Deliberately loud and non-zero (2026-08-03) — this used to be a plain
     // console.log with no exit code, the one early-return in this function
@@ -634,8 +739,8 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
         });
       }
     }
-    const { markerPath } = handleTrippedGate(report, { generatedDir });
-    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    const { markerPath } = handleTrippedGate(report, { generatedDir, quarantinePath, topics, now });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — this run's PR holds the topic while it stays open. MERGE records the rejection (marker becomes audit history; the quarantine record above governs availability). CLOSE unmerged overrides it: nothing lands and the topic returns to the queue.`);
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;
@@ -653,8 +758,8 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
     report.schemaErrors = schemaCheck.errors;
     console.error('[generate] article passed both compliance gates but FAILED schema validation:');
     schemaCheck.errors.forEach((e) => console.error(`    - ${e}`));
-    const { markerPath } = handleTrippedGate(report, { generatedDir });
-    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    const { markerPath } = handleTrippedGate(report, { generatedDir, quarantinePath, topics, now });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — this run's PR holds the topic while it stays open. MERGE records the rejection (marker becomes audit history; the quarantine record above governs availability). CLOSE unmerged overrides it: nothing lands and the topic returns to the queue.`);
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;
@@ -673,8 +778,8 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
     report.internalLinkErrors = linkCheck.invalidLinks;
     console.error('[generate] article passed schema validation but contains invented/unknown internal link(s):');
     linkCheck.invalidLinks.forEach((l) => console.error(`    - ${l}`));
-    const { markerPath } = handleTrippedGate(report, { generatedDir });
-    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    const { markerPath } = handleTrippedGate(report, { generatedDir, quarantinePath, topics, now });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — this run's PR holds the topic while it stays open. MERGE records the rejection (marker becomes audit history; the quarantine record above governs availability). CLOSE unmerged overrides it: nothing lands and the topic returns to the queue.`);
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;
@@ -702,8 +807,8 @@ async function runGenerationPipeline({ apiKey, repo, generatedDir, topicsPath, r
     report.identityErrors = identityCheck.errors;
     console.error('[generate] article passed schema and internal-link validation but is missing required identity block element(s):');
     identityCheck.errors.forEach((e) => console.error(`    - ${e}`));
-    const { markerPath } = handleTrippedGate(report, { generatedDir });
-    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — topic stays "spoken for" until this run's PR is closed (releases it) or merged (permanently blocks it)`);
+    const { markerPath } = handleTrippedGate(report, { generatedDir, quarantinePath, topics, now });
+    console.log(`[generate] rejected-attempt marker written to ${path.relative(PROJECT_ROOT, markerPath)} — this run's PR holds the topic while it stays open. MERGE records the rejection (marker becomes audit history; the quarantine record above governs availability). CLOSE unmerged overrides it: nothing lands and the topic returns to the queue.`);
     writeReport(report, reportPath);
     process.exitCode = 1;
     return;

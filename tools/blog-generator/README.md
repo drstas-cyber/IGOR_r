@@ -160,9 +160,13 @@ for their decision history, not because they describe current behavior.
      opened, held for review") — every real article gets exactly this one
      notification, whether or not it was silent.
    - **A gate/schema/link/identity trip discards the draft** — no article
-     is written; a `blog-generator/rejected-*` marker PR opens instead,
-     recording the topic as permanently blocked if ever merged, released
-     if closed unmerged. See "A gate trip is not silent" below.
+     is written; a `blog-generator/rejected-*` PR opens instead, carrying
+     the audit marker and the quarantine transition together. **Merging it
+     records the rejection** (the marker becomes audit history and the
+     quarantine record governs availability until
+     `next_eligible_retry_at`); **closing it unmerged overrides the
+     rejection** and returns the topic to the queue immediately. See "A
+     gate trip is not silent" below.
    - **An early exit before generation started** (missing secret, missing
      `GITHUB_REPOSITORY`, an uncaught exception during topic selection, or
      a genuinely exhausted topic queue) — no PR of either kind; a red-run
@@ -173,9 +177,11 @@ for their decision history, not because they describe current behavior.
    repo, as of 2026-08-31, that merges or publishes a generator PR without
    a human doing it. The reviewer reads the email, opens the PR, checks
    the Cloudflare Pages preview, and either taps **Merge** (today: from
-   the GitHub mobile app) or **Close**s it unmerged (silent or rejected
-   PRs release their topic on close; merging a rejected-marker PR
-   permanently blocks it instead). This was a deliberate owner ruling
+   the GitHub mobile app) or **Close**s it unmerged (an article PR
+   releases its topic on close; a rejected PR releases its topic on close
+   too — closing is the override — while merging a rejected PR records the
+   rejection and quarantines the topic for the canonical backoff interval,
+   never permanently). This was a deliberate owner ruling
    (2026-08-31), not an oversight: an auto-merge/auto-publish path existed
    from 2026-08-03 to 2026-08-31 and was retired after a review found zero
    silent publishes in the project's entire history under it — every
@@ -187,8 +193,12 @@ for their decision history, not because they describe current behavior.
    the entry superseding the two below it in the file's chronology).
 4. **`publish-on-merge.yml` is the sole publish mechanism**, for every
    article, silent or not. A human Merge on a `blog-generator/auto-*` PR
-   triggers it: `published:true` flip, `_headers` cache-pair insertion,
-   `blog-articles.json` regeneration, one commit, push. See
+   triggers it: `published:true` flip, shared `_headers` coverage
+   **validation** (Batch F / Option D — `public/_headers` already declares
+   the shared `/blog/:slug` and `/blog/:slug/` placeholder rules that cover
+   every article, so publication appends nothing and that file does not
+   change per publication), `blog-articles.json` regeneration, one commit,
+   push. See
    "Publish-on-merge" below for the full mechanism and its first-live-
    firing incident/fixes.
 5. **The weekly retrospective audit** (see "Weekly retrospective, real"
@@ -256,21 +266,81 @@ wrote to the same output path — a guaranteed collision, not a fluke (this
 is exactly what happened to articles 1 and 2 of this pipeline's real
 rollout).
 
-Instead, `tools/blog-generator/topicAvailability.mjs` derives "already
-attempted" fresh, every run, from ground truth:
+Instead, `tools/blog-generator/topicAvailability.mjs` derives availability
+fresh, every run, from ground truth.
 
-1. **Real article files** already on `main`, under
-   `src/data/generated-articles/` (read via `sourceTopic`, see below).
-2. **Rejected-attempt marker files** under
-   `src/data/generated-articles/.rejected/`, on `main` *and* on any
-   **open** generator PR branch (`gh pr list` + targeted `git fetch`/
-   `ls-tree`/`show` per branch — never a full clone).
-3. **Real article files** on any open generator PR branch, same mechanism.
+### MODEL A — the three active holds (Phase 3, current)
 
-This check is **fail-closed**: any failure gathering that state — the `gh`
-CLI, `git fetch`, `git ls-tree`, `git show`, a JSON parse — throws
-immediately, before any model call happens, rather than silently treating
-"couldn't check" as "nothing attempted."
+```
+eligible(topic, now) =
+      NOT consumed by a real generated article
+  AND NOT held by an open generator PR
+  AND ( no quarantine record
+        OR now >= next_eligible_retry_at )
+```
+
+1. **Consumed** — a real article file on `main` under
+   `src/data/generated-articles/` (`getConsumedTopics`, read via
+   `sourceTopic`). Permanent: an article that exists was generated.
+2. **Open generator PR** — a real draft *or* a rejected-attempt marker on
+   any **open** branch (`gh pr list` + targeted `git fetch`/`ls-tree`/
+   `show` per branch — never a full clone). Held while pending; closing
+   the PR unmerged releases it.
+3. **Active quarantine record** in `tools/blog-generator/topic-quarantine.json`
+   — blocks while `now < next_eligible_retry_at`, and expires on the
+   canonical retry policy below.
+
+**Merged `.rejected/` markers are AUDIT / HISTORY ONLY.** They record that
+a rejection happened. They do **not** block a topic by themselves. This is
+the Phase 3 reversal: before it, a merged marker was a *permanent* hold
+with no way out except a reviewed `git rm`, which meant a rejected topic
+could never come back on its own. Now the quarantine record is the hold,
+and it expires.
+
+**A merged marker with no matching quarantine record FAILS CLOSED.** That
+combination is ambiguous — either a migration is half-done or state was
+hand-edited — and the honest answer is "I cannot tell whether this topic is
+held," so the run stops rather than silently releasing it
+(`assertMergedMarkersAreQuarantined`).
+
+### The retry policy — frozen
+
+| Rejection | Quarantine |
+|---:|---|
+| 1st | 7 days |
+| 2nd | 14 days |
+| 3rd | 30 days |
+| 4th and every later one | 60 days (permanent cap) |
+
+Implemented once, in `retryBackoff.mjs`'s `intervalForRejectionCount`, and
+injected at the call site — never re-derived locally. **The boundary is
+inclusive on the eligible side:** at exactly `now === next_eligible_retry_at`
+the topic is eligible again.
+
+`now` is read **once** per run at the impure edge (`generate.mjs`) and
+injected into pure selection. Nothing in the selection path reads a clock,
+which is what keeps the tests deterministic across timezones.
+
+### Fail-closed, every way state can be wrong
+
+Any failure gathering ground truth — the `gh` CLI, `git fetch`,
+`git ls-tree`, `git show`, a JSON parse — throws immediately, before any
+model call, rather than treating "couldn't check" as "nothing attempted."
+Quarantine state adds these, all of which stop the run before generation:
+
+- **the file is missing** — `topic-quarantine.json` is *tracked* state, so
+  its absence is a broken checkout, never an implicit "nothing is
+  quarantined". Treating it as `[]` would release every quarantined topic
+  at once;
+- **malformed JSON**, or any invalid record: bad `status`, non-UTC or
+  unparseable timestamps, `rejection_count <= 0`, empty `rejection_reason`,
+  `next_eligible_retry_at` earlier than `last_rejected_at`;
+- **a duplicate exact topic**, or a **case-only collision** between two
+  topics;
+- **a topic not present in `topics.json`** (exact-string identity);
+- **`last_rejected_at` in the future** relative to this run's `now` —
+  validated at the impure edge, deliberately *not* by putting a clock
+  inside the pure layer.
 
 **The join key is `sourceTopic`, not slug.** Every generated article and
 rejected marker carries the *exact* `topics.json` "topic" string it came
@@ -314,67 +384,149 @@ behavior:
   will pick it.
 - **Closing that PR unmerged releases the topic** — the next run is free
   to try it again.
-- **Merging it — rejection or real article — permanently blocks the
-  topic**, because `getLocallyAttemptedTopics()` reads
-  `src/data/generated-articles/.rejected/` on `main` too, same as it reads
-  real article files there. If a rejected-attempt PR is ever accidentally
-  merged, the topic is blocked going forward, not silently released. This
-  is a **stated decision**: a merged rejection is treated as a permanent
-  record that the topic was tried and discarded — a merged rejection is
-  still a rejection, and ground truth should say so, exactly like a merged
-  real article is a permanent record it was written.
+- **Merging a real-article PR permanently consumes the topic** —
+  `getConsumedTopics()` reads `src/data/generated-articles/` on `main`, and
+  an article that exists was generated.
+- **Merging a rejected PR records the rejection — it does NOT permanently
+  block the topic.** The `.rejected/` marker becomes audit history and the
+  quarantine transition that travelled in the same PR becomes the hold,
+  expiring on the canonical 7/14/30/60 policy. This is the **Phase 3
+  reversal** of the retired decision, which treated a merged marker as a
+  permanent record recoverable only by a reviewed `git rm`. That made a
+  rejected topic unrecoverable in practice; under Model A it comes back on
+  its own.
+- **A merged marker with no matching valid quarantine record FAILS
+  CLOSED** — that combination is ambiguous (half-finished migration, or
+  hand-edited state), so selection stops rather than guessing whether the
+  topic is held.
+- **A merged marker whose quarantine has EXPIRED does not block at all** —
+  the marker alone carries no hold.
 
-**Unblocking a topic after an accidentally-merged rejection is a normal,
-reviewed PR — never automatic.** A permanent block with no documented way
-out is a trap, so: delete the specific marker file (`git rm
-src/data/generated-articles/.rejected/<slugified-topic>.json`), open a
-normal PR, get it reviewed and merged like any other change. Once that
-marker is gone from `main`, `getLocallyAttemptedTopics()` no longer sees
-it and the topic is available to the next run again. There is
-deliberately no automated or one-command "unblock" path — the same human
-review that would have caught the accidental merge in the first place is
-the right gate on reversing it too.
+### The rejected-attempt PR is a DECISION (Phase 3 contract)
 
-**This has actually happened twice** (PR #36, 2026-08-25, and PR #41,
-2026-09-01 — both a marker PR tapped Merge instead of Close, the same
-mistake the section above exists to make recoverable), which is why it
-got hardened rather than left as a documented-but-unaddressed risk after
-the second occurrence:
+A rejected run opens a PR titled
+**`⛔ REJECTED — merge to record quarantine, close to override`**, carrying
+the audit marker *and* the quarantine transition together.
 
-- **PR #41's topic** (How California's Preliminary Change of Ownership
-  Report Works) was released back to the queue — the underlying rejection
-  was Layer 2 flagging the Prop 19 / 2021 date as an "uncited statistic"
-  even though it *was* cited (California Constitution, Article XIII A) and
-  self-review had already verified and kept it; a regenerate may simply
-  pass. The marker file was deleted via a normal `git rm` + push, per the
-  procedure above.
-- **PR #36's topic** (Understanding Mello-Roos Taxes in Temecula Valley
-  Communities) is a separate, still-open decision — its marker remains on
-  `main`, deliberately not touched by the #41 cleanup. Unblocking it (or
-  not) is a decision for whoever reviews that topic next, following the
-  exact same procedure.
-- **Two hardening changes, both 2026-09-01, aimed at the merge itself
-  rather than at the recovery procedure** (recovery was already fine; nothing
-  was catching the mistake *as it happened*):
-  1. The rejected-attempt PR's title changed from "[Blog draft] Rejected
-     generation attempt — topic released if closed unmerged" (read as a
-     status report, easy to skim past on a phone) to "⛔ DO NOT MERGE —
-     close to release topic back to queue" (leads with the warning glyph
-     and the imperative). See generate-article.yml's "Open PR for rejected
-     attempt" step.
-  2. publish-on-merge.yml gained a second job,
-     `notify-marker-merged-by-mistake`, scoped to
-     `blog-generator/rejected-*` branches specifically (the exact
-     complement of the existing `publish` job's `blog-generator/auto-*`
-     scoping) — until this, merging a marker PR triggered *nothing at
-     all*: no publish (correctly — there's no article), but also no signal
-     that the merge was a mistake and the topic was just permanently
-     blocked. The new job sends a "вы смержили маркер — ничего не
-     опубликовано" email naming the topic, the marker file path, and the
-     `git rm` command to reverse it — see `tools/blog-generator/
-     markerMerged.mjs` (identifies which marker file the merge commit
-     added, mirroring `publishOnMerge.mjs`'s own `getMergedArticleSlug()`
-     git-diff approach) and `notificationEmail.mjs`'s `buildMarkerMergedEmail`.
+| Action | Meaning | What persists |
+|---|---|---|
+| **MERGE** | "I accept this rejection as valid." | the `.rejected/` marker (audit history) **and** the quarantine transition |
+| **CLOSE UNMERGED** | "I override / forgive this rejection." | **nothing** — the topic returns to the queue immediately, subject to any other hold |
+
+**Both are valid, and merging is the normal action.** This is a deliberate
+reversal of the retired contract, which titled the same PR "DO NOT MERGE —
+close to release topic back to queue" and treated a merge as an operator
+mistake that blocked the topic forever. Under Model A a merge is simply how
+a rejection gets recorded, and the quarantine it writes expires on its own.
+
+While that PR is **open**, the topic is held unconditionally by the open-PR
+rule, so there is no window in which it is neither held nor decided — the
+handoff from "open PR hold" to "quarantine hold" (merge) or "released"
+(close) is atomic.
+
+**Merging late does not move the retry date.** The transition is computed
+from the *rejection event time*, not merge time. If a rejected PR sits open
+past its own `next_eligible_retry_at`, merging it records the historical
+transition exactly as proposed and the topic may be immediately
+retry-eligible. The open PR was itself the hold while it was pending; we
+preserve real event time rather than fabricating a new rejection.
+
+**There is no routine `git rm` release under Model A.** Deleting a marker
+file does not release a topic any more — the marker is history, not a hold.
+The only thing that releases a quarantined topic is time, or a reviewed
+edit to `topic-quarantine.json`.
+
+### Repeat rejections
+
+A re-rejected topic updates the **same** quarantine row rather than adding
+a second one: `rejection_count` N→N+1, `rejection_reason` and
+`last_rejected_at` replaced with the current run's, `next_eligible_retry_at`
+recomputed from the frozen policy. If the operator closes that PR unmerged,
+none of it lands and the prior state on `main` is left byte-identical — the
+transition is never partially persisted.
+
+### The single runtime writer
+
+Exactly one code path writes `topic-quarantine.json` at runtime:
+`handleTrippedGate()` in `generate.mjs`, running inside
+`generate-article.yml`'s unkeyed
+`concurrency: { group: generate-article, cancel-in-progress: false }`
+group. That group serializes every generator run repo-wide, so two
+rejections cannot race. The transition is delivered for review in the same
+rejected PR as the evidence, and if `main` moved meanwhile it surfaces as an
+ordinary merge conflict rather than a silent overwrite.
+
+There is deliberately **no** quarantine writer in publish-on-merge, on PR
+close, in the weekly retro, in the watchdog, or anywhere writing straight to
+`main`. `generateArticleWorkflow.test.mjs` asserts that no other workflow
+even mentions the file.
+
+The one-time 3-record migration seed committed at the Phase 3 cutover is
+**not** a runtime write — it is a normal commit, and is not governed by the
+single-writer rule.
+
+### The Phase 3 migration seed, and what it grandfathers
+
+Three records were seeded at cutover, each derived from a real
+`.rejected/` marker's own `rejectedAt` timestamp — no timestamp was
+invented:
+
+| Topic | Evidence | `last_rejected_at` | Retry at |
+|---|---|---|---|
+| Understanding Mello-Roos Taxes in Temecula Valley Communities | merged marker on `main` (commit `6966615`) | `2026-08-25T14:38:39.617Z` | `2026-09-01T14:38:39.617Z` |
+| How Riverside County Property Tax Assessment Appeals Work | PR #54's marker | `2026-09-17T17:40:35.007Z` | `2026-09-24T17:40:35.007Z` |
+| Understanding California's Fair Employment and Housing Act for Buyers and Sellers | PR #55's marker | `2026-09-19T16:34:48.534Z` | `2026-09-26T16:34:48.534Z` |
+
+**Mello-Roos's retry date is already in the past, deliberately.** It was
+not extended to "look" quarantined — that would fabricate a rejection time.
+It is retry-eligible, which is Model A working as intended: a rejected
+topic comes back.
+
+**PRs #54 and #55 are grandfathered, and both are still OPEN.** They were
+created under the retired contract, and their rejection events are already
+represented by the seed above — so they must **not** be merged under the
+new contract, which would double-record them.
+
+They stay open through implementation, audit, commit, deployment, and
+production verification. Only after that:
+
+1. close **#54 unmerged**, then verify its topic is still held by its
+   seeded quarantine record (or explicitly retry-eligible if that record
+   has since expired);
+2. then close **#55 unmerged**, and verify the same way.
+
+Their branches remain as historical evidence either way.
+
+**PR #47 is deliberately unseeded.** It was an ordinary article draft PR
+closed unmerged, not a rejected-attempt PR; it produced no marker and
+therefore no `rejectedAt` event. Synthesizing a rejection timestamp from its
+close time would be inventing evidence. Its topic is simply eligible again.
+
+### Rollback warning — a plain revert is not behavior-neutral
+
+Once Phase 3 has processed **new legitimately merged rejection PRs**,
+reverting the code re-imposes the old semantics, and every marker merged
+since the cutover becomes a *permanent* hold again — including topics whose
+quarantine had already expired, and possibly ones already regenerated.
+
+Before rolling back:
+
+1. **Inventory** markers added since the Phase 3 commit:
+   `git log <phase-3-sha>..origin/main --diff-filter=A --name-only -- src/data/generated-articles/.rejected/`
+2. **Classify** each topic: (A) still quarantined, (B) quarantine expired
+   but not regenerated, (C) already regenerated into a real article.
+   Class C is harmless; class B is the one whose behavior changes.
+3. **Revert the code**, keeping `topic-quarantine.json` as-is — do not
+   revert the data.
+4. For class B only, decide per topic whether to accept the re-hold or to
+   remove that one marker in a reviewed PR. **Never bulk-delete markers.**
+   Under reverted pre-Phase-3 semantics a `git rm` is temporarily the
+   correct release mechanism again.
+5. Reopen #54/#55 if they were closed — their branches persist.
+
+Nothing in that procedure deletes rejection history: markers, quarantine
+records (`rejection_count`, `rejection_reason`, both timestamps) and PR
+history all survive.
 
 To pull a generated article into the normal build output for local preview:
 
@@ -1378,7 +1530,7 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | GEN-16 | Self-review receives no Known-live-routes list (2026-08-31 root fix holds) | the self-review request never offers a "Known live routes" list | `e2e` | 2026-09-03 |
 | | **Topic selection** | | | |
 | TOP-01 | A real article file on main marks its topic attempted | a real generated-article file with sourceTopic is included | `unit` | 2026-09-03 |
-| TOP-02 | A rejected marker on main blocks its topic permanently | a rejected-attempt marker under .rejected/ is included too | `unit` | 2026-09-03 |
+| TOP-02 | A merged rejected marker is audit history only — the quarantine record is the hold (Model A) [^TOP-02] | a merged rejected-attempt marker is NOT a consumed topic | `unit` | 2026-09-03 |
 | TOP-03 | gh pr list failure is fail-closed — throws rather than guessing the queue is empty | gh pr list failure THROWS, does not silently return empty | `unit` | 2026-09-03 |
 | | **PR opening** | | | |
 | PR-01 | Article PR opens (has_new_article=true path in generate-article.yml) [^PR-01] | Open PR with the generated article | `observed` | 2026-08-31 |
@@ -1389,8 +1541,8 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | | **Human actions** | | | |
 | HUM-01 | Human MERGES an article PR -> publish-on-merge publish job runs [^HUM-01] | Publish the merged article | `observed` | 2026-08-31 |
 | HUM-02 | Human CLOSES an article PR unmerged -> topic released, no workflow body runs [^HUM-02] | gh pr list failure THROWS, does not silently return empty | `unit` | 2026-09-03 |
-| HUM-03 | Human MERGES a rejection marker PR by mistake -> notify-marker-merged-by-mistake fires [^HUM-03] | marker-merged | `drill` | never (see note) |
-| HUM-04 | Human CLOSES a rejection marker PR -> both publish-on-merge jobs skip, topic released [^HUM-04] | Notify — a rejection marker PR was merged instead of closed | `observed` | 2026-09-03 |
+| HUM-03 | Human MERGES a rejection PR (accepts the rejection) -> confirm-rejection-recorded fires [^HUM-03] | marker-merged | `drill` | never (see note) |
+| HUM-04 | Human CLOSES a rejection PR unmerged (overrides the rejection) -> both publish-on-merge jobs skip, topic released [^HUM-04] | Confirm — a rejection was recorded (marker + quarantine) | `observed` | 2026-09-03 |
 | HUM-05 | Human IGNORES a PR — it goes stale and silently holds its topic hostage [^HUM-05] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | n/a — this is a non-event, it cannot be forced |
 | | **Publish-on-merge** | | | |
 | PUB-01 | Publish success — flips published:true, leaves _headers untouched (Option D) [^PUB-01] | a not-yet-published article: flips published:true WITHOUT touching _headers | `unit` | 2026-09-03 |
@@ -1407,7 +1559,7 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | EM-05 | failure email — precedence 2, captured log with the queue-exhausted sentinel | checkgen-log | `drill` | 2026-08-31 |
 | EM-06 | failure email — precedence 2, log with no recognized signal (cause not pinned down) | checkgen-log-ambiguous | `drill` | 2026-08-31 |
 | EM-07 | failure email — precedence 3, neutral (no report, no log) | checkgen-neutral | `drill` | 2026-08-31 |
-| EM-08 | marker-merged email — "you merged a marker, nothing was published" [^EM-08] | marker-merged | `drill` | 2026-09-03 |
+| EM-08 | marker-merged email — rejection recorded, attempt number + next retry date [^EM-08] | marker-merged | `drill` | 2026-09-03 |
 | EM-09 | publish-on-merge red-run email — reads the real captured log, never a hardcoded guess | buildFailureDetail | `unit` | 2026-09-03 |
 | EM-10 | No SMTP secrets configured — clean no-op with a log line, never a failure [^EM-10] | skipping email notification (clean no-op, not a failure) | `static` | 2026-09-03 |
 | EM-11 | buildNotificationEmailCli writes to $GITHUB_OUTPUT (the branch every real invocation uses) [^EM-11] | with GITHUB_OUTPUT set (the real Actions environment) it writes subject and a delimited html_body to that file | `e2e` | 2026-09-03 |
@@ -1425,17 +1577,18 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | RETRO-04 | Retro worst-of aggregation — REJECT beats NEEDS-FIX beats CLEAR across articles | overall verdict is the worst of any single article | `unit` | 2026-09-03 |
 
 [^GEN-02]: GAP CLOSED 2026-09-03. Previously believed-only: Layer 1 trips were exercised solely by feeding handleTrippedGate() a synthetic report with layer1.tripped preset. Layers 2 and 3 both already had real end-to-end trips.
+[^TOP-02]: INVERTED at the Phase 3 cutover. This row used to read "blocks its topic permanently" and its forcing test asserted the marker WAS counted as attempted — which is exactly what made a merged marker an unrecoverable hold. Under Model A the marker is audit history, the quarantine record carries the hold, and that hold expires on the canonical 7/14/30/60 policy. A merged marker with no matching quarantine record fails closed instead.
 [^PR-01]: Real production run 33428265910 -> PR #40. Also exercised by the weekly drill (DRILL-01).
 [^PR-02]: Real production run 33782401146 -> PR #42.
 [^HUM-01]: Run 33429714215, PR #40 -> commit 182b732. Also drilled weekly (DRILL-02).
 [^HUM-02]: The release itself is the absence of the closed PR from `gh pr list --state open`; the workflow inertness is shared with HUM-04, observed live 2026-09-03.
-[^HUM-03]: UNFIRED IN PRODUCTION. The job was added 2026-09-01 in commit 05ec104, AFTER the only real mistaken merge (PR #41, the same day) — so its body has never executed, only its skip condition. This is the exact class of the 2026-08-31 fetch-depth bug. Now drilled.
+[^HUM-03]: REFRAMED at the Phase 3 cutover. This row used to read "merged a rejection marker PR by mistake" and its job was named notify-marker-merged-by-mistake, because a merged marker permanently blocked its topic. Under Model A merging is the NORMAL action: it accepts the rejection and persists both the audit marker and the quarantine transition, and the topic returns on the canonical 7/14/30/60 policy. The job is now a confirmation step. STILL UNFIRED IN PRODUCTION: added 2026-09-01 in commit 05ec104, after the only real merge of a marker (PR #41, the same day), so its body has never executed, only its skip condition. Drilled.
 [^HUM-04]: Run 33810731565 (my close of PR #42): both jobs skipped, confirming the close path is inert by construction.
 [^HUM-05]: REAL, CURRENT INSTANCE: PR #39 sat open from 2026-08-29 holding its topic out of the queue with zero signal. Nothing in the pipeline noticed for five days.
 [^PUB-01]: RENAMED in Batch F (Option D). Until then this path INSERTED a concrete /blog/<slug> cache pair on every publish, growing _headers by two rules per article. The two shared placeholder routes now cover every article, so publication writes nothing to that file at all — the forcing test asserts the absence of the write it used to assert the presence of. The live observation predates the change and is kept for the published:true flip, which is unchanged.
 [^PUB-05]: REPLACED in Batch F (Option D). This row used to cover the 100-rule cap-guard, which was reachable only because publication INSERTED two rules per article. Publication no longer writes _headers, so the cap is unreachable from this path and a test asserting it would be theatre. The failure that IS reachable — someone hand-edits _headers and breaks or duplicates the shared /blog/:slug contract — now occupies this row, and strands the article in the same safe merged-but-unpublished state for the same reason.
 [^PUB-06]: STATIC ONLY — asserts YAML text, does not execute the checkout. The executing proof is HUM-01 (observed) and DRILL-02.
-[^EM-08]: GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production.
+[^EM-08]: GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production. COPY REPLACED at the Phase 3 cutover: it previously told the operator the merge was a mistake, the topic was blocked forever, and a `git rm` of the marker was the recovery. All three are false under Model A.
 [^EM-10]: STATIC ONLY — the secrets are present in this repo, so the no-op branch cannot be forced without removing them. Detection story: its absence would show as a failing notify step, which every call site already wraps in continue-on-error.
 [^EM-11]: GAP CLOSED 2026-09-03, found BY the new CI job on its first run. writeOutputs() only prints JSON to stdout when GITHUB_OUTPUT is unset. The existing test inherited process.env, so on a developer machine it silently exercised the stdout FALLBACK while believing it covered the real path -- and failed the moment the suite ran under Actions (run 33812791564). The production branch now has its own test, and the fallback test pins GITHUB_OUTPUT undefined instead of depending on the ambient environment.
 [^EM-12]: The complement of EM-11 and the reason both branches need testing rather than one: a writeOutputs() change that wrote to BOTH sinks would leak every notification body into the public job log and no other test would notice.
@@ -1649,9 +1802,11 @@ which is worse than silence.
   a **true positive**, and a precise one — arguably the best catch this
   pipeline has produced. It does **not** go in the Layer 2 FP tally.
   The topic is fine; that *draft* was not, and a regenerate would likely
-  pass. Unblocking remains a reviewed `git rm` PR per the documented
-  procedure — a decision for the owner, deliberately not taken inside this
-  hardening pass.
+  pass. **Superseded by the Phase 3 cutover:** this said unblocking
+  remained a reviewed `git rm` PR. Under Model A that topic
+  (Mello-Roos) carries a migration-seeded quarantine record whose retry
+  date has already elapsed, so it is retry-eligible on its own — no manual
+  unblock is needed or applicable.
 - **weekly-retro is firing on schedule** (once, Monday 2026-08-31, 5h39m
   late). Cron minute fixed and watchdog coverage added, above.
 

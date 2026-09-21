@@ -44,12 +44,40 @@ import { evaluatePublishStatus } from './publishStatusReport.mjs';
 // this file must keep inheriting the shared contract rather than parsing
 // _headers itself.
 import { articlePath } from './setPublished.mjs';
+import { parseQuarantineState } from './quarantineState.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const HEADERS_PATH = path.join(PROJECT_ROOT, 'public', '_headers');
+const QUARANTINE_PATH = path.join(__dirname, 'topic-quarantine.json');
+
 const BLOG_DATA_PATH = path.join(PROJECT_ROOT, 'src', 'data', 'blog-articles.json');
 const SITE = 'https://temeculavalleyhomes.us';
+
+// Resolves a topic to its quarantine record for the notification copy.
+// Uses the CANONICAL parser (parseQuarantineState) rather than a second
+// JSON.parse of the same file -- one parser, one validation contract, so
+// these emails can never disagree with what topic selection sees.
+//
+// FAIL-CLOSED, per the Phase 3 contract: a merged marker whose topic has
+// no matching quarantine record is the ambiguous state Model A refuses to
+// guess about. The calling workflow step is continue-on-error, so this
+// degrades to a missing email rather than a blocked run -- which is the
+// right trade against sending a confident email quoting a retry date that
+// does not exist.
+function quarantineRecordForTopic(topic) {
+  if (!topic) return null;
+  const records = parseQuarantineState(fs.readFileSync(QUARANTINE_PATH, 'utf8'));
+  const record = records.find((r) => r.topic === topic);
+  if (!record) {
+    throw new Error(
+      `[buildNotificationEmailCli] merged marker topic ${JSON.stringify(topic)} has no quarantine record in `
+      + `${QUARANTINE_PATH}. Under Model A the quarantine record is the hold and the marker is audit history, so this `
+      + 'is an ambiguous state -- refusing to report a retry date that does not exist.'
+    );
+  }
+  return record;
+}
 
 function argValue(flag) {
   const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
@@ -184,10 +212,14 @@ function buildForKind(kind) {
   }
 
   if (kind === 'marker-merged') {
+    const topic = argValue('topic') || null;
+    const record = quarantineRecordForTopic(topic);
     return buildMarkerMergedEmail({
-      topic: argValue('topic') || null,
+      topic,
       markerFilePath: argValue('marker-file') || null,
       prUrl: argValue('pr-url'),
+      rejectionCount: record?.rejection_count,
+      nextEligibleRetryAt: record?.next_eligible_retry_at,
     });
   }
 

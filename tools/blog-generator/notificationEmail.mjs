@@ -81,14 +81,26 @@ export function buildArticlePrEmail({ title, firstParagraphText, previewUrl, gat
 }
 
 // --- Trigger 2: a rejected-attempt PR opened (generate-article.yml) ------
-export function buildRejectedPrEmail({ topic, failureClassLabel, findingsSummaryLines, prUrl }) {
+// PHASE 3 / MODEL A: this PR is now a DECISION, not a warning. Merging it
+// accepts the rejection and records the quarantine; closing it unmerged
+// overrides the rejection and returns the topic to the queue immediately.
+// Both are valid, and merging is the normal action -- the retired contract
+// ("DO NOT MERGE — close to release topic back to queue") said the
+// opposite, so this copy has to be unambiguous about the reversal.
+export function buildRejectedPrEmail({ topic, failureClassLabel, findingsSummaryLines, prUrl, rejectionCount, nextEligibleRetryAt }) {
   const subject = `⛔ Статья отклонена воротами: ${topic}`;
   const findingsHtml = (findingsSummaryLines && findingsSummaryLines.length > 0)
     ? `<ul>${findingsSummaryLines.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
     : '<p><em>Без деталей находок в отчёте.</em></p>';
+  const quarantineLine = (rejectionCount && nextEligibleRetryAt)
+    ? `<li><strong>СМЕРЖИТЬ</strong> — принять отклонение. Запишет маркер в историю и поставит тему на карантин до ${escapeHtml(nextEligibleRetryAt)} (попытка №${escapeHtml(String(rejectionCount))}).</li>`
+    : '<li><strong>СМЕРЖИТЬ</strong> — принять отклонение. Запишет маркер в историю и поставит тему на карантин по канонической политике повтора.</li>';
   const lines = [
     `<p><strong>Причина отклонения:</strong> ${escapeHtml(failureClassLabel || '(неизвестно)')}</p>`,
     findingsHtml,
+    '<p><strong>Что делать с этим PR:</strong></p>',
+    `<ul>${quarantineLine}<li><strong>ЗАКРЫТЬ без мержа</strong> — отменить отклонение. Ничего не записывается, тема сразу возвращается в очередь.</li></ul>`,
+    '<p>Оба варианта допустимы. Смержить — обычное действие.</p>',
     linkLine('Открыть PR', prUrl),
   ];
   return { subject, html: wrapEmailHtml(lines) };
@@ -105,26 +117,29 @@ export function buildPublishedEmail({ title, liveUrl, verdictLabel }) {
   return { subject, html: wrapEmailHtml(lines) };
 }
 
-// --- Trigger 5: a rejected-attempt MARKER PR got merged by mistake -------
+// --- Trigger 5: a rejected-attempt PR was MERGED — rejection recorded ---
 // (publish-on-merge.yml's sibling job for `blog-generator/rejected-*`
-// branches, added after PR #41 was merged instead of closed, 2026-09-01).
-// This PR never carried article content — only a marker file (see
-// generate-article.yml's "Open PR for rejected attempt" step) — so there
-// is nothing to publish here. Per topicAvailability.mjs's stated decision,
-// merging it PERMANENTLY blocks the topic (same as a merged real article
-// would); this email exists so that never happens silently. Recovery is
-// manual and deliberate (README.md's "Unblocking a topic" section): delete
-// the named marker file and push that as a normal, reviewed change.
-export function buildMarkerMergedEmail({ topic, markerFilePath, prUrl }) {
-  const subject = `⚠️ Вы смержили маркер отклонения — публикации не было${topic ? `: ${topic}` : ''}`;
+// branches.) This PR never carried article content — only a marker file
+// plus the quarantine transition (see generate-article.yml's "Open PR for
+// rejected attempt" step) — so there is nothing to publish here, and that
+// is expected rather than an error.
+//
+// PHASE 3 / MODEL A: merging is the NORMAL action and this is a
+// CONFIRMATION, not a warning. The merged marker is audit history; it does
+// not block the topic. What governs availability is the quarantine record
+// that landed with it, which expires on the canonical 7/14/30/60 policy.
+// The retired copy claimed the topic was "заблокирована навсегда" and told
+// the operator to `git rm` the marker to release it — both are false under
+// Model A and are deliberately gone.
+export function buildMarkerMergedEmail({ topic, markerFilePath, prUrl, rejectionCount, nextEligibleRetryAt }) {
+  const subject = `⛔ Отклонение записано${topic ? `: ${topic}` : ''}`;
   const lines = [
-    '<p>Эта PR содержала только маркер отклонённой попытки генерации, а не статью — публиковать было нечего.</p>',
-    '<p><strong>Тема теперь заблокирована навсегда</strong> — пока кто-то вручную не удалит файл маркера и не запушит это как обычное изменение.</p>',
+    '<p>PR с отклонённой попыткой смержен — отклонение принято и записано. Статьи в этом PR не было, публиковать было нечего: это ожидаемо, а не ошибка.</p>',
     topic ? `<p><strong>Тема:</strong> ${escapeHtml(topic)}</p>` : '<p><em>Не удалось определить тему автоматически — см. PR.</em></p>',
-    markerFilePath ? `<p><strong>Файл маркера:</strong> <code>${escapeHtml(markerFilePath)}</code></p>` : '',
-    markerFilePath
-      ? `<p>Чтобы освободить тему: <code>git rm ${escapeHtml(markerFilePath)}</code>, закоммитить и запушить в main.</p>`
-      : '<p>Чтобы освободить тему: удалить соответствующий файл маркера из <code>src/data/generated-articles/.rejected/</code>, закоммитить и запушить в main.</p>',
+    rejectionCount ? `<p><strong>Попытка №:</strong> ${escapeHtml(String(rejectionCount))}</p>` : '',
+    nextEligibleRetryAt ? `<p><strong>Тема снова доступна с:</strong> ${escapeHtml(nextEligibleRetryAt)}</p>` : '',
+    markerFilePath ? `<p><strong>Файл маркера (история):</strong> <code>${escapeHtml(markerFilePath)}</code></p>` : '',
+    '<p>Маркер — это история аудита, он сам по себе тему не блокирует. Доступностью управляет запись карантина, и она истекает автоматически.</p>',
     linkLine('Смерженный PR', prUrl),
   ].filter(Boolean);
   return { subject, html: wrapEmailHtml(lines) };
