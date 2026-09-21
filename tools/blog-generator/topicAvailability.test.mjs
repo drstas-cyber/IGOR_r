@@ -84,7 +84,8 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
 
   test('a git fetch failure on one branch THROWS the whole call, does not skip that branch silently', () => {
     const exec = (cmd) => {
-      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ headRefName: 'blog-generator/auto-123' }]);
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 1, headRefName: 'blog-generator/auto-123' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/x.json' }]);
       if (cmd.startsWith('git fetch')) throw new Error('simulated network failure');
       throw new Error(`unexpected command in test: ${cmd}`);
     };
@@ -93,7 +94,7 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
 
   test('non-blog-generator branches are ignored (no fetch attempted)', () => {
     const exec = (cmd) => {
-      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ headRefName: 'some-unrelated-branch' }]);
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 1, headRefName: 'some-unrelated-branch' }]);
       throw new Error(`should not be called for an unrelated branch: ${cmd}`);
     };
     const known = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
@@ -102,9 +103,9 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
 
   test('success case: one open PR branch, one article file, sourceTopic extracted', () => {
     const exec = (cmd) => {
-      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ headRefName: 'blog-generator/auto-999' }]);
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 1, headRefName: 'blog-generator/auto-999' }]);
       if (cmd.startsWith('git fetch')) return '';
-      if (cmd.startsWith('git ls-tree')) return 'src/data/generated-articles/some-slug.json\n';
+      if (cmd.startsWith('gh api')) return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/some-slug.json' }]);
       if (cmd.startsWith('git show')) return JSON.stringify({ sourceTopic: 'Understanding HOA Fees Before You Buy in a Planned Community', slug: 'some-slug' });
       throw new Error(`unexpected command: ${cmd}`);
     };
@@ -114,9 +115,9 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
 
   test('success case: rejected-marker file on an open PR branch is also picked up', () => {
     const exec = (cmd) => {
-      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ headRefName: 'blog-generator/rejected-999' }]);
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 1, headRefName: 'blog-generator/rejected-999' }]);
       if (cmd.startsWith('git fetch')) return '';
-      if (cmd.startsWith('git ls-tree')) return 'src/data/generated-articles/.rejected/some-topic.json\n';
+      if (cmd.startsWith('gh api')) return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/.rejected/some-topic.json' }]);
       if (cmd.startsWith('git show')) return JSON.stringify({ sourceTopic: 'A Rejected Topic On A PR Branch', rejectedAt: '2026-01-01T00:00:00.000Z' });
       throw new Error(`unexpected command: ${cmd}`);
     };
@@ -128,12 +129,12 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
     const exec = (cmd) => {
       if (cmd.startsWith('gh pr list')) {
         return JSON.stringify([
-          { headRefName: 'blog-generator/rejected-111' },
-          { headRefName: 'blog-generator/rejected-222' },
+          { number: 1, headRefName: 'blog-generator/rejected-111' },
+          { number: 1, headRefName: 'blog-generator/rejected-222' },
         ]);
       }
       if (cmd.startsWith('git fetch')) return '';
-      if (cmd.startsWith('git ls-tree')) return 'src/data/generated-articles/.rejected/same-topic.json\n';
+      if (cmd.startsWith('gh api')) return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/.rejected/same-topic.json' }]);
       if (cmd.startsWith('git show')) return JSON.stringify({ sourceTopic: 'A Topic That Keeps Tripping', rejectedAt: '2026-01-01T00:00:00.000Z' });
       throw new Error(`unexpected command: ${cmd}`);
     };
@@ -339,5 +340,190 @@ describe('assertMergedMarkersAreQuarantined — the migration consistency guard'
 
   test('no merged markers is trivially consistent', () => {
     assert.doesNotThrow(() => assertMergedMarkersAreQuarantined(new Set(), []));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OPEN-PR HOLD SCOPE (fixed 2026-09-21).
+//
+// The hold used to be derived from `git ls-tree` over the PR BRANCH, which
+// lists everything the branch CONTAINS -- and a PR branch contains all of
+// main. So every merged article and every merged `.rejected/` marker came
+// back as "attempted by this open PR": one open generator PR that had added
+// a single file reported 28 held topics against the live repository.
+//
+// Harmless before Phase 3, when merged markers were permanent holds anyway.
+// Under Model A it silently violated the contract -- an expired quarantine
+// must release its topic, and this re-held it for as long as ANY generator
+// PR happened to be open. Observed live: PR #55's branch inherited main's
+// merged Mello-Roos marker, whose quarantine expired 2026-09-01.
+//
+// The hold is now derived from the PR DIFF: only paths the PR itself
+// introduced count.
+// ---------------------------------------------------------------------------
+describe('getOpenPrAttemptedTopics — holds only what the PR itself introduced', () => {
+  const MELLO = 'Understanding Mello-Roos Taxes in Temecula Valley Communities';
+  const FEHA = "Understanding California's Fair Employment and Housing Act for Buyers and Sellers";
+
+  // Mirrors the real #55 shape: the PR adds ONE marker, and its branch also
+  // carries an inherited merged marker plus inherited articles from main.
+  function prLikeFiftyFive(ownTopic) {
+    return (cmd) => {
+      if (cmd.startsWith('gh pr list')) {
+        return JSON.stringify([{ number: 55, headRefName: 'blog-generator/rejected-35455336418' }]);
+      }
+      if (cmd.startsWith('gh api')) {
+        // The PR diff: exactly one added file. Inherited files never appear
+        // in a PR's file list, which is the whole point of the fix.
+        return JSON.stringify([
+          { status: 'added', filename: 'src/data/generated-articles/.rejected/own-topic.json' },
+        ]);
+      }
+      if (cmd.startsWith('git fetch')) return '';
+      if (cmd === 'git show FETCH_HEAD:src/data/generated-articles/.rejected/own-topic.json') {
+        return JSON.stringify({ sourceTopic: ownTopic, rejectedAt: '2026-09-19T16:34:48.534Z' });
+      }
+      // Any attempt to read an inherited path is a bug: the fix must never
+      // ask for one. Fail loudly rather than quietly returning a topic.
+      throw new Error(`must not read an inherited path: ${cmd}`);
+    };
+  }
+
+  test('holds the topic the PR actually added', () => {
+    const held = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: prLikeFiftyFive(FEHA) });
+    assert.ok(held.has(FEHA), 'the PR own attempted topic must still be held');
+    assert.equal(held.size, 1);
+  });
+
+  test('does NOT hold a merged .rejected marker inherited from main (#55 / Mello-Roos case)', () => {
+    const held = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: prLikeFiftyFive(FEHA) });
+    assert.equal(held.has(MELLO), false, 'an inherited merged marker must not create an open-PR hold');
+  });
+
+  test('does NOT hold an inherited generated article already present on main', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 60, headRefName: 'blog-generator/auto-60' }]);
+      if (cmd.startsWith('gh api')) {
+        return JSON.stringify([
+          { status: 'added', filename: 'src/data/generated-articles/brand-new.json' },
+          // Inherited files simply are not in a PR diff; a `modified` entry
+          // is the closest real analogue and must not count either.
+          { status: 'modified', filename: 'src/data/generated-articles/already-on-main.json' },
+        ]);
+      }
+      if (cmd.startsWith('git fetch')) return '';
+      if (cmd.includes('brand-new.json')) return JSON.stringify({ sourceTopic: 'A Brand New Topic' });
+      if (cmd.includes('already-on-main.json')) return JSON.stringify({ sourceTopic: 'An Inherited Topic' });
+      throw new Error(`unexpected command: ${cmd}`);
+    };
+    const held = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
+    assert.ok(held.has('A Brand New Topic'));
+    assert.equal(held.has('An Inherited Topic'), false, 'a modified inherited article must not create a hold');
+  });
+
+  test('multiple open PRs each hold only their own attempted topic', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) {
+        return JSON.stringify([
+          { number: 71, headRefName: 'blog-generator/auto-71' },
+          { number: 72, headRefName: 'blog-generator/rejected-72' },
+        ]);
+      }
+      if (cmd.startsWith('gh api') && cmd.includes('/pulls/71/')) {
+        return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/a.json' }]);
+      }
+      if (cmd.startsWith('gh api') && cmd.includes('/pulls/72/')) {
+        return JSON.stringify([{ status: 'added', filename: 'src/data/generated-articles/.rejected/b.json' }]);
+      }
+      if (cmd.startsWith('git fetch')) return '';
+      if (cmd.endsWith('a.json')) return JSON.stringify({ sourceTopic: 'Topic From PR 71' });
+      if (cmd.endsWith('b.json')) return JSON.stringify({ sourceTopic: 'Topic From PR 72' });
+      throw new Error(`unexpected command: ${cmd}`);
+    };
+    const held = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
+    assert.deepEqual([...held].sort(), ['Topic From PR 71', 'Topic From PR 72']);
+  });
+
+  test('a PR that introduces no generator artifact holds nothing and never fetches its branch', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 80, headRefName: 'blog-generator/auto-80' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([{ status: 'modified', filename: 'tools/blog-generator/README.md' }]);
+      throw new Error(`must not fetch or read for a PR that added no artifact: ${cmd}`);
+    };
+    assert.equal(getOpenPrAttemptedTopics({ repo: 'owner/repo', exec }).size, 0);
+  });
+
+  test('closing the PR removes the true hold — a closed PR is simply absent from gh pr list', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([]); // e.g. #55 now closed
+      throw new Error(`nothing else should run when no PR is open: ${cmd}`);
+    };
+    assert.equal(getOpenPrAttemptedTopics({ repo: 'owner/repo', exec }).size, 0);
+  });
+
+  test('fails closed on an unusable PR file list, never returning a partial hold set', () => {
+    const base = (filesResponse) => (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 90, headRefName: 'blog-generator/auto-90' }]);
+      if (cmd.startsWith('gh api')) return filesResponse();
+      throw new Error(`unexpected: ${cmd}`);
+    };
+    assert.throws(() => getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: base(() => { throw new Error('gh down'); }) }), /files failed/i);
+    assert.throws(() => getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: base(() => 'not json') }), /could not parse the file list/i);
+    assert.throws(() => getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: base(() => JSON.stringify({})) }), /was not an array/i);
+    // A full page means the list may be truncated — refuse rather than miss one.
+    const full = JSON.stringify(Array.from({ length: 100 }, (_, i) => ({ status: 'modified', filename: `f${i}.txt` })));
+    assert.throws(() => getOpenPrAttemptedTopics({ repo: 'owner/repo', exec: base(() => full) }), /page limit/i);
+  });
+
+  test('an open PR with no number fails closed rather than guessing its diff', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ headRefName: 'blog-generator/auto-1' }]);
+      throw new Error(`unexpected: ${cmd}`);
+    };
+    assert.throws(() => getOpenPrAttemptedTopics({ repo: 'owner/repo', exec }), /no usable number/i);
+  });
+});
+
+describe('Model A end-to-end: an expired quarantine is released once its PR hold is gone', () => {
+  const MELLO = 'Understanding Mello-Roos Taxes in Temecula Valley Communities';
+  const TOPICS = [{ topic: MELLO }, { topic: 'Another Topic' }];
+  const EXPIRED = {
+    topic: MELLO,
+    status: 'quarantined',
+    rejection_reason: 'gate_trip',
+    rejection_count: 1,
+    last_rejected_at: '2026-08-25T14:38:39.617Z',
+    next_eligible_retry_at: '2026-09-01T14:38:39.617Z',
+  };
+  const NOW = '2026-09-21T00:00:00.000Z'; // well past the retry date
+
+  test('expired quarantine + merged marker + an UNRELATED open PR => eligible', () => {
+    // This is the exact live situation: Mello-Roos has a merged marker on
+    // main and an expired quarantine, while PR #55 (an unrelated topic) is
+    // open. Before the fix it was held; under Model A it must be eligible.
+    const picked = pickNextEligibleTopic({
+      topics: TOPICS,
+      consumedTopics: new Set(),
+      openPrTopics: new Set(['Some Other Topic From An Open PR']),
+      mergedMarkerTopics: new Set([MELLO]),
+      quarantineRecords: [EXPIRED],
+      now: NOW,
+    });
+    assert.equal(picked.topic, MELLO);
+  });
+
+  test('the merged-marker consistency guard is independent and still fails closed', () => {
+    // Removing the false PR hold must not weaken the orphan-marker guard.
+    assert.throws(
+      () => pickNextEligibleTopic({
+        topics: TOPICS,
+        consumedTopics: new Set(),
+        openPrTopics: new Set(),
+        mergedMarkerTopics: new Set([MELLO]),
+        quarantineRecords: [], // marker on main with NO record
+        now: NOW,
+      }),
+      /no quarantine record/,
+    );
   });
 });

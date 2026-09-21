@@ -127,7 +127,7 @@ export function getOpenPrAttemptedTopics({ repo, exec = execSync } = {}) {
 
   let prListRaw;
   try {
-    prListRaw = exec(`gh pr list --repo ${repo} --state open --json headRefName --limit 100`, { encoding: 'utf8' });
+    prListRaw = exec(`gh pr list --repo ${repo} --state open --json number,headRefName --limit 100`, { encoding: 'utf8' });
   } catch (err) {
     throw new Error(`[topicAvailability] gh pr list failed: ${err.message}. Refusing to guess which topics are already attempted.`);
   }
@@ -146,6 +146,57 @@ export function getOpenPrAttemptedTopics({ repo, exec = execSync } = {}) {
   for (const pr of prs) {
     const branch = pr?.headRefName;
     if (!branch || !branch.startsWith('blog-generator/')) continue;
+    if (!Number.isInteger(pr?.number)) {
+      throw new Error(`[topicAvailability] open PR on branch "${branch}" has no usable number — refusing to guess which files it added.`);
+    }
+
+    // PR DIFF, not branch tree (fixed 2026-09-21). This used to run
+    // `git ls-tree -r FETCH_HEAD -- src/data/generated-articles`, which
+    // lists everything the branch CONTAINS -- and a PR branch contains all
+    // of main. Every merged article and every merged .rejected/ marker on
+    // main therefore came back as "attempted by this open PR", so a single
+    // open generator PR held 28 topics when it had added exactly one file.
+    //
+    // Harmless before Phase 3, because merged markers were permanent holds
+    // anyway. Under Model A it is a real contract violation: a quarantine
+    // that has expired must release its topic, and this silently re-held it
+    // for as long as ANY generator PR happened to be open. Observed live
+    // with the Mello-Roos marker inherited by PR #55's branch.
+    //
+    // The hold now means what it says: the topic THIS PR introduced.
+    let filesRaw;
+    try {
+      filesRaw = exec(`gh api repos/${repo}/pulls/${pr.number}/files?per_page=100`, { encoding: 'utf8' });
+    } catch (err) {
+      throw new Error(`[topicAvailability] gh api pulls/${pr.number}/files failed: ${err.message}. Refusing to guess.`);
+    }
+
+    let files;
+    try {
+      files = JSON.parse(filesRaw);
+    } catch (err) {
+      throw new Error(`[topicAvailability] could not parse the file list for PR #${pr.number}: ${err.message}. Refusing to guess.`);
+    }
+    if (!Array.isArray(files)) {
+      throw new Error(`[topicAvailability] the file list for PR #${pr.number} was not an array — refusing to guess.`);
+    }
+    // FAIL-CLOSED on a truncated page rather than silently missing a topic
+    // a large PR introduced. A generator PR adds one or two files, so this
+    // is unreachable in normal operation and is here as a guard, not a path.
+    if (files.length >= 100) {
+      throw new Error(`[topicAvailability] PR #${pr.number} reports ${files.length} changed files, at or over the page limit — refusing to guess whether a generator artifact was missed.`);
+    }
+
+    // Only paths this PR CREATED count. `modified` is deliberately excluded:
+    // editing an inherited file does not make its topic newly attempted.
+    // `renamed` counts because it introduces a new path on the branch.
+    const introduced = files
+      .filter((f) => f && (f.status === 'added' || f.status === 'renamed'))
+      .map((f) => f.filename)
+      .filter((name) => typeof name === 'string'
+        && name.startsWith(`${GENERATED_DIR_REPO_PATH}/`)
+        && name.endsWith('.json'));
+    if (introduced.length === 0) continue;
 
     try {
       exec(`git fetch origin ${branch} --depth=1 -q`, { encoding: 'utf8' });
@@ -153,17 +204,7 @@ export function getOpenPrAttemptedTopics({ repo, exec = execSync } = {}) {
       throw new Error(`[topicAvailability] git fetch of open PR branch "${branch}" failed: ${err.message}. Refusing to guess.`);
     }
 
-    let fileList;
-    try {
-      fileList = exec(`git ls-tree -r --name-only FETCH_HEAD -- ${GENERATED_DIR_REPO_PATH}`, { encoding: 'utf8' })
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.endsWith('.json'));
-    } catch (err) {
-      throw new Error(`[topicAvailability] git ls-tree on branch "${branch}" failed: ${err.message}. Refusing to guess.`);
-    }
-
-    for (const file of fileList) {
+    for (const file of introduced) {
       let content;
       try {
         content = exec(`git show FETCH_HEAD:${file}`, { encoding: 'utf8' });
