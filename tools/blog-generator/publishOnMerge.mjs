@@ -2,42 +2,53 @@
 /* eslint-disable no-console */
 // Publish-on-merge (hardening batch item 3, 2026-08-25) — the standing spec:
 // merge of a `blog-generator/auto-*` PR by a human -> flip published:true,
-// _headers cache pair, regenerate blog-articles.json, push. This is the
-// exact sequence a human previously ran by hand after every supervised
-// read (see the "blog: publish ..." / "blog: cache pair + rebuild ..."
-// commit pairs throughout this repo's history) — now triggered
-// automatically by the merge itself, so "the next held PR merged from the
-// GitHub mobile app" doesn't need a follow-up terminal session at all.
+// regenerate blog-articles.json, push. This is the exact sequence a human
+// previously ran by hand after every supervised read (see the "blog:
+// publish ..." / "blog: cache pair + rebuild ..." commit pairs throughout
+// this repo's history) — now triggered automatically by the merge itself,
+// so "the next held PR merged from the GitHub mobile app" doesn't need a
+// follow-up terminal session at all.
 //
-// Deliberately mirrors setPublished.mjs / headersCacheEntry.mjs's own
-// "pure core, thin I/O shell" split rather than reimplementing either --
-// this file is the ORCHESTRATION layer only, reusing both directly.
+// Deliberately mirrors setPublished.mjs's own "pure core, thin I/O shell"
+// split rather than reimplementing it -- this file is the ORCHESTRATION
+// layer only, reusing it directly.
 //
-// IDEMPOTENT by construction, not by a special-cased flag: every write
-// this script makes already goes through a function that is itself a
-// no-op when the target state is already reached (setPublishedInJson's
-// `changed` flag, insertCacheEntry's `inserted` flag) -- and the whole run
-// short-circuits to a clean no-op via evaluatePublishStatus() before
-// touching anything if the article is ALREADY fully published (this
-// workflow firing twice for the same merge; historically also possible if
-// generate-article.yml's since-retired auto-publish path had already
-// handled it -- see README.md's decision record). Never assumes "not yet
-// run" -- always checks real repo state first.
+// BATCH F / OPTION D: this script NO LONGER WRITES public/_headers. Until
+// Batch F it called insertCacheEntry() on every publish, appending a
+// concrete /blog/<slug> + /blog/<slug>/ pair and growing the file by two
+// rules per article. Option D replaced all of those with two shared
+// placeholder routes that already cover every present and future article,
+// so there is nothing left to append -- the rule count is fixed at 12 no
+// matter how many articles publish. What remains is a VALIDATION: the
+// shared contract must be intact, or this run fails closed.
 //
-// CAP-GUARD: insertCacheEntry() already throws, unmodified, when the
-// _headers 100-rule limit would be exceeded (see headersCacheEntry.mjs).
-// This script does NOT catch that -- it propagates all the way up to a
-// non-zero process exit, which fails the calling workflow step before any
-// git commit/push happens (bash's default `-e`). Result: the article
-// stays merged on main but published:false -- a safe, visibly-incomplete
-// state, not silently wrong -- requiring a human to notice the red run and
-// finish the sequence by hand.
+// IDEMPOTENT by construction, not by a special-cased flag: the one write
+// this script makes goes through a function that is itself a no-op when
+// the target state is already reached (setPublishedInJson's `changed`
+// flag) -- and the whole run short-circuits to a clean no-op via
+// evaluatePublishStatus() before touching anything if the article is
+// ALREADY fully published (this workflow firing twice for the same merge;
+// historically also possible if generate-article.yml's since-retired
+// auto-publish path had already handled it -- see README.md's decision
+// record). Never assumes "not yet run" -- always checks real repo state
+// first.
+//
+// FAIL-CLOSED on a broken header contract: if the shared Option D coverage
+// is missing or malformed, this script throws rather than flipping
+// published:true. It propagates all the way up to a non-zero process exit,
+// which fails the calling workflow step before any git commit/push happens
+// (bash's default `-e`). Result: the article stays merged on main but
+// published:false -- a safe, visibly-incomplete state, not silently wrong
+// -- requiring a human to notice the red run and repair _headers by hand.
+// Publishing an article into a file whose cache contract is broken would
+// be exactly the "green run, wrong production" outcome this pipeline keeps
+// designing against.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import realFs from 'node:fs';
 import { setPublishedInJson, articlePath } from './setPublished.mjs';
-import { insertCacheEntry } from './headersCacheEntry.mjs';
+import { validateBlogArticleCacheCoverage } from './headersCacheEntry.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -122,8 +133,21 @@ export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs
 
   const status = evaluatePublishStatus({ slug, article, headersText, blogArticlesSlugs: resolvedBlogArticlesSlugs });
   if (status.complete) {
-    console.log(`[publishOnMerge] "${slug}" is already fully published (published:true, _headers pair present, in blog-articles.json) -- idempotent no-op, nothing to do.`);
+    console.log(`[publishOnMerge] "${slug}" is already fully published (published:true, shared blog article cache coverage valid, in blog-articles.json) -- idempotent no-op, nothing to do.`);
     return { slug, alreadyComplete: true };
+  }
+
+  // Validate the SHARED Option D contract BEFORE flipping published:true.
+  // Nothing is written to _headers here, by design -- publication no longer
+  // grows this file. See the header comment for why a broken contract must
+  // stop the publish rather than be repaired automatically.
+  const coverage = validateBlogArticleCacheCoverage(headersText);
+  if (!coverage.valid) {
+    throw new Error(
+      `publishOnMerge: refusing to publish "${slug}" -- the shared blog article cache coverage in public/_headers is invalid: ` +
+      `${coverage.errors.join('; ')}. Repair _headers (it must declare exactly /blog/:slug and /blog/:slug/ with ` +
+      'Cache-Control: public, max-age=0, s-maxage=300, must-revalidate, and no concrete per-article Cache-Control rule) and re-run.'
+    );
   }
 
   const publishResult = setPublishedInJson(articleText, true);
@@ -132,13 +156,7 @@ export async function runPublishOnMerge({ mergeSha, exec = execSync, fs = realFs
     console.log(`[publishOnMerge] "${slug}": published ${publishResult.before} -> ${publishResult.after}`);
   }
 
-  // Throws on the 100-rule cap -- see this file's header comment for why
-  // that must propagate uncaught.
-  const headersResult = insertCacheEntry(headersText, slug);
-  if (headersResult.inserted) {
-    fs.writeFileSync(HEADERS_PATH, headersResult.headersText, 'utf8');
-    console.log(`[publishOnMerge] "${slug}": added _headers cache pair -- ${headersResult.ruleCountAfter} rules.`);
-  }
+  console.log(`[publishOnMerge] "${slug}": covered by the shared placeholder routes ${coverage.placeholders.join(' and ')} -- public/_headers not modified.`);
 
   return { slug, alreadyComplete: false };
 }

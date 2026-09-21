@@ -37,7 +37,12 @@ import {
 } from './notificationEmail.mjs';
 import { buildGateSummaryLine } from './gateSummaryLine.mjs';
 import { evaluatePublishStatus } from './publishStatusReport.mjs';
-import { hasCacheEntry } from './headersCacheEntry.mjs';
+// BATCH F: hasCacheEntry was imported here but never called -- the published
+// verdict has always come from evaluatePublishStatus() below. Option D
+// removed that export, and the dead import alone was enough to crash this
+// CLI at module load. Deliberately NOT replaced with the new validator:
+// this file must keep inheriting the shared contract rather than parsing
+// _headers itself.
 import { articlePath } from './setPublished.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

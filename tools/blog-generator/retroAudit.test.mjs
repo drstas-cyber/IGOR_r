@@ -5,10 +5,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { computeArticleVerdict, auditArticle, runWeeklyRetro, readArticleFile } from './retroAudit.mjs';
 import { RETRO_CHECKLIST_TOOL } from './retroClaimGate.mjs';
-import { buildCacheEntryBlock } from './headersCacheEntry.mjs';
+import { BLOG_ARTICLE_CACHE_CONTROL } from './headersCacheEntry.mjs';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
+
+// BATCH F / OPTION D: retro used to build a per-slug cache pair for its
+// header fixture. Article cache coverage is now a single shared contract in
+// public/_headers, so every article -- including one published after this
+// file was written -- is covered by the same two placeholder routes.
+const CC = `  Cache-Control: ${BLOG_ARTICLE_CACHE_CONTROL}`;
+const VALID_OPTION_D_HEADERS = `/blog/\n${CC}\n/blog\n${CC}\n/blog/:slug/\n${CC}\n/blog/:slug\n${CC}\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`;
 
 function isolatedDir(prefix = 'retro-audit-test-') {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -80,7 +87,7 @@ describe('computeArticleVerdict — pure severity mapping', () => {
 
   test('an incomplete publish sequence -> REJECT', () => {
     const { verdict } = computeArticleVerdict({
-      publishStatus: { complete: false, checks: [{ ok: false, label: '_headers cache pair present' }] },
+      publishStatus: { complete: false, checks: [{ ok: false, label: 'shared blog article cache coverage valid' }] },
     });
     assert.equal(verdict, 'REJECT');
   });
@@ -126,7 +133,7 @@ describe('auditArticle — integration, mocked network', () => {
     };
     const result = await auditArticle({
       slug: 'clean-article', article: CLEAN_ARTICLE, apiKey: undefined,
-      headersText: buildCacheEntryBlock('clean-article'),
+      headersText: VALID_OPTION_D_HEADERS,
       blogArticlesSlugs: ['clean-article'],
     });
     assert.equal(result.verdict, 'NEEDS-FIX');
@@ -142,7 +149,7 @@ describe('auditArticle — integration, mocked network', () => {
     };
     const result = await auditArticle({
       slug: 'clean-article', article: CLEAN_ARTICLE, apiKey: 'test-key',
-      headersText: buildCacheEntryBlock('clean-article'),
+      headersText: VALID_OPTION_D_HEADERS,
       blogArticlesSlugs: ['clean-article'],
     });
     assert.equal(result.verdict, 'CLEAR', JSON.stringify(result.reasons));
@@ -152,6 +159,52 @@ describe('auditArticle — integration, mocked network', () => {
     const result = await auditArticle({ slug: 'ghost-article', article: null, apiKey: 'test-key' });
     assert.equal(result.verdict, 'REJECT');
     assert.match(result.reasons[0].text, /not found/);
+  });
+
+  // BATCH F REGRESSION. Before Option D, retro asked evaluatePublishStatus
+  // for a per-slug _headers pair. Had Batch F shipped _headers-only, that
+  // lookup would have failed for EVERY article and pinned the Monday retro
+  // at REJECT with "publish sequence incomplete" forever. These two tests
+  // are what prove the shared contract is actually wired through, and that
+  // the reject path it replaced still works.
+  test('an Option-D-only published article (no concrete per-slug rule) is NOT falsely REJECTed for an incomplete publish', async () => {
+    globalThis.fetch = async (url) => {
+      const s = String(url);
+      if (s.includes('api.anthropic.com')) return { ok: true, status: 200, json: async () => toolUseResponse(RETRO_CHECKLIST_TOOL.name, CLEAN_RETRO_CHECKLIST), text: async () => '' };
+      if (s.includes('/blog/clean-article/')) return { ok: true, status: 200, text: async () => '<title>Clean Article</title>' };
+      throw new Error(`unexpected fetch: ${s}`);
+    };
+    assert.ok(!VALID_OPTION_D_HEADERS.includes('/blog/clean-article'), 'fixture must carry NO concrete rule for this slug');
+    const result = await auditArticle({
+      slug: 'clean-article', article: CLEAN_ARTICLE, apiKey: 'test-key',
+      headersText: VALID_OPTION_D_HEADERS,
+      blogArticlesSlugs: ['clean-article'],
+    });
+    assert.equal(result.verdict, 'CLEAR', JSON.stringify(result.reasons));
+    assert.equal(
+      result.reasons.some((r) => /publish sequence incomplete/.test(r.text)), false,
+      'placeholder coverage must not read as an incomplete publish sequence'
+    );
+  });
+
+  test('malformed Option D coverage STILL produces the publish-sequence REJECT -- the reject path is intact, not weakened', async () => {
+    globalThis.fetch = async (url) => {
+      const s = String(url);
+      if (s.includes('api.anthropic.com')) return { ok: true, status: 200, json: async () => toolUseResponse(RETRO_CHECKLIST_TOOL.name, CLEAN_RETRO_CHECKLIST), text: async () => '' };
+      if (s.includes('/blog/clean-article/')) return { ok: true, status: 200, text: async () => '<title>Clean Article</title>' };
+      throw new Error(`unexpected fetch: ${s}`);
+    };
+    const broken = VALID_OPTION_D_HEADERS.replace(`/blog/:slug\n${CC}\n`, '');
+    const result = await auditArticle({
+      slug: 'clean-article', article: CLEAN_ARTICLE, apiKey: 'test-key',
+      headersText: broken,
+      blogArticlesSlugs: ['clean-article'],
+    });
+    assert.equal(result.verdict, 'REJECT');
+    const text = result.reasons.map((r) => r.text).join('; ');
+    assert.match(text, /publish sequence incomplete/);
+    assert.match(text, /shared blog article cache coverage valid/);
+    assert.equal(result.reasons.find((r) => /publish sequence incomplete/.test(r.text)).severity, 'REJECT');
   });
 
   test('a wrong DRE number live on the page -> REJECT via wrongIdentityFindings', async () => {
@@ -168,7 +221,7 @@ describe('auditArticle — integration, mocked network', () => {
     };
     const result = await auditArticle({
       slug: 'bad-dre', article, apiKey: 'test-key',
-      headersText: buildCacheEntryBlock('bad-dre'),
+      headersText: VALID_OPTION_D_HEADERS,
       blogArticlesSlugs: ['bad-dre'],
     });
     assert.equal(result.verdict, 'REJECT');

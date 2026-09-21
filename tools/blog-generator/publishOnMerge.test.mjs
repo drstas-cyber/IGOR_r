@@ -59,7 +59,7 @@ describe('getMergedArticleSlug — fail-closed on ambiguity', () => {
   });
 });
 
-describe('runPublishOnMerge — orchestration, real setPublishedInJson/insertCacheEntry, injected fs/exec', () => {
+describe('runPublishOnMerge — orchestration, real setPublishedInJson + shared coverage validation, injected fs/exec', () => {
   function makeFakeFs({ articleJson, headersText }) {
     const written = {};
     return {
@@ -74,64 +74,92 @@ describe('runPublishOnMerge — orchestration, real setPublishedInJson/insertCac
     };
   }
 
-  const CLEAN_HEADERS = '/blog/*\n  Cache-Control: x\n\n/assets/*\n  Cache-Control: y\n';
+  // BATCH F / OPTION D: these fixtures used to contain per-slug pairs and,
+  // in the "clean" case, a bare `/blog/*  Cache-Control` rule. Both are now
+  // contract violations by definition -- the wildcard is prohibited outright
+  // and a concrete pair would concatenate with the placeholder. The valid
+  // fixture is the shared two-placeholder contract, identical for every
+  // article, which is the whole point of the batch.
+  const CC = '  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate';
+  const VALID_HEADERS = `/blog/\n${CC}\n/blog\n${CC}\n/blog/:slug/\n${CC}\n/blog/:slug\n${CC}\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`;
   const UNPUBLISHED_ARTICLE = JSON.stringify({ slug: 'x', title: 'X', published: false, citations: [] });
-  const PUBLISHED_COMPLETE_HEADERS = '/blog/*\n  Cache-Control: x\n\n/blog/x/\n  Cache-Control: y\n\n/blog/x\n  Cache-Control: y\n\n/assets/*\n  Cache-Control: y\n';
   const PUBLISHED_ARTICLE = JSON.stringify({ slug: 'x', title: 'X', published: true, citations: [] });
+  const gitDiffExec = (cmd) => {
+    if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
+    throw new Error(`unexpected exec: ${cmd}`);
+  };
 
-  test('a not-yet-published article: flips published:true and inserts the _headers pair, reports already_complete: false', async () => {
-    const exec = (cmd) => {
-      if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
-      throw new Error(`unexpected exec: ${cmd}`);
-    };
-    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: CLEAN_HEADERS });
-    const result = await runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'] });
+  test('a not-yet-published article: flips published:true WITHOUT touching _headers, reports already_complete: false', async () => {
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: VALID_HEADERS });
+    const result = await runPublishOnMerge({ mergeSha: 'abc', exec: gitDiffExec, fs: fakeFs, blogArticlesSlugs: ['x'] });
     assert.equal(result.alreadyComplete, false);
     assert.equal(result.slug, 'x');
     const writtenArticle = JSON.parse(Object.values(fakeFs.written).find((v) => v.includes('"slug"')));
     assert.equal(writtenArticle.published, true);
+
+    // THE Batch F regression: publication must not write public/_headers at
+    // all, so the file cannot grow and cannot regain a concrete rule.
+    const headerWrites = Object.keys(fakeFs.written).filter((p) => String(p).endsWith('_headers'));
+    assert.deepEqual(headerWrites, [], 'publication must never write public/_headers');
+  });
+
+  test('publication adds no concrete rule and does not grow the rule count, for an arbitrary future slug', async () => {
+    const exec = (cmd) => {
+      if (cmd.includes('git diff')) return 'src/data/generated-articles/a-brand-new-future-article.json\n';
+      throw new Error(`unexpected exec: ${cmd}`);
+    };
+    const article = JSON.stringify({ slug: 'a-brand-new-future-article', title: 'New', published: false, citations: [] });
+    const fakeFs = makeFakeFs({ articleJson: article, headersText: VALID_HEADERS });
+    const before = (VALID_HEADERS.match(/^\//gm) || []).length;
+    const result = await runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['a-brand-new-future-article'] });
+    assert.equal(result.alreadyComplete, false);
+    assert.deepEqual(Object.keys(fakeFs.written).filter((p) => String(p).endsWith('_headers')), []);
+    // _headers is byte-identical because it was never written.
+    assert.equal((VALID_HEADERS.match(/^\//gm) || []).length, before);
+    assert.ok(!VALID_HEADERS.includes('/blog/a-brand-new-future-article'));
   });
 
   test('an ALREADY fully-published article (e.g. the silent auto-publish path already ran, or this workflow re-fires): no-op, reports already_complete: true, writes nothing', async () => {
-    const exec = (cmd) => {
-      if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
-      throw new Error(`unexpected exec: ${cmd}`);
-    };
-    const fakeFs = makeFakeFs({ articleJson: PUBLISHED_ARTICLE, headersText: PUBLISHED_COMPLETE_HEADERS });
-    const result = await runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'] });
+    const fakeFs = makeFakeFs({ articleJson: PUBLISHED_ARTICLE, headersText: VALID_HEADERS });
+    const result = await runPublishOnMerge({ mergeSha: 'abc', exec: gitDiffExec, fs: fakeFs, blogArticlesSlugs: ['x'] });
     assert.equal(result.alreadyComplete, true);
     assert.deepEqual(fakeFs.written, {}, 'an idempotent no-op must never write anything');
   });
 
-  test('the _headers 100-rule cap-guard failure propagates as a real thrown error, not swallowed', async () => {
-    const exec = (cmd) => {
-      if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
-      throw new Error(`unexpected exec: ${cmd}`);
-    };
-    // 100 existing rules (50 slugs already at 2 rules each) -- adding one more tips it over MAX_HEADERS_RULES.
-    const fullHeaders = `${Array.from({ length: 50 }, (_, i) => `/blog/existing-${i}/\n  Cache-Control: x\n/blog/existing-${i}\n  Cache-Control: x`).join('\n')}\n/assets/*\n  Cache-Control: y\n`;
-    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: fullHeaders });
+  test('a malformed shared header contract fails closed as a real thrown error, not swallowed', async () => {
+    // Replaces the old 100-rule cap-guard case: under Option D publication
+    // never inserts, so the cap is unreachable from here. The failure mode
+    // that IS reachable is a broken/edited shared contract, and it must stop
+    // the publish rather than flip published:true into a broken file.
+    const brokenHeaders = VALID_HEADERS.replace(`/blog/:slug\n${CC}\n`, '');
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: brokenHeaders });
     await assert.rejects(
-      () => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'] }),
-      /over Cloudflare Pages/
+      () => runPublishOnMerge({ mergeSha: 'abc', exec: gitDiffExec, fs: fakeFs, blogArticlesSlugs: ['x'] }),
+      /shared blog article cache coverage in public\/_headers is invalid/
+    );
+    assert.deepEqual(fakeFs.written, {}, 'a failed coverage check must not flip published:true');
+  });
+
+  test('a concrete per-slug rule left in _headers fails closed rather than publishing into a concatenating file', async () => {
+    const overlapping = `${VALID_HEADERS}\n/blog/x\n${CC}\n`;
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: overlapping });
+    await assert.rejects(
+      () => runPublishOnMerge({ mergeSha: 'abc', exec: gitDiffExec, fs: fakeFs, blogArticlesSlugs: ['x'] }),
+      /concatenate/
     );
   });
 
   // FIX 3 (2026-08-31) -- the slug must reach $GITHUB_OUTPUT (via the
   // injected onSlugKnown callback the real CLI wires to a real
   // fs.appendFileSync) the moment it's resolved, BEFORE any write work --
-  // not only in the success .then(), which last night's actual failure
+  // not only in the success .then(), which that night's actual failure
   // (the git-diff-itself-failed case) never reached. This is what lets a
   // LATER throw -- including one that happens after the slug is known,
-  // like the cap-guard case above -- still leave the slug behind for the
-  // failure email to name.
-  test('onSlugKnown fires with the resolved slug before any fs write, and survives a later throw (cap-guard)', async () => {
-    const exec = (cmd) => {
-      if (cmd.includes('git diff')) return 'src/data/generated-articles/x.json\n';
-      throw new Error(`unexpected exec: ${cmd}`);
-    };
-    const fullHeaders = `${Array.from({ length: 50 }, (_, i) => `/blog/existing-${i}/\n  Cache-Control: x\n/blog/existing-${i}\n  Cache-Control: x`).join('\n')}\n/assets/*\n  Cache-Control: y\n`;
-    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: fullHeaders });
+  // like the malformed-coverage case above -- still leave the slug behind
+  // for the failure email to name.
+  test('onSlugKnown fires with the resolved slug before any fs write, and survives a later throw (malformed coverage)', async () => {
+    const brokenHeaders = VALID_HEADERS.replace(`/blog/:slug\n${CC}\n`, '');
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: brokenHeaders });
     let onSlugKnownSlug = null;
     let writesWhenSlugKnownFired = null;
     const onSlugKnown = (slug) => {
@@ -139,8 +167,8 @@ describe('runPublishOnMerge — orchestration, real setPublishedInJson/insertCac
       writesWhenSlugKnownFired = Object.keys(fakeFs.written).length;
     };
     await assert.rejects(
-      () => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'], onSlugKnown }),
-      /over Cloudflare Pages/
+      () => runPublishOnMerge({ mergeSha: 'abc', exec: gitDiffExec, fs: fakeFs, blogArticlesSlugs: ['x'], onSlugKnown }),
+      /shared blog article cache coverage in public\/_headers is invalid/
     );
     assert.equal(onSlugKnownSlug, 'x', 'onSlugKnown must fire with the real slug even though the run ultimately throws');
     assert.equal(writesWhenSlugKnownFired, 0, 'onSlugKnown must fire before any fs write (the write phase)');
@@ -148,7 +176,7 @@ describe('runPublishOnMerge — orchestration, real setPublishedInJson/insertCac
 
   test('onSlugKnown never fires when slug resolution itself fails (git diff error) -- there is no slug to report', async () => {
     const exec = () => { throw new Error('git error'); };
-    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: CLEAN_HEADERS });
+    const fakeFs = makeFakeFs({ articleJson: UNPUBLISHED_ARTICLE, headersText: VALID_HEADERS });
     let called = false;
     const onSlugKnown = () => { called = true; };
     await assert.rejects(() => runPublishOnMerge({ mergeSha: 'abc', exec, fs: fakeFs, blogArticlesSlugs: ['x'], onSlugKnown }));

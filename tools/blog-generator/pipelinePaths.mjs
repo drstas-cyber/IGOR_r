@@ -298,10 +298,11 @@ export const PIPELINE_PATHS = [
   {
     id: 'PUB-01',
     category: 'publish-on-merge',
-    name: 'Publish success — flips published:true, inserts the _headers cache pair',
-    forcing: { kind: 'unit', file: 'publishOnMerge.test.mjs', test: 'a not-yet-published article: flips published:true and inserts the _headers pair' },
+    name: 'Publish success — flips published:true, leaves _headers untouched (Option D)',
+    forcing: { kind: 'unit', file: 'publishOnMerge.test.mjs', test: 'a not-yet-published article: flips published:true WITHOUT touching _headers' },
     lastObserved: SUITE_DATE,
     alsoObservedLive: '2026-08-31 (run 33429714215)',
+    note: 'RENAMED in Batch F (Option D). Until then this path INSERTED a concrete /blog/<slug> cache pair on every publish, growing _headers by two rules per article. The two shared placeholder routes now cover every article, so publication writes nothing to that file at all — the forcing test asserts the absence of the write it used to assert the presence of. The live observation predates the change and is kept for the published:true flip, which is unchanged.',
   },
   {
     id: 'PUB-02',
@@ -328,9 +329,10 @@ export const PIPELINE_PATHS = [
   {
     id: 'PUB-05',
     category: 'publish-on-merge',
-    name: '_headers 100-rule cap-guard trips — propagates, article stranded merged-but-unpublished',
-    forcing: { kind: 'unit', file: 'publishOnMerge.test.mjs', test: 'the _headers 100-rule cap-guard failure propagates as a real thrown error' },
+    name: 'Malformed shared _headers coverage — propagates, article stranded merged-but-unpublished',
+    forcing: { kind: 'unit', file: 'publishOnMerge.test.mjs', test: 'a malformed shared header contract fails closed as a real thrown error' },
     lastObserved: SUITE_DATE,
+    note: 'REPLACED in Batch F (Option D). This row used to cover the 100-rule cap-guard, which was reachable only because publication INSERTED two rules per article. Publication no longer writes _headers, so the cap is unreachable from this path and a test asserting it would be theatre. The failure that IS reachable — someone hand-edits _headers and breaks or duplicates the shared /blog/:slug contract — now occupies this row, and strands the article in the same safe merged-but-unpublished state for the same reason.',
   },
   {
     id: 'PUB-06',

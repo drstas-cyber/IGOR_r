@@ -4,8 +4,8 @@ name: publish-on-merge
 # merges a `blog-generator/auto-*` PR (a real-article generator PR, never
 # a `blog-generator/rejected-*` marker PR), that merge itself triggers the
 # full publish sequence a human previously had to run by hand afterward in
-# a separate terminal session (published:true flip, _headers cache pair,
-# regenerate blog-articles.json, commit, push) — see
+# a separate terminal session (published:true flip, regenerate
+# blog-articles.json, commit, push) — see
 # tools/blog-generator/publishOnMerge.mjs for the actual logic and
 # tools/blog-generator/README.md's "Publish-on-merge" entry for the full
 # design record. First live test: the next held PR merged from the GitHub
@@ -81,9 +81,14 @@ jobs:
       # now-retired auto-publish path in generate-article.yml could have
       # already handled this exact PR before a human ever merged it; kept
       # as defense-in-depth even though that scenario no longer exists).
-      # CAP-GUARD: a _headers 100-rule breach throws here and this step
-      # fails BEFORE any commit -- the article stays merged on main but
-      # published:false, a safe, visibly-incomplete state (see
+      # FAIL-CLOSED ON BROKEN HEADER COVERAGE (Batch F, Option D): this
+      # step VALIDATES the shared /blog/:slug article-cache contract in
+      # public/_headers; it does NOT add two rules per article any more, so
+      # the 100-rule cap is not a routine publication failure mode. What IS
+      # routine: if that shared coverage is missing, duplicated, or carries
+      # the wrong Cache-Control, publishOnMerge.mjs throws here and this
+      # step fails BEFORE any commit -- the article stays merged on main
+      # but published:false, a safe, visibly-incomplete state (see
       # publishOnMerge.mjs's header comment for the full failure-mode
       # reasoning).
       #
@@ -97,7 +102,14 @@ jobs:
       # real failure. `node`'s own $GITHUB_OUTPUT writes (slug, then
       # already_complete -- see publishOnMerge.mjs) happen directly to the
       # runner's output file regardless of this piping.
-      - name: Flip published:true and add the _headers cache pair
+      # BATCH F (Option D): this step no longer writes public/_headers.
+      # Article cache coverage comes from the two shared /blog/:slug
+      # placeholder rules, so publication adds nothing to that file; the
+      # step now VALIDATES that shared contract and fails closed if it is
+      # broken. public/_headers stays in the `git add` below deliberately:
+      # it is a no-op while the file is unchanged, and it keeps the commit
+      # correct if a future step ever does touch it.
+      - name: Flip published:true and validate shared _headers coverage
         id: publish
         run: |
           set -o pipefail
@@ -120,9 +132,10 @@ jobs:
       # post-publish build-check confirmation a human push gets for free.
       # Residual risk is low (blog-articles.json's regeneration is
       # deterministic and already covered by fetch-blog-data.test.mjs, and
-      # the cap-guard above already catches the one way this write path is
-      # known to fail) but not zero -- if this ever needs closing, the fix
-      # is a PAT-backed push instead of GITHUB_TOKEN, not something to
+      # the coverage validation above already catches the one way this
+      # write path is known to fail) but not zero -- if this ever needs
+      # closing, the fix is a PAT-backed push instead of GITHUB_TOKEN,
+      # not something to
       # silently assume is already covered.
       - name: Commit and push
         if: steps.publish.outputs.already_complete == 'false'
@@ -133,8 +146,8 @@ jobs:
           git add "src/data/generated-articles/${SLUG}.json" public/_headers src/data/blog-articles.json
           git commit -m "blog: publish \"$SLUG\" (auto, publish-on-merge — PR #${{ github.event.pull_request.number }})
 
-          Merge + published:true flip + _headers cache entry +
-          blog-articles.json regenerate, done automatically by
+          Merge + published:true flip + blog-articles.json regenerate,
+          done automatically by
           publish-on-merge.yml immediately after a human merged this PR
           (${{ github.event.pull_request.html_url }}). See
           tools/blog-generator/README.md, \"Publish-on-merge,\" for the
@@ -179,9 +192,12 @@ jobs:
       # unrelated shallow-checkout bug). It now reads the real captured
       # output of the publish step (--detail-log, written by that step's
       # `tee` above) through buildFailureDetail() -- see publishOnMerge.mjs
-      # -- which names the _headers cap ONLY when that specific,
-      # identifiable error is actually present in the log, and otherwise
-      # reports the real captured error and nothing invented. `failure()`
+      # -- which reports the real captured error and nothing invented. It
+      # retains one named special case for the _headers cap error, but that
+      # branch is DORMANT as of Batch F: nothing in routine publication
+      # writes _headers, so nothing can raise it. It is kept for a future
+      # change that reintroduces a writer, not because a routine publish
+      # can still hit the cap. `failure()`
       # is deliberate and explicit -- this must only fire on a real red
       # run.
       #

@@ -36,16 +36,80 @@ buffer without changing the pipeline that runs today:
   daily generation/publication, rejected-PR closure, writer concurrency,
   `_headers` scalability changes, and Cloudflare configuration are all
   explicitly deferred to later reviewed cutovers.
-- The frozen future `_headers` direction is Option D, implemented only in a
-  separately approved Batch F: atomically replace current per-slug article
-  Cache-Control rules with `/blog/:slug` and `/blog/:slug/`. **Never use
-  `/blog/*` for article Cache-Control.** Cloudflare Pages concatenates header
-  values from overlapping `_headers` matches instead of applying a "most
-  specific wins" override, so that wildcard can stack with article-specific
+- The `_headers` direction is Option D, **implemented in Batch F**: the 26
+  per-slug article Cache-Control pairs (52 rules) are replaced by exactly two
+  placeholder rules, `/blog/:slug` and `/blog/:slug/`. **Never use `/blog/*`
+  for article Cache-Control.** Cloudflare Pages concatenates header values
+  from overlapping `_headers` matches instead of applying a "most specific
+  wins" override, so that wildcard can stack with article-specific
   Cache-Control and recreate the previously observed broken caching behavior.
-  Option D is not implemented here; `public/_headers` remains unchanged, and
-  preview deployment verification of both trailing- and non-trailing-slash
-  behavior is mandatory before production.
+  For the same reason a concrete `/blog/<slug>` Cache-Control rule must never
+  coexist with the placeholders. **Preview-deployment verification of both
+  trailing- and non-trailing-slash behavior is still MANDATORY before this is
+  accepted in production, and has NOT been performed yet.** See "Option D
+  article cache coverage" below.
+
+## Option D article cache coverage (Batch F)
+
+`public/_headers` declares exactly two rules for blog articles:
+
+```
+/blog/:slug/
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+/blog/:slug
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+```
+
+`:slug` is a Cloudflare Pages **placeholder**, matching exactly one path
+segment. It is not a wildcard.
+
+- **Article cache coverage comes from those two rules and nothing else.**
+  Every published article, and every article published in future, is
+  covered the moment it is served.
+- **Per-slug cache rules are no longer added.** Publication does not write
+  `public/_headers` at all. The file is a fixed **12 rules** regardless of
+  how many articles exist, and the old 100-rule cap is no longer a budget
+  that article publication spends.
+- **`/blog/*` Cache-Control remains prohibited.** CF Pages concatenates
+  header values across every rule that matches a request rather than
+  letting the most specific one win, so a wildcard would stack onto the
+  placeholder rather than override it.
+- **A concrete `/blog/<slug>` Cache-Control rule must never coexist with
+  the placeholders**, for the same concatenation reason — the article would
+  receive the value twice.
+- **Malformed coverage fails closed.** `validateBlogArticleCacheCoverage()`
+  in `headersCacheEntry.mjs` is the single canonical parser. A missing,
+  duplicated, or wrongly-valued placeholder, a `/blog/*` Cache-Control
+  rule, or a coexisting concrete article rule all make
+  `evaluatePublishStatus()` report the publish INCOMPLETE, which in turn
+  makes `publishOnMerge` refuse to publish, the published email report
+  INCOMPLETE, and the weekly retro REJECT. `publishStatusReport.mjs` owns
+  that single shared answer; `publishOnMerge.mjs`,
+  `buildNotificationEmailCli.mjs` and `retroAudit.mjs` all inherit it and
+  none of them parse `_headers` themselves.
+- **`buildCacheEntryBlock()`, `insertCacheEntry()` and `hasCacheEntry()`
+  are removed, not deprecated.** Any of them left callable could recreate
+  a concrete rule that overlaps the placeholders.
+  `headersCacheEntry.test.mjs` asserts they are absent from the module's
+  exports, so restoring per-article insertion fails the suite.
+
+**PREVIEW VERIFICATION IS STILL REQUIRED AND HAS NOT BEEN PERFORMED.**
+Two behaviours cannot be settled from Cloudflare's documentation and must
+be confirmed with `curl -I` against a Pages preview deployment before this
+is accepted in production:
+
+1. whether `/blog/:slug` also matches `/blog` and `/blog/`, which already
+   carry their own literal rules — a spurious match would concatenate the
+   value with itself;
+2. whether the bare and trailing-slash placeholders can both match a
+   single request, which would do the same.
+
+A PASS is the header appearing **exactly once**, with exactly the expected
+value, on: an existing article in both URL forms, `/blog/` and `/blog` in
+both forms, a dead slug under `/blog/` (which now receives the 300s rule
+where it previously fell through to CF's default — a deliberate change),
+`/assets/*`, `/version.json`, `/`, and `/contact/`. Nothing here should be
+read as a claim that those checks have already been run.
 
 Replaces BabyLoveGrowth as a content *source*, on our own terms, because
 it's the only way to actually control the compliance problem at the root
@@ -799,8 +863,9 @@ decision, so recording it as one commit is more honest than manufacturing
 a fake split.
 
 **Failure mode, by design:** if `setPublished.mjs` or `headersCacheEntry.
-mjs` throws (e.g. the `_headers` 100-rule cap, see §5 below) after the PR
-has already merged, the step aborts (GitHub Actions' default `-e` for
+mjs` throws (routinely: missing or malformed shared Option D article-cache
+coverage in `_headers` — see "Option D article cache coverage" above) after
+the PR has already merged, the step aborts (GitHub Actions' default `-e` for
 `run:` blocks) before the commit/push ever happens. The article lands on
 `main`, merged, but `published: false` — a safe, visibly-incomplete state
 (nothing goes live wrong), not silent: the job is red, requiring a human
@@ -873,8 +938,9 @@ flip/`_headers`/rebuild remainder, left silently incomplete until a human
 noticed by hand) is exactly the failure mode "merge ≠ publish" above warns
 about. `tools/blog-generator/publishStatusReport.mjs --slug=<slug>` is the
 one-command check for it — given a slug, reports whether all four steps of
-the publish sequence actually landed: `published:true`, the `_headers`
-cache pair, presence in the built `blog-articles.json`, and (best-effort,
+the publish sequence actually landed: `published:true`, valid shared
+`_headers` article cache coverage, presence in the built
+`blog-articles.json`, and (best-effort,
 network) that the article serves live. Exits non-zero on anything
 incomplete. Read-only — never writes, safe to run repeatedly or from a
 routine as a post-merge sanity check. `--skip-live` skips the network
@@ -901,15 +967,20 @@ clean so far), that's roughly **68 days (~2.3 months)** of runway. The
 queue-exhausted red run (fixed 2026-08-03, above) is the backstop if this
 estimate is wrong, not the plan — restock before it fires.
 
-### 6. `_headers` automation — and the runway that actually binds first
+### 6. `_headers` automation — superseded by Option D (Batch F)
 
-`headersCacheEntry.mjs` generates and inserts the per-route Cloudflare
-Pages cache-entry pair from a slug automatically (see Mechanism above) —
-the manual step that produced the exact "guaranteed future miss" this
-instruction named. `insertCacheEntry()` is idempotent (a slug that already
-has an entry is a no-op, not a duplicate) and fails closed at Cloudflare
-Pages' **100-rule limit**, refusing to write a file that would break at
-deploy time rather than shipping it and finding out later.
+**SUPERSEDED. The runway problem described below no longer exists**, because
+publication no longer adds rules at all. Kept as the decision record that led
+to Option D.
+
+Until Batch F, `headersCacheEntry.mjs` generated and INSERTED a per-route
+cache-entry pair from a slug on every publish — the automation that replaced
+a manual step, but that also spent two rules of a hard 100-rule budget per
+article. The runway analysis below is what made that untenable, and Option D
+is the resolution: two shared placeholder rules, a fixed 12-rule file, and no
+per-article insertion path left in the codebase.
+
+**Historical analysis, as written at the time:**
 
 **Verified against the real file, 2026-08-03: 72 of 100 rules used.**
 Each new article costs 2 rules, so **14 more articles fit** before the
@@ -1322,11 +1393,11 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 | HUM-04 | Human CLOSES a rejection marker PR -> both publish-on-merge jobs skip, topic released [^HUM-04] | Notify — a rejection marker PR was merged instead of closed | `observed` | 2026-09-03 |
 | HUM-05 | Human IGNORES a PR — it goes stale and silently holds its topic hostage [^HUM-05] | watchdog: `cron-watchdog` | ⚠️ **unforceable** | n/a — this is a non-event, it cannot be forced |
 | | **Publish-on-merge** | | | |
-| PUB-01 | Publish success — flips published:true, inserts the _headers cache pair | a not-yet-published article: flips published:true and inserts the _headers pair | `unit` | 2026-09-03 |
+| PUB-01 | Publish success — flips published:true, leaves _headers untouched (Option D) [^PUB-01] | a not-yet-published article: flips published:true WITHOUT touching _headers | `unit` | 2026-09-03 |
 | PUB-02 | Idempotent re-run — already fully published, clean no-op, writes nothing | an ALREADY fully-published article | `unit` | 2026-09-03 |
 | PUB-03 | Slug ambiguity (zero or two added article files) — throws, refuses to guess | two added article files -> throws, refuses to guess which one | `unit` | 2026-09-03 |
 | PUB-04 | git diff itself fails — throws, no slug, failure email says so instead of naming one | onSlugKnown never fires when slug resolution itself fails | `unit` | 2026-09-03 |
-| PUB-05 | _headers 100-rule cap-guard trips — propagates, article stranded merged-but-unpublished | the _headers 100-rule cap-guard failure propagates as a real thrown error | `unit` | 2026-09-03 |
+| PUB-05 | Malformed shared _headers coverage — propagates, article stranded merged-but-unpublished [^PUB-05] | a malformed shared header contract fails closed as a real thrown error | `unit` | 2026-09-03 |
 | PUB-06 | Checkout is not shallow — the 2026-08-31 fetch-depth regression cannot return [^PUB-06] | the checkout step declares an explicit fetch-depth of 0 or >= 2 | `static` | 2026-09-03 |
 | | **Emails** | | | |
 | EM-01 | article-pr email | article-pr | `drill` | 2026-08-31 |
@@ -1361,6 +1432,8 @@ Prompt↔gate pairs audited 2026-09-03: 20, inconsistent: 0.
 [^HUM-03]: UNFIRED IN PRODUCTION. The job was added 2026-09-01 in commit 05ec104, AFTER the only real mistaken merge (PR #41, the same day) — so its body has never executed, only its skip condition. This is the exact class of the 2026-08-31 fetch-depth bug. Now drilled.
 [^HUM-04]: Run 33810731565 (my close of PR #42): both jobs skipped, confirming the close path is inert by construction.
 [^HUM-05]: REAL, CURRENT INSTANCE: PR #39 sat open from 2026-08-29 holding its topic out of the queue with zero signal. Nothing in the pipeline noticed for five days.
+[^PUB-01]: RENAMED in Batch F (Option D). Until then this path INSERTED a concrete /blog/<slug> cache pair on every publish, growing _headers by two rules per article. The two shared placeholder routes now cover every article, so publication writes nothing to that file at all — the forcing test asserts the absence of the write it used to assert the presence of. The live observation predates the change and is kept for the published:true flip, which is unchanged.
+[^PUB-05]: REPLACED in Batch F (Option D). This row used to cover the 100-rule cap-guard, which was reachable only because publication INSERTED two rules per article. Publication no longer writes _headers, so the cap is unreachable from this path and a test asserting it would be theatre. The failure that IS reachable — someone hand-edits _headers and breaks or duplicates the shared /blog/:slug contract — now occupies this row, and strands the article in the same safe merged-but-unpublished state for the same reason.
 [^PUB-06]: STATIC ONLY — asserts YAML text, does not execute the checkout. The executing proof is HUM-01 (observed) and DRILL-02.
 [^EM-08]: GAP CLOSED 2026-09-03. This was the one email template with no drill kind at all — the only proof it rendered was its unit test. Its calling job (HUM-03) has also never fired in production.
 [^EM-10]: STATIC ONLY — the secrets are present in this repo, so the no-op branch cannot be forced without removing them. Detection story: its absence would show as a failing notify step, which every call site already wraps in continue-on-error.
@@ -1803,12 +1876,15 @@ error, no annotation) by the Monday-morning signal table in the
 
 **Three thresholds that need future action, none urgent, none silent:**
 
-1. **`_headers` cap — closest, ~24 days out.** 76/100 rules, 2 rules per
-   article, ~12 articles of headroom left. Will start throwing (safely —
-   merged-but-unpublished, not a broken build) on `insertCacheEntry()`
-   once it's exhausted. Headroom exists if needed sooner: 50 of the 76
-   rules are the prunable dead-BabyLoveGrowth `noindex` block, an SEO-
-   timing judgment call outside any task so far, not pulled.
+1. **`_headers` cap — RESOLVED by Batch F (Option D), no longer a
+   threshold.** This read "closest, ~24 days out; 76/100 rules, 2 rules per
+   article, ~12 articles of headroom left" while every publish inserted a
+   concrete pair. Option D replaced all per-slug article rules with two
+   shared `/blog/:slug` placeholders: the file is a fixed **12 rules**,
+   publication adds none, and the count no longer grows with the article
+   count at all. The dead-BabyLoveGrowth `noindex` block referenced here
+   was already removed 2026-08-13. Nothing about this threshold is
+   pending.
 2. **Topic runway — ~78 days out.** 39 of 47 topics available. Restock
    `topics.json` before it closes; the queue-exhausted signal above is the
    backstop if this estimate is wrong, not the plan.
@@ -2449,20 +2525,24 @@ it), which is exactly what the idempotency guarantee below exists for.
    (this workflow re-firing for the same PR; historically also possible if
    the since-retired auto-publish path had already handled it, see
    "Automated publishing" above) → clean no-op, nothing written, nothing
-   committed. Every write this
+   committed. The one write this
    script can make already goes through a function that's itself a no-op
-   at the target state (`setPublishedInJson`'s `changed` flag,
-   `insertCacheEntry`'s `inserted` flag) — re-running this workflow twice
-   for the same PR is always safe.
+   at the target state (`setPublishedInJson`'s `changed` flag) — re-running
+   this workflow twice for the same PR is always safe.
 3. **`published: true`** — `setPublishedInJson()` (reused directly,
    unmodified, from `setPublished.mjs`).
-4. **`_headers` cache pair** — `insertCacheEntry()` (reused directly from
-   `headersCacheEntry.mjs`). **CAP-GUARD**: already throws, unmodified, at
-   the 100-rule limit — this script does NOT catch that. It propagates to
-   a non-zero exit, which fails the workflow step before any commit/push
-   (bash's default `-e`), leaving the article merged on `main` but
-   `published: false` — a safe, visibly-incomplete state requiring a human
-   to notice the red run and finish by hand.
+4. **Shared `_headers` coverage — VALIDATED, never written** (Batch F,
+   Option D) — `validateBlogArticleCacheCoverage()` from
+   `headersCacheEntry.mjs`. Publication adds nothing to `public/_headers`:
+   the two `/blog/:slug` placeholder rules already cover every present and
+   future article, so the rule count is fixed at 12 no matter how many
+   articles publish. If that shared contract is missing, duplicated, or
+   carries the wrong `Cache-Control`, this script throws BEFORE flipping
+   `published: true`. It propagates to a non-zero exit, which fails the
+   workflow step before any commit/push (bash's default `-e`), leaving the
+   article merged on `main` but `published: false` — a safe,
+   visibly-incomplete state requiring a human to notice the red run and
+   repair `_headers` by hand.
 5. **Regenerate `blog-articles.json`** — `node tools/fetch-blog-data.js`,
    a separate workflow step gated on `already_complete == 'false'`. Not
    strictly required for the live site, since Cloudflare Pages' own build
@@ -2484,8 +2564,8 @@ mechanism, not a `GITHUB_TOKEN`-triggered workflow, and deploys regardless)
 — what's missing is the automatic post-publish build confirmation a human
 push gets for free. Residual risk is low (`blog-articles.json`'s
 regeneration is deterministic, already covered by
-`fetch-blog-data.test.mjs`, and the cap-guard above is the one way this
-write path is known to fail) but not zero. If this ever needs closing, the
+`fetch-blog-data.test.mjs`, and the shared-coverage validation above is
+the one way this write path is known to fail) but not zero. If this ever needs closing, the
 fix is a PAT-backed push instead of `GITHUB_TOKEN` — not something to
 silently assume is already covered.
 
@@ -2505,8 +2585,8 @@ the merge commit only, no parent. `getMergedArticleSlug()` then ran
 src/data/generated-articles/` to find what the PR added (see the sequence
 above, step 1) — but `<merge-sha>~1` doesn't exist in a depth-1 clone. Git
 returned `fatal: bad revision '<sha>~1'`, `getMergedArticleSlug()` threw,
-and the step exited 1 **before any write**, exactly as CAP-GUARD's
-documented failure mode above promises: the article stayed merged on
+and the step exited 1 **before any write**, exactly as the publish step's
+documented fail-closed behavior above promises: the article stayed merged on
 `main` but `published: false` — safe, visibly incomplete, not silently
 wrong. A human (this repo's recovery pass) noticed the red run and
 finished the sequence by hand.
@@ -2548,9 +2628,13 @@ green), and the failure-email step reads that log
 string. `buildFailureDetail()` reports the real captured error verbatim
 (capped at 2000 chars, keeping the tail — the actual thrown error is
 almost always the last thing in the log, not the `npm ci` noise at the
-top), with exactly one named exception: `insertCacheEntry`'s own 100-rule
-cap-guard error (identifiable by its `"rule limit"` text) really is
-diagnostic and gets called out specifically. An empty or unreadable log
+top), with exactly one named exception: the 100-rule cap-guard error,
+detected by its stable `HEADERS_CAP_EXCEEDED` code. **That detection is
+dormant as of Batch F** — nothing in the publication path writes
+`_headers` any more, so nothing can throw it. It is kept rather than
+deleted so a future change that reintroduces a writer for that file is
+already wired for diagnosis; it is not evidence that article publication
+can still hit the cap. An empty or unreadable log
 gets the neutral *"publish sequence failed after merge; the article is
 merged on main but published:false — see the run log"* — no cause named,
 because none is known.
@@ -2562,7 +2646,7 @@ PR number. Traceable by hand for one stranded article; not for several
 during a backfill. `runPublishOnMerge()` now takes an `onSlugKnown`
 callback, fired the moment the slug resolves — before any read/write work
 — and the CLI wires it straight to `$GITHUB_OUTPUT` (`slug=<slug>`), so a
-LATER failure (the cap-guard throw, or anything else past that point)
+LATER failure (the shared-coverage throw, or anything else past that point)
 still leaves the slug behind for the failure email. The workflow always
 passes `--slug="${{ steps.publish.outputs.slug }}"` (possibly empty)
 rather than omitting the flag, so `buildNotificationEmailCli.mjs` can tell

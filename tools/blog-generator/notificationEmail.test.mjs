@@ -12,7 +12,8 @@ import {
   buildFailureDetail,
   MAX_FAILURE_DETAIL_LENGTH,
 } from './notificationEmail.mjs';
-import { HEADERS_CAP_EXCEEDED_CODE } from './headersCacheEntry.mjs';
+import { HEADERS_CAP_EXCEEDED_CODE, BLOG_ARTICLE_CACHE_CONTROL } from './headersCacheEntry.mjs';
+import { evaluatePublishStatus } from './publishStatusReport.mjs';
 
 describe('extractFirstParagraphText', () => {
   test('strips tags and returns the first <p> as plain text', () => {
@@ -106,6 +107,46 @@ describe('buildPublishedEmail', () => {
     const { html } = buildPublishedEmail({ title: 'x', liveUrl: 'https://temeculavalleyhomes.us/blog/x/', verdictLabel: 'COMPLETE (local)' });
     assert.match(html, /https:\/\/temeculavalleyhomes\.us\/blog\/x\//);
     assert.match(html, /COMPLETE \(local\)/);
+  });
+
+  // BATCH F REGRESSION. buildNotificationEmailCli's --kind=published branch
+  // derives its verdictLabel from evaluatePublishStatus() and nothing else --
+  // it deliberately does NOT parse _headers itself. This reproduces that
+  // exact composition against Option D state (placeholders only, no concrete
+  // per-slug rule) and pins the result to COMPLETE. Had Batch F shipped
+  // _headers-only, every published email would have said INCOMPLETE instead.
+  describe('--kind=published verdict under Option D', () => {
+    const CC = `  Cache-Control: ${BLOG_ARTICLE_CACHE_CONTROL}`;
+    const OPTION_D_HEADERS = `/blog/\n${CC}\n/blog\n${CC}\n/blog/:slug/\n${CC}\n/blog/:slug\n${CC}\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`;
+
+    // Mirrors buildNotificationEmailCli.mjs's own verdictLabel expression.
+    const verdictLabelFor = (headersText) => {
+      const status = evaluatePublishStatus({
+        slug: 'old-town-temecula-neighborhood-guide',
+        article: { slug: 'old-town-temecula-neighborhood-guide', published: true },
+        headersText,
+        blogArticlesSlugs: ['old-town-temecula-neighborhood-guide'],
+      });
+      return status.complete
+        ? 'COMPLETE (local) — все проверки пройдены'
+        : `INCOMPLETE — ${status.checks.filter((c) => !c.ok).map((c) => c.label).join('; ')}`;
+    };
+
+    test('placeholders only, no concrete per-slug rule -> COMPLETE (local), never INCOMPLETE', () => {
+      assert.ok(!OPTION_D_HEADERS.includes('/blog/old-town-temecula-neighborhood-guide'));
+      const verdictLabel = verdictLabelFor(OPTION_D_HEADERS);
+      assert.match(verdictLabel, /^COMPLETE \(local\)/);
+      assert.doesNotMatch(verdictLabel, /INCOMPLETE/);
+      const { html } = buildPublishedEmail({ title: 'Old Town', liveUrl: 'https://temeculavalleyhomes.us/blog/old-town-temecula-neighborhood-guide/', verdictLabel });
+      assert.match(html, /COMPLETE \(local\)/);
+      assert.doesNotMatch(html, /INCOMPLETE/);
+    });
+
+    test('malformed Option D still surfaces INCOMPLETE with the coverage label -- the warning path is intact', () => {
+      const verdictLabel = verdictLabelFor(OPTION_D_HEADERS.replace(`/blog/:slug\n${CC}\n`, ''));
+      assert.match(verdictLabel, /^INCOMPLETE/);
+      assert.match(verdictLabel, /shared blog article cache coverage valid/);
+    });
   });
 });
 

@@ -5,18 +5,29 @@
 // flip/_headers/rebuild remainder -- merge != publish, and nothing caught
 // the gap until a human noticed by hand). Given a slug, reports whether the
 // FULL publish sequence completed: published:true in the article JSON,
-// the _headers cache pair, presence in the built blog-articles.json, and
-// (best-effort) that the article actually serves live. One command a future
-// routine or human can run instead of re-deriving "did this finish?" by
-// hand across four different files/checks every time.
+// valid shared blog article cache coverage in _headers, presence in the
+// built blog-articles.json, and (best-effort) that the article actually
+// serves live. One command a future routine or human can run instead of
+// re-deriving "did this finish?" by hand across four different
+// files/checks every time.
 //
-// Deliberately read-only -- unlike setPublished.mjs/headersCacheEntry.mjs,
-// this never writes anything. It's a status check, not a fixer; running it
-// twice must never change state.
+// BATCH F / OPTION D: the header check used to be per-slug -- "does
+// /blog/<this-slug>/ and /blog/<this-slug> exist?" -- because each article
+// carried its own concrete rule pair. Option D replaced all of those with
+// two shared placeholder routes (/blog/:slug and /blog/:slug/), so the
+// question became a global one about the file's contract rather than a
+// lookup for one slug. This module is the ONLY place that asks it;
+// publishOnMerge, buildNotificationEmailCli and retroAudit all inherit the
+// answer from here rather than parsing _headers themselves, so the four
+// cannot drift apart.
+//
+// Deliberately read-only -- unlike setPublished.mjs, this never writes
+// anything. It's a status check, not a fixer; running it twice must never
+// change state.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hasCacheEntry } from './headersCacheEntry.mjs';
+import { validateBlogArticleCacheCoverage } from './headersCacheEntry.mjs';
 import { articlePath } from './setPublished.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +43,9 @@ const SITE = 'https://temeculavalleyhomes.us';
 // setPublished.mjs/headersCacheEntry.mjs already document for keeping I/O
 // out of the testable core.
 export function evaluatePublishStatus({ slug, article, headersText, blogArticlesSlugs }) {
+  // Shared, not per-slug: coverage is a property of _headers as a whole
+  // under Option D. Computed once so the ok/detail pair cannot disagree.
+  const coverage = validateBlogArticleCacheCoverage(headersText || '');
   const checks = [
     {
       key: 'published_flag',
@@ -43,11 +57,11 @@ export function evaluatePublishStatus({ slug, article, headersText, blogArticles
     },
     {
       key: 'headers_entry',
-      label: '_headers cache pair present',
-      ok: hasCacheEntry(headersText || '', slug),
-      detail: hasCacheEntry(headersText || '', slug)
-        ? 'both /blog/<slug>/ and /blog/<slug> rules present'
-        : 'missing one or both of the with-slash/without-slash rules',
+      label: 'shared blog article cache coverage valid',
+      ok: coverage.valid,
+      detail: coverage.valid
+        ? `covered by the shared placeholder routes ${coverage.placeholders.join(' and ')}`
+        : `shared coverage invalid: ${coverage.errors.join('; ')}`,
     },
     {
       key: 'blog_articles_json',

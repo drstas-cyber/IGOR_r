@@ -40,121 +40,33 @@
 # reason as the dead-slug block below (verified: Cloudflare does not 301
 # the bare form to the slash form on this site).
 #
-# MAINTENANCE: every new article this pipeline publishes needs its own
-# pair of lines added here at merge/publish time -- there is no wildcard
-# catching new articles automatically, on purpose (see above). An
-# unlisted /blog/* path (a removed article, a typo, an old bookmark)
-# falls through to CF's default HTML caching rather than this explicit
-# 300s pattern -- a real but much lower-severity residual risk than the
-# original incident (a live article's stale content persisting), not
-# solved here; revisit if it ever actually causes a problem.
+# OPTION D (Batch F): article cache coverage comes from the two
+# PLACEHOLDER rules below, not from one concrete pair per article.
+# `:slug` is a Cloudflare Pages placeholder matching exactly ONE path
+# segment -- it is NOT a wildcard/splat. /blog/* is still PROHIBITED for
+# Cache-Control here, for the concatenation reason above.
+#
+# Publication no longer appends anything to this file: the rule count is
+# fixed at 12 regardless of how many articles exist, and a brand-new
+# article is covered the moment it is served. A concrete /blog/<slug>
+# rule must NEVER be re-introduced alongside these placeholders -- both
+# would match the same request and CF would CONCATENATE the two
+# identical Cache-Control values. validateBlogArticleCacheCoverage()
+# in tools/blog-generator/headersCacheEntry.mjs enforces all of this and
+# fails closed; publishStatusReport/publishOnMerge/retroAudit all read it.
+#
+# NOT YET PREVIEW-VERIFIED: whether /blog/:slug also matches /blog and
+# /blog/ (which already have their own literal rules above), and whether
+# the bare and trailing-slash placeholders can both match one request,
+# must be confirmed with curl against a Cloudflare Pages preview before
+# this is accepted in production.
 /blog/
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 /blog
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/hoa-fees-temecula-homebuyers-guide/
+/blog/:slug/
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/hoa-fees-temecula-homebuyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/home-inspection-guide-first-time-buyers-temecula/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/home-inspection-guide-first-time-buyers-temecula
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/competitive-offer-temecula-valley-buyers-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/competitive-offer-temecula-valley-buyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/russian-speaking-realtor-temecula/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/russian-speaking-realtor-temecula
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/temecula-property-taxes-explained/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/temecula-property-taxes-explained
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/escrow-process-homebuyers-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/escrow-process-homebuyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/home-staging-tips-for-sellers/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/home-staging-tips-for-sellers
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-seller-disclosure-requirements/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-seller-disclosure-requirements
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/how-to-prepare-a-home-for-sale-temecula/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/how-to-prepare-a-home-for-sale-temecula
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/best-time-to-sell-a-home-temecula/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/best-time-to-sell-a-home-temecula
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/seller-closing-costs-explained/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/seller-closing-costs-explained
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/wolf-creek-temecula-neighborhood-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/wolf-creek-temecula-neighborhood-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/redhawk-temecula-neighborhood-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/redhawk-temecula-neighborhood-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/paloma-del-sol-temecula-neighborhood-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/paloma-del-sol-temecula-neighborhood-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/temecula-wine-country-homes-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/temecula-wine-country-homes-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/old-town-temecula-neighborhood-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/old-town-temecula-neighborhood-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/vail-ranch-temecula-neighborhood-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/vail-ranch-temecula-neighborhood-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/new-construction-vs-resale-homes-temecula/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/new-construction-vs-resale-homes-temecula
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/purchase-agreement-contingencies-explained-california/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/purchase-agreement-contingencies-explained-california
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/how-interest-rates-affect-home-affordability/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/how-interest-rates-affect-home-affordability
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-natural-hazard-disclosure-statement/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-natural-hazard-disclosure-statement
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-real-estate-agency-disclosure-law/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-real-estate-agency-disclosure-law
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/proposition-19-property-tax-transfer-seniors/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/proposition-19-property-tax-transfer-seniors
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-homeowners-property-tax-exemption/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-homeowners-property-tax-exemption
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/title-insurance-california-homebuyers/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/title-insurance-california-homebuyers
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-tds-exemptions/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/california-tds-exemptions
+/blog/:slug
   Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
 
 /assets/*

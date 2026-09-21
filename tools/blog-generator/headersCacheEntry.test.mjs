@@ -3,158 +3,224 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildCacheEntryBlock, countRules, hasCacheEntry, insertCacheEntry, MAX_HEADERS_RULES, HEADERS_CAP_EXCEEDED_CODE, HeadersCapExceededError } from './headersCacheEntry.mjs';
+import * as headersModule from './headersCacheEntry.mjs';
+import {
+  countRules,
+  validateBlogArticleCacheCoverage,
+  hasValidBlogArticleCacheCoverage,
+  BLOG_ARTICLE_CACHE_CONTROL,
+  BLOG_PLACEHOLDER_ROUTES,
+  MAX_HEADERS_RULES,
+  HEADERS_CAP_EXCEEDED_CODE,
+} from './headersCacheEntry.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REAL_HEADERS_PATH = path.join(__dirname, '..', '..', 'public', '_headers');
 
-const MINIMAL_HEADERS = `/blog/hoa-fees-temecula-homebuyers-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/hoa-fees-temecula-homebuyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+const CC = `  Cache-Control: ${BLOG_ARTICLE_CACHE_CONTROL}`;
+
+// The canonical Option D shape, in miniature: literal index rules, the two
+// placeholder routes, and an unrelated /assets/* rule to prove the
+// validator ignores non-blog routes.
+const VALID_HEADERS = `/blog/
+${CC}
+/blog
+${CC}
+/blog/:slug/
+${CC}
+/blog/:slug
+${CC}
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 `;
 
-describe('buildCacheEntryBlock', () => {
-  test('produces the exact 4-line with-slash/without-slash pair', () => {
-    assert.equal(
-      buildCacheEntryBlock('escrow-process-homebuyers-guide'),
-      '/blog/escrow-process-homebuyers-guide/\n' +
-      '  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate\n' +
-      '/blog/escrow-process-homebuyers-guide\n' +
-      '  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate\n'
-    );
-  });
-});
-
 describe('countRules', () => {
   test('counts one per path line, not per Cache-Control line', () => {
-    assert.equal(countRules(MINIMAL_HEADERS), 3); // 2 blog paths + /assets/*
+    assert.equal(countRules(VALID_HEADERS), 5); // /blog/, /blog, 2 placeholders, /assets/*
   });
 });
 
-describe('hasCacheEntry', () => {
-  test('true only when BOTH with-slash and without-slash lines exist', () => {
-    assert.equal(hasCacheEntry(MINIMAL_HEADERS, 'hoa-fees-temecula-homebuyers-guide'), true);
-    assert.equal(hasCacheEntry(MINIMAL_HEADERS, 'escrow-process-homebuyers-guide'), false);
+describe('validateBlogArticleCacheCoverage — the canonical Option D contract', () => {
+  test('the canonical two-placeholder state is valid', () => {
+    const result = validateBlogArticleCacheCoverage(VALID_HEADERS);
+    assert.equal(result.valid, true, result.errors.join('; '));
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual([...result.placeholders].sort(), [...BLOG_PLACEHOLDER_ROUTES].sort());
+    assert.deepEqual(result.concreteArticleRoutes, []);
+    assert.deepEqual(result.wildcardRoutes, []);
   });
 
-  test('does not false-positive on a slug that is a prefix of an existing one', () => {
-    assert.equal(hasCacheEntry(MINIMAL_HEADERS, 'hoa-fees-temecula-homebuyers'), false);
+  test('both placeholder routes carry the exact expected Cache-Control value', () => {
+    assert.equal(BLOG_ARTICLE_CACHE_CONTROL, 'public, max-age=0, s-maxage=300, must-revalidate');
+    for (const route of BLOG_PLACEHOLDER_ROUTES) {
+      assert.ok(VALID_HEADERS.includes(`${route}\n${CC}\n`), `${route} must be followed by the exact Cache-Control line`);
+    }
+  });
+
+  test('an EXISTING published slug needs no concrete rule of its own', () => {
+    // The whole point of Option D: coverage is a property of the file, so
+    // there is no per-slug lookup to do and no per-slug rule to find.
+    const result = validateBlogArticleCacheCoverage(VALID_HEADERS);
+    assert.equal(result.valid, true);
+    assert.ok(!VALID_HEADERS.includes('/blog/title-insurance-california-homebuyers'));
+  });
+
+  test('an ARBITRARY FUTURE slug is covered identically, with no file change', () => {
+    const result = validateBlogArticleCacheCoverage(VALID_HEADERS);
+    assert.equal(result.valid, true);
+    assert.ok(!VALID_HEADERS.includes('/blog/some-article-that-does-not-exist-yet'));
+    // hasValidBlogArticleCacheCoverage deliberately takes no slug at all --
+    // offering one would reintroduce the per-article question Batch F removed.
+    assert.equal(hasValidBlogArticleCacheCoverage.length, 1);
+  });
+
+  test('empty or non-string input fails closed rather than passing vacuously', () => {
+    for (const input of ['', '   ', null, undefined, 42]) {
+      const result = validateBlogArticleCacheCoverage(input);
+      assert.equal(result.valid, false, `expected ${JSON.stringify(input)} to be invalid`);
+    }
   });
 });
 
-describe('insertCacheEntry', () => {
-  test('inserts a new pair immediately before /assets/*, exactly matching the hand-edited pattern (articles 1-6)', () => {
-    const result = insertCacheEntry(MINIMAL_HEADERS, 'escrow-process-homebuyers-guide');
-    assert.equal(result.inserted, true);
-    assert.equal(
-      result.headersText,
-      `/blog/hoa-fees-temecula-homebuyers-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/hoa-fees-temecula-homebuyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/escrow-process-homebuyers-guide/
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-/blog/escrow-process-homebuyers-guide
-  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
-
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-`
-    );
-    assert.equal(result.ruleCountAfter, 5);
+describe('validateBlogArticleCacheCoverage — fail-closed cases', () => {
+  test('missing the BARE placeholder is invalid', () => {
+    const text = VALID_HEADERS.replace(`/blog/:slug\n${CC}\n`, '');
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /missing the required placeholder route "\/blog\/:slug"/);
   });
 
-  test('idempotent: a slug that already has an entry is a no-op, not a duplicate', () => {
-    const once = insertCacheEntry(MINIMAL_HEADERS, 'escrow-process-homebuyers-guide');
-    const twice = insertCacheEntry(once.headersText, 'escrow-process-homebuyers-guide');
-    assert.equal(twice.inserted, false);
-    assert.equal(twice.headersText, once.headersText);
-    assert.equal(countRules(twice.headersText), 5); // unchanged, no duplicate pair
+  test('missing the TRAILING-SLASH placeholder is invalid', () => {
+    const text = VALID_HEADERS.replace(`/blog/:slug/\n${CC}\n`, '');
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /missing the required placeholder route "\/blog\/:slug\/"/);
   });
 
-  test('missing /assets/* anchor -- refuses to guess, throws', () => {
-    assert.throws(() => insertCacheEntry('/some/other/path\n  Cache-Control: x\n', 'new-slug'), /could not find the "\/assets\/\*" anchor/);
+  test('a wrong Cache-Control value on a placeholder is invalid', () => {
+    const text = VALID_HEADERS.replace(`/blog/:slug\n${CC}`, '/blog/:slug\n  Cache-Control: public, max-age=60');
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /has Cache-Control "public, max-age=60", expected/);
   });
 
-  test('fails closed at the 100-rule limit -- refuses to write past it', () => {
-    const nearLimitLines = [];
-    for (let i = 0; i < 49; i++) {
-      nearLimitLines.push(`/blog/filler-${i}/\n  Cache-Control: x\n/blog/filler-${i}\n  Cache-Control: x`);
+  test('a DUPLICATE placeholder route is invalid (CF would concatenate it with itself)', () => {
+    const text = `${VALID_HEADERS}\n/blog/:slug\n${CC}\n`;
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /declared 2 times/);
+  });
+
+  test('a malformed block — placeholder present but declaring no Cache-Control — is invalid', () => {
+    const text = VALID_HEADERS.replace(`/blog/:slug\n${CC}`, '/blog/:slug\n  X-Robots-Tag: noindex');
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /declares no Cache-Control header/);
+  });
+
+  test('a placeholder declaring Cache-Control TWICE is invalid', () => {
+    const text = VALID_HEADERS.replace(`/blog/:slug\n${CC}`, `/blog/:slug\n${CC}\n${CC}`);
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /declares Cache-Control 2 times/);
+  });
+
+  test('a /blog/* wildcard carrying Cache-Control is invalid — never permitted here', () => {
+    const text = `${VALID_HEADERS}\n/blog/*\n${CC}\n`;
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /wildcard is prohibited/);
+    assert.deepEqual(result.wildcardRoutes, ['/blog/*']);
+  });
+
+  test('a CONCRETE article rule coexisting with the placeholders is invalid', () => {
+    const text = `${VALID_HEADERS}\n/blog/title-insurance-california-homebuyers/\n${CC}\n/blog/title-insurance-california-homebuyers\n${CC}\n`;
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, false);
+    assert.match(result.errors.join('; '), /Cloudflare would concatenate the two values/);
+    assert.equal(result.concreteArticleRoutes.length, 2);
+  });
+
+  test('the literal /blog and /blog/ index rules are NOT mistaken for concrete article rules', () => {
+    const result = validateBlogArticleCacheCoverage(VALID_HEADERS);
+    assert.equal(result.valid, true);
+    assert.deepEqual(result.concreteArticleRoutes, []);
+  });
+
+  test('a non-Cache-Control rule under /blog/ (e.g. X-Robots-Tag) does not trip the overlap check', () => {
+    // Only Cache-Control concatenation is the hazard Option D guards against;
+    // the historical dead-slug noindex pattern must stay expressible.
+    const text = `${VALID_HEADERS}\n/blog/some-dead-slug\n  X-Robots-Tag: noindex\n`;
+    const result = validateBlogArticleCacheCoverage(text);
+    assert.equal(result.valid, true, result.errors.join('; '));
+  });
+});
+
+describe('no active API can re-add a concrete per-article rule', () => {
+  // The Batch F regression that matters most. These three exports were the
+  // only way concrete /blog/<slug> rules ever entered the file. If a future
+  // change restores any of them, this fails before it can reach production.
+  test('buildCacheEntryBlock, insertCacheEntry and hasCacheEntry are GONE, not deprecated', () => {
+    const exported = Object.keys(headersModule);
+    for (const removed of ['buildCacheEntryBlock', 'insertCacheEntry', 'hasCacheEntry']) {
+      assert.ok(
+        !exported.includes(removed),
+        `${removed} must not be exported — it could recreate a concrete rule that overlaps the placeholders`
+      );
     }
-    const nearLimitHeaders = `${nearLimitLines.join('\n')}\n\n/assets/*\n  Cache-Control: x\n`; // 98 rules + /assets/* = 99
-    assert.equal(countRules(nearLimitHeaders), 99);
-    assert.throws(() => insertCacheEntry(nearLimitHeaders, 'one-too-many'), /over Cloudflare Pages' 100-rule limit/);
   });
 
-  // 2026-08-31 (Task 1, notification-hardening pass) -- the cap-guard must
-  // be catchable BY CLASS, not by matching this exact prose. A test that
-  // only asserts the message regex above would still pass after a reword
-  // that silently breaks callers detecting this error downstream (exactly
-  // what happened to buildFailureDetail's original `/rule limit/` check --
-  // see README.md). err.code is the machine-readable identity of this
-  // error; the message stays human-readable but is no longer the contract.
-  test('the cap-guard error is a typed, identifiable failure -- catchable by class and by a stable err.code, independent of message wording', () => {
-    const nearLimitLines = [];
-    for (let i = 0; i < 49; i++) {
-      nearLimitLines.push(`/blog/filler-${i}/\n  Cache-Control: x\n/blog/filler-${i}\n  Cache-Control: x`);
+  test('no exported function produces text containing a concrete /blog/<slug> Cache-Control rule', () => {
+    const concrete = /^\/blog\/(?!:slug)[a-z0-9-]+\/?$/m;
+    for (const [name, value] of Object.entries(headersModule)) {
+      if (typeof value !== 'function') continue;
+      let output;
+      try {
+        output = value(VALID_HEADERS, 'some-new-slug');
+      } catch {
+        continue; // throwing on unexpected input is fine — it emits nothing
+      }
+      const text = typeof output === 'string' ? output : JSON.stringify(output ?? '');
+      assert.ok(!concrete.test(text), `${name}() emitted a concrete article route`);
     }
-    const nearLimitHeaders = `${nearLimitLines.join('\n')}\n\n/assets/*\n  Cache-Control: x\n`;
-    let caught = null;
-    try {
-      insertCacheEntry(nearLimitHeaders, 'one-too-many');
-    } catch (err) {
-      caught = err;
-    }
-    assert.ok(caught, 'expected insertCacheEntry to throw');
-    assert.ok(caught instanceof HeadersCapExceededError, 'expected a HeadersCapExceededError instance');
-    assert.ok(caught instanceof Error, 'must still be a real Error (instanceof Error), not a bespoke non-Error throw');
-    assert.equal(caught.code, HEADERS_CAP_EXCEEDED_CODE);
   });
 
-  // A DIFFERENT insertCacheEntry failure (the missing-anchor case) must NOT
-  // be mistaken for the cap-guard -- proves the typed check discriminates,
-  // not just "insertCacheEntry threw something".
-  test('a non-cap-guard insertCacheEntry failure does NOT carry the cap-guard code', () => {
-    let caught = null;
-    try {
-      insertCacheEntry('/some/other/path\n  Cache-Control: x\n', 'new-slug');
-    } catch (err) {
-      caught = err;
-    }
-    assert.ok(caught);
-    assert.ok(!(caught instanceof HeadersCapExceededError));
-    assert.notEqual(caught.code, HEADERS_CAP_EXCEEDED_CODE);
-  });
-
-  test('exactly at the limit (100) is allowed, 101 is not', () => {
-    const okLines = [];
-    for (let i = 0; i < 49; i++) {
-      okLines.push(`/blog/filler-${i}/\n  Cache-Control: x\n/blog/filler-${i}\n  Cache-Control: x`);
-    }
-    // 98 rules + /assets/* (1) + the new pair (2) = 101 -- one over.
-    const headers101 = `${okLines.join('\n')}\n\n/assets/*\n  Cache-Control: x\n`;
-    assert.throws(() => insertCacheEntry(headers101, 'pushes-to-101'));
-
-    // Drop one filler pair so the new insert lands exactly at 100 legally is another test.
+  test('the cap-guard code constant survives for notificationEmail, but nothing in the publish path can throw it', () => {
+    assert.equal(HEADERS_CAP_EXCEEDED_CODE, 'HEADERS_CAP_EXCEEDED');
+    assert.equal(MAX_HEADERS_RULES, 100);
   });
 });
 
 describe('against the REAL public/_headers file', () => {
-  test('current file is well under the 100-rule limit', () => {
-    const real = fs.readFileSync(REAL_HEADERS_PATH, 'utf8');
-    const count = countRules(real);
-    assert.ok(count < MAX_HEADERS_RULES, `expected under ${MAX_HEADERS_RULES}, got ${count}`);
+  const real = () => fs.readFileSync(REAL_HEADERS_PATH, 'utf8');
+
+  test('the real file is exactly 12 rules — a fixed count publication cannot grow', () => {
+    assert.equal(countRules(real()), 12);
+    assert.ok(countRules(real()) < MAX_HEADERS_RULES);
   });
 
-  test('inserting a brand-new slug into the real file succeeds and is well-formed', () => {
-    const real = fs.readFileSync(REAL_HEADERS_PATH, 'utf8');
-    const result = insertCacheEntry(real, '__test-fixture-slug-not-a-real-article__');
-    assert.equal(result.inserted, true);
-    assert.match(result.headersText, /\/blog\/__test-fixture-slug-not-a-real-article__\/\n  Cache-Control:.*\n\/blog\/__test-fixture-slug-not-a-real-article__\n  Cache-Control:/);
-    // Never actually written to disk -- read-only against the real file, in memory only.
+  test('the real file satisfies the canonical Option D coverage contract', () => {
+    const result = validateBlogArticleCacheCoverage(real());
+    assert.equal(result.valid, true, result.errors.join('; '));
+    assert.deepEqual([...result.placeholders].sort(), ['/blog/:slug', '/blog/:slug/']);
+  });
+
+  test('the real file contains ZERO concrete article Cache-Control routes', () => {
+    const result = validateBlogArticleCacheCoverage(real());
+    assert.deepEqual(result.concreteArticleRoutes, []);
+    assert.deepEqual(result.wildcardRoutes, []);
+  });
+
+  test('an existing published article and an arbitrary future slug are both covered by the same two rules', () => {
+    const text = real();
+    assert.equal(hasValidBlogArticleCacheCoverage(text), true);
+    for (const slug of ['title-insurance-california-homebuyers', 'a-future-article-nobody-has-written-yet']) {
+      assert.ok(!new RegExp(`^/blog/${slug}/?$`, 'm').test(text), `${slug} must NOT have a concrete rule`);
+    }
+  });
+
+  test('the real file never declares a /blog/* Cache-Control wildcard', () => {
+    assert.ok(!/^\/blog\/\*/m.test(real()));
   });
 });
