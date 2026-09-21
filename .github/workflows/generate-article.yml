@@ -148,11 +148,9 @@ jobs:
           RETRY_AT="${QUARANTINE_INFO%%|*}"
           ATTEMPT_N="${QUARANTINE_INFO##*|}"
           if [ -n "$QUARANTINE_INFO" ]; then
-            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines
-         the topic until ${RETRY_AT} (attempt #${ATTEMPT_N})."
+            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines the topic until ${RETRY_AT} (attempt #${ATTEMPT_N})."
           else
-            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines
-         the topic per the canonical retry policy."
+            MERGE_LINE="MERGE  — accept this rejection. Records the audit marker and quarantines the topic per the canonical retry policy."
           fi
           {
             echo 'rejected_body<<GENERATE_REJECTED_EOF'
