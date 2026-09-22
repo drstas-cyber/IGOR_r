@@ -1,18 +1,11 @@
 {
   "sourceTopic": "Understanding Mello-Roos Taxes in Temecula Valley Communities",
-  "rejectedAt": "2026-08-25T14:38:39.617Z",
+  "rejectedAt": "2026-09-22T00:39:41.421Z",
   "failureClass": "gate_trip",
   "layer1": {
     "tripped": false,
     "findings": [],
-    "uncitedClaimCandidates": [
-      {
-        "category": "uncited-claim",
-        "subcategory": "year",
-        "matchedText": "1982",
-        "sentence": "that created it, the Mello-Roos Community Facilities Act of 1982. The law allows a city, county, or special district to form"
-      }
-    ]
+    "uncitedClaimCandidates": []
   },
   "layer2": {
     "tripped": true,
@@ -24,13 +17,13 @@
       "review_rating_claim": false,
       "review_evidence": null,
       "uncited_statistic": true,
-      "statistic_evidence": "the Temecula Valley, having seen substantial residential development from the 1980s onward",
+      "statistic_evidence": "the two state legislators, Senator Henry Mello and Assemblyman Mike Roos, who authored it in 1982",
       "competitor_mention": false,
       "competitor_evidence": null,
       "contact_mismatch": false,
       "contact_evidence": null,
-      "legal_duty_overstated": true,
-      "legal_duty_evidence": "\"California law requires sellers to disclose known special assessments\" — The cited source (Government Code §53311 et seq.) does not establish a seller disclosure duty; it establishes the CFD creation framework. The actual seller disclosure requirement comes from separate California law (Calif. Civil Code §1102 et seq.), which the article does not cite, and uses conditional language (\"must make a good-faith effort to disclose\"). The article's phrasing is absolute (\"requires sellers to disclose known special assessments\") without citing the actual source of that duty or acknowledging any conditions."
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
     }
   },
   "layer3": {
@@ -38,17 +31,33 @@
     "results": [
       {
         "id": "1",
-        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982 (§53311 et seq.)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.&article=",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982 (Section 53311)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=GOV&sectionNum=53311.",
         "host": "leginfo.legislature.ca.gov",
         "outcome": "RESOLVED",
         "status": 200
       },
       {
         "id": "2",
-        "sourceName": "Riverside County Assessor-County Clerk-Recorder, General Tax Information",
-        "url": "https://www.rivcoacr.org/GeneralTaxInformation",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
         "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "4",
+        "sourceName": "California Civil Code Section 1102.6b (Mello-Roos disclosure requirement)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=1102.6b.",
+        "host": "leginfo.legislature.ca.gov",
         "outcome": "RESOLVED",
         "status": 200
       }
@@ -56,17 +65,33 @@
     "resolved": [
       {
         "id": "1",
-        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982 (§53311 et seq.)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=GOV&division=2.&title=5.&part=1.&chapter=2.5.&article=",
+        "sourceName": "California Government Code, Mello-Roos Community Facilities Act of 1982 (Section 53311)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=GOV&sectionNum=53311.",
         "host": "leginfo.legislature.ca.gov",
         "outcome": "RESOLVED",
         "status": 200
       },
       {
         "id": "2",
-        "sourceName": "Riverside County Assessor-County Clerk-Recorder, General Tax Information",
-        "url": "https://www.rivcoacr.org/GeneralTaxInformation",
+        "sourceName": "California Constitution, Article XIII A, Section 1",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "3",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
         "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "4",
+        "sourceName": "California Civil Code Section 1102.6b (Mello-Roos disclosure requirement)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=1102.6b.",
+        "host": "leginfo.legislature.ca.gov",
         "outcome": "RESOLVED",
         "status": 200
       }
