@@ -187,11 +187,13 @@ export function getOpenPrAttemptedTopics({ repo, exec = execSync } = {}) {
       throw new Error(`[topicAvailability] PR #${pr.number} reports ${files.length} changed files, at or over the page limit — refusing to guess whether a generator artifact was missed.`);
     }
 
-    // Only paths this PR CREATED count. `modified` is deliberately excluded:
-    // editing an inherited file does not make its topic newly attempted.
-    // `renamed` counts because it introduces a new path on the branch.
+    // Only generator artifacts this PR actually changed count. A repeat-
+    // rejection PR modifies an already tracked `.rejected/` marker, so
+    // `modified` is a genuine open-PR hold alongside `added` and `renamed`.
+    // Inherited branch-tree files never appear in this PR-files response and
+    // therefore still cannot create a hold.
     const introduced = files
-      .filter((f) => f && (f.status === 'added' || f.status === 'renamed'))
+      .filter((f) => f && (f.status === 'added' || f.status === 'renamed' || f.status === 'modified'))
       .map((f) => f.filename)
       .filter((name) => typeof name === 'string'
         && name.startsWith(`${GENERATED_DIR_REPO_PATH}/`)

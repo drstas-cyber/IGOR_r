@@ -125,6 +125,45 @@ describe('getOpenPrAttemptedTopics — fail-closed (2026-07-26)', () => {
     assert.ok(known.has('A Rejected Topic On A PR Branch'));
   });
 
+  test('success case: a modified rejected-marker file on an open PR is held', () => {
+    const topic = 'Understanding Mello-Roos Taxes in Temecula Valley Communities';
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 56, headRefName: 'blog-generator/rejected-56' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([
+        {
+          status: 'modified',
+          filename: 'src/data/generated-articles/.rejected/understanding-mello-roos-taxes-in-temecula-valley-communities.json',
+        },
+      ]);
+      if (cmd.startsWith('git fetch')) return '';
+      if (cmd.startsWith('git show')) return JSON.stringify({ sourceTopic: topic, rejectedAt: '2026-09-22T00:00:00.000Z' });
+      throw new Error(`unexpected command: ${cmd}`);
+    };
+    const known = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
+    assert.ok(known.has(topic));
+  });
+
+  test('success case: a renamed generator artifact uses the destination path', () => {
+    const topic = 'A Renamed Rejected Topic';
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 57, headRefName: 'blog-generator/rejected-57' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([
+        {
+          status: 'renamed',
+          filename: 'src/data/generated-articles/.rejected/renamed-topic.json',
+          previous_filename: 'src/data/generated-articles/.rejected/old-topic.json',
+        },
+      ]);
+      if (cmd.startsWith('git fetch')) return '';
+      if (cmd === 'git show FETCH_HEAD:src/data/generated-articles/.rejected/renamed-topic.json') {
+        return JSON.stringify({ sourceTopic: topic, rejectedAt: '2026-09-22T00:00:00.000Z' });
+      }
+      throw new Error(`unexpected command: ${cmd}`);
+    };
+    const known = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
+    assert.ok(known.has(topic));
+  });
+
   test('multiple open PR branches: repeat run collision safety — two rejected attempts on the same topic, different run IDs, both readable with no error', () => {
     const exec = (cmd) => {
       if (cmd.startsWith('gh pr list')) {
@@ -406,19 +445,37 @@ describe('getOpenPrAttemptedTopics — holds only what the PR itself introduced'
       if (cmd.startsWith('gh api')) {
         return JSON.stringify([
           { status: 'added', filename: 'src/data/generated-articles/brand-new.json' },
-          // Inherited files simply are not in a PR diff; a `modified` entry
-          // is the closest real analogue and must not count either.
-          { status: 'modified', filename: 'src/data/generated-articles/already-on-main.json' },
         ]);
       }
       if (cmd.startsWith('git fetch')) return '';
       if (cmd.includes('brand-new.json')) return JSON.stringify({ sourceTopic: 'A Brand New Topic' });
-      if (cmd.includes('already-on-main.json')) return JSON.stringify({ sourceTopic: 'An Inherited Topic' });
       throw new Error(`unexpected command: ${cmd}`);
     };
     const held = getOpenPrAttemptedTopics({ repo: 'owner/repo', exec });
     assert.ok(held.has('A Brand New Topic'));
-    assert.equal(held.has('An Inherited Topic'), false, 'a modified inherited article must not create a hold');
+    assert.equal(held.has('An Inherited Topic'), false, 'an inherited article absent from the PR diff must not create a hold');
+  });
+
+  test('removed rejected-marker files do not create a hold', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 61, headRefName: 'blog-generator/rejected-61' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([
+        { status: 'removed', filename: 'src/data/generated-articles/.rejected/removed-topic.json' },
+      ]);
+      throw new Error(`must not fetch or read removed files: ${cmd}`);
+    };
+    assert.equal(getOpenPrAttemptedTopics({ repo: 'owner/repo', exec }).size, 0);
+  });
+
+  test('modified non-JSON files under .rejected do not create a hold', () => {
+    const exec = (cmd) => {
+      if (cmd.startsWith('gh pr list')) return JSON.stringify([{ number: 62, headRefName: 'blog-generator/rejected-62' }]);
+      if (cmd.startsWith('gh api')) return JSON.stringify([
+        { status: 'modified', filename: 'src/data/generated-articles/.rejected/notes.txt' },
+      ]);
+      throw new Error(`must not fetch or read non-json files: ${cmd}`);
+    };
+    assert.equal(getOpenPrAttemptedTopics({ repo: 'owner/repo', exec }).size, 0);
   });
 
   test('multiple open PRs each hold only their own attempted topic', () => {
