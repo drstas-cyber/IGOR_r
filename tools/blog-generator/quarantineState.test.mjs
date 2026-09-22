@@ -132,15 +132,41 @@ describe('recordTopicRejection', () => {
 // ---------------------------------------------------------------------------
 // PHASE 3 MIGRATION SEED — the exact 3 records committed at cutover.
 //
-// These assert the REAL tracked file, not a fixture. Each record's retry
-// date must reproduce from the canonical frozen policy applied to the
-// `rejectedAt` value in the actual evidence (a `.rejected/` marker), so a
-// hand-edit of either the seed or the policy fails here.
+// This is intentionally frozen test evidence, not the mutable runtime file.
+// A merged rejection legitimately updates a live row's count and timestamps,
+// so historical migration assertions must not be bound permanently to the
+// current contents of topic-quarantine.json.
 // ---------------------------------------------------------------------------
-describe('Phase 3 migration seed — topic-quarantine.json on disk', () => {
-  const SEED_PATH = path.join(HERE, 'topic-quarantine.json');
+const MIGRATION_SEED_FIXTURE = [
+  {
+    topic: 'Understanding Mello-Roos Taxes in Temecula Valley Communities',
+    status: 'quarantined',
+    rejection_reason: 'gate_trip',
+    rejection_count: 1,
+    last_rejected_at: '2026-08-25T14:38:39.617Z',
+    next_eligible_retry_at: '2026-09-01T14:38:39.617Z',
+  },
+  {
+    topic: 'How Riverside County Property Tax Assessment Appeals Work',
+    status: 'quarantined',
+    rejection_reason: 'gate_trip',
+    rejection_count: 1,
+    last_rejected_at: '2026-09-17T17:40:35.007Z',
+    next_eligible_retry_at: '2026-09-24T17:40:35.007Z',
+  },
+  {
+    topic: "Understanding California's Fair Employment and Housing Act for Buyers and Sellers",
+    status: 'quarantined',
+    rejection_reason: 'gate_trip',
+    rejection_count: 1,
+    last_rejected_at: '2026-09-19T16:34:48.534Z',
+    next_eligible_retry_at: '2026-09-26T16:34:48.534Z',
+  },
+];
+
+describe('Phase 3 migration seed — frozen historical fixture', () => {
   const TOPICS_PATH = path.join(HERE, 'topics.json');
-  const seed = () => parseQuarantineState(fs.readFileSync(SEED_PATH, 'utf8'));
+  const seed = () => parseQuarantineState(JSON.stringify(MIGRATION_SEED_FIXTURE));
   const topics = () => JSON.parse(fs.readFileSync(TOPICS_PATH, 'utf8'));
 
   const EXPECTED = [
@@ -194,6 +220,27 @@ describe('Phase 3 migration seed — topic-quarantine.json on disk', () => {
     const record = seed().find((r) => r.topic.startsWith('Understanding Mello-Roos'));
     assert.ok(Date.parse(record.next_eligible_retry_at) < Date.parse('2026-09-21T00:00:00.000Z'));
     assert.equal(isRetryEligible(record, '2026-09-21T00:00:00.000Z'), true);
+  });
+});
+
+describe('current live quarantine state — mutable runtime invariants', () => {
+  const LIVE_PATH = path.join(HERE, 'topic-quarantine.json');
+  const TOPICS_PATH = path.join(HERE, 'topics.json');
+  const live = () => parseQuarantineState(fs.readFileSync(LIVE_PATH, 'utf8'));
+  const topics = () => JSON.parse(fs.readFileSync(TOPICS_PATH, 'utf8'));
+
+  test('current topic-quarantine.json validates against the known topic set', () => {
+    const records = live();
+    assert.doesNotThrow(() => validateQuarantineRecords(records, topics()));
+    assert.ok(records.length > 0);
+    assert.equal(new Set(records.map((r) => r.topic)).size, records.length);
+    assert.equal(new Set(records.map((r) => r.topic.toLocaleLowerCase('en-US'))).size, records.length);
+    for (const record of records) {
+      assert.equal(record.status, 'quarantined');
+      assert.ok(record.rejection_reason.trim().length > 0);
+      assert.ok(Number.isInteger(record.rejection_count) && record.rejection_count > 0);
+      assert.ok(Date.parse(record.last_rejected_at) <= Date.parse(record.next_eligible_retry_at));
+    }
   });
 });
 
