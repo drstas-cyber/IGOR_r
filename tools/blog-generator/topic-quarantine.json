@@ -30,5 +30,13 @@
     "rejection_count": 1,
     "last_rejected_at": "2026-09-22T01:09:30.534Z",
     "next_eligible_retry_at": "2026-09-29T01:09:30.534Z"
+  },
+  {
+    "topic": "What an HOA Reserve Study Tells Buyers About a Community's Financial Health",
+    "status": "quarantined",
+    "rejection_reason": "gate_trip",
+    "rejection_count": 1,
+    "last_rejected_at": "2026-10-03T17:25:39.153Z",
+    "next_eligible_retry_at": "2026-10-10T17:25:39.153Z"
   }
 ]
