@@ -35,7 +35,7 @@ export const CHECKLIST_TOOL = {
       // array (prompt.md rules 4-8), so this is checkable against ground
       // truth instead -- cross-reference the array directly, don't guess
       // from general knowledge of whether a number sounds plausible.
-      uncited_statistic: { type: 'boolean', description: 'Does the article state a specific number, rate, percentage, dollar figure, date, or deadline that has NO corresponding entry in the citations array provided below (i.e., no inline data-cite marker + matching citations[] entry backs it up)? Cross-reference the citations array directly rather than judging from general knowledge of whether the number sounds right -- if a number is present with no matching citation, this is true regardless of whether the number happens to be accurate.' },
+      uncited_statistic: { type: 'boolean', description: 'Does the article state a specific number, rate, percentage, dollar figure, date, or deadline that has NO corresponding entry in the citations array provided below (i.e., no inline data-cite marker + matching citations[] entry backs it up)? Cross-reference the citations array directly rather than judging from general knowledge of whether the number sounds right -- if a number is present with no matching citation, this is true regardless of whether the number happens to be accurate. EXCEPTION (added 2026-10-06 after PR #63): a number that is part of the PROPER NAME of a law, statute, program, form, or code section is a name, not a statistic, and is never uncited_statistic on its own -- \"the Fair Housing Act of 1968\", \"Proposition 13\", \"Government Code Section 12955\", \"Senate Bill 9\", \"Form 1099-S\", \"Title VIII\". These identify which law is being discussed; they assert no measured quantity and need no citation to back the number itself. A claim ABOUT such a law that does carry a figure (\"the 1968 Act covers 80% of rentals\") is still judged normally on that figure.' },
       statistic_evidence: { type: ['string', 'null'], description: 'Exact quoted sentence containing the uncited number, if uncited_statistic is true, else null.' },
       // Rescoped 2026-08-03 after run #19's real misfire (PR #23): "Buyers
       // in this market compare homes against new construction in growing
@@ -84,7 +84,13 @@ You will also be given the article's citations array (its source of truth
 for every specific claim, per the writer's own compliance rules). Use it for
 two checks: (1) uncited_statistic — cross-reference every specific number,
 rate, date, or deadline in the article against the array; anything with no
-matching entry is uncited, regardless of whether it sounds accurate. (2)
+matching entry is uncited, regardless of whether it sounds accurate. One
+exception: a number that is part of the proper NAME of a law, statute,
+program, form, or code section ("the Fair Housing Act of 1968",
+"Proposition 13", "Government Code Section 12955", "Senate Bill 9") is a
+name, not a statistic — it identifies which law is under discussion and
+asserts no measured quantity. Never flag those on their own; the general
+"when unsure, flag true" instruction above does not override this. (2)
 legal_duty_overstated — for any claim about what a law "requires" or
 "mandates," compare the article's phrasing against the cited source's own
 language; flag it if the article states the duty more strongly or more

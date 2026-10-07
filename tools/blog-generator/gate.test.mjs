@@ -318,3 +318,78 @@ describe('runGates — EACH layer discards independently', () => {
     assert.equal(result.tripped, false);
   });
 });
+
+// uncited_statistic statute-name exemption (2026-10-06, PR #63 misfire) —
+// triggered by a real, live misfire: workflow run 36338303970 (PR #63, gate
+// trip) flagged uncited_statistic TRUE on "The Fair Housing Act of 1968"
+// with the evidence "the year 1968 is stated with no corresponding citation
+// entry in the citations array." The year there is part of the statute's
+// PROPER NAME, not a measured quantity — it identifies which law is under
+// discussion. Left unfixed, any article naming a dated statute (and this is
+// a real estate compliance blog, so that is most of them) trips the gate on
+// contact with its own subject matter and loops through quarantine forever.
+//
+// SAME LIMIT ON WHAT THESE TESTS PROVE as the 2026-08-03 block above: no
+// live ANTHROPIC_API_KEY was available to re-run the actual model against
+// the fixed prompt, so these are plumbing tests plus a textual regression
+// guard on the description/prompt content — NOT proof the model's real
+// judgment changed. The standing rule applies: the next article this
+// pipeline generates gets a full human read as the acceptance check.
+//
+// NOTE, and this is why fixing this alone does not reopen PR #63: that run
+// tripped on TWO flags, uncited_statistic AND legal_duty_overstated. This
+// change addresses only the first. #63 would still trip.
+describe('uncited_statistic statute-name exemption (2026-10-06, PR #63 misfire)', () => {
+  const REAL_MISFIRE_EVIDENCE_TEXT =
+    'Housing discrimination is often thought of as a federal issue governed by the Fair Housing Act of 1968. ' +
+    'In California, there is an equally important state-level law.';
+
+  test('description text carves out numbers that are part of a law/statute/program proper name', () => {
+    const desc = CHECKLIST_TOOL.input_schema.properties.uncited_statistic.description;
+    assert.match(desc, /PROPER NAME/);
+    assert.match(desc, /Fair Housing Act of 1968/);
+    assert.match(desc, /Proposition 13/);
+    assert.match(desc, /never uncited_statistic on its own/i);
+  });
+
+  test('the exemption is scoped to the NAME only — a real figure attached to a named law is still judged normally', () => {
+    const desc = CHECKLIST_TOOL.input_schema.properties.uncited_statistic.description;
+    assert.match(desc, /still judged normally/i);
+  });
+
+  test('system prompt carries the same carve-out and overrides the general "when unsure, flag true" default for it', () => {
+    assert.match(REVIEWER_SYSTEM_PROMPT, /proper NAME of a law, statute/);
+    assert.match(REVIEWER_SYSTEM_PROMPT, /Fair Housing Act of 1968/);
+    assert.match(REVIEWER_SYSTEM_PROMPT, /does not override this/i);
+  });
+
+  // Plumbing only (see block header): once the model gets this right,
+  // nothing downstream re-introduces a false trip.
+  test('PLUMBING: a checklist correctly returning false for the real misfire text does not trip the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST)); // uncited_statistic: false
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 'Understanding California Fair Housing Law',
+      contentHtml: `<p>${REAL_MISFIRE_EVIDENCE_TEXT}</p>`,
+    });
+    assert.equal(result.tripped, false);
+    assert.equal(result.checklist.uncited_statistic, false);
+  });
+
+  // Plumbing only: a genuinely uncited figure must still trip — the
+  // carve-out must not have widened into "numbers never count."
+  test('PLUMBING: a checklist correctly returning true for a genuinely uncited figure still trips the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', {
+      ...CLEAN_CHECKLIST,
+      uncited_statistic: true,
+      statistic_evidence: 'Temecula home values rose 12% last year.',
+    }));
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 'Temecula Market Update',
+      contentHtml: '<p>Temecula home values rose 12% last year.</p>',
+    });
+    assert.equal(result.tripped, true);
+    assert.equal(result.checklist.uncited_statistic, true);
+  });
+});
