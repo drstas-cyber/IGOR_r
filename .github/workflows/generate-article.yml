@@ -299,6 +299,38 @@ jobs:
             --sha="${{ steps.open_pr.outputs.pull-request-head-sha }}"
 
       # ----------------------------------------------------------------
+      # AUTO-MERGE ON PERFECT SILENCE (owner decision, 2026-10-06) --
+      # reverses the 2026-08-31 manual-publish-only ruling, which was made
+      # on a finding that has since gone stale. That ruling's stated
+      # reason was that `allSilent` was "effectively unreachable in
+      # practice" (self-review's phantom internal-link corrections meant a
+      # clean draft almost always still carried one "correction"). That
+      # root cause was fixed the same day, and the evidence now says
+      # otherwise: of the eight article PRs #52-#67, two (#59, #67) came
+      # back perfectly silent. The bar is reachable, so it is worth having.
+      #
+      # THE BAR IS UNCHANGED. This does not loosen computeAllSilent() by
+      # one field. The other six of those eight PRs were held solely by
+      # self-review corrections, with all three compliance layers clean,
+      # and they would all still be held today. Silence still means zero
+      # findings anywhere including log-only, every Layer 2 check false,
+      # every citation RESOLVED, and self-review finding nothing at all.
+      #
+      # Everything below this point fails safe in the same direction: if
+      # the decision step errors, the flag is absent and nothing merges;
+      # if the merge step errors, the PR simply sits for a human exactly
+      # as it did before 2026-10-06. There is no failure mode here whose
+      # result is "published without review."
+      # ----------------------------------------------------------------
+      - name: Decide whether this run may auto-merge itself
+        id: silent
+        if: success() && steps.check.outputs.has_new_article == 'true'
+        continue-on-error: true
+        run: |
+          node tools/blog-generator/checkAllSilent.mjs \
+            --report=tools/blog-generator/.last-run-report.json
+
+      # ----------------------------------------------------------------
       # Email notifications (added 2026-08-25) — non-gating everywhere:
       # every notify step below sets continue-on-error: true, and the
       # notify-email composite action (.github/actions/notify-email) has
@@ -318,7 +350,7 @@ jobs:
       # ----------------------------------------------------------------
       - name: Build email content (article PR opened, held for review)
         id: email_article_pr
-        if: success() && steps.check.outputs.has_new_article == 'true'
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.silent.outputs.all_silent != 'true'
         continue-on-error: true
         run: |
           node tools/blog-generator/buildNotificationEmailCli.mjs \
@@ -328,7 +360,7 @@ jobs:
             --pr-url="${{ steps.open_pr.outputs.pull-request-url }}"
 
       - name: Notify (email) — article PR opened, held for review
-        if: success() && steps.check.outputs.has_new_article == 'true'
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.silent.outputs.all_silent != 'true'
         continue-on-error: true
         uses: ./.github/actions/notify-email
         with:
@@ -336,6 +368,45 @@ jobs:
           html_body: ${{ steps.email_article_pr.outputs.html_body }}
           smtp_username: ${{ secrets.NOTIFY_SMTP_USERNAME }}
           smtp_password: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+
+      # THE PAT IS LOAD-BEARING, NOT a style choice -- this is the exact
+      # mistake the 2026-08-03 auto-merge path shipped with. `gh pr merge`
+      # authenticated with the default GITHUB_TOKEN merges as
+      # `github-actions[bot]`, and GitHub's own loop-prevention means a
+      # merge by that token does NOT trigger other workflows. publish-on-
+      # merge.yml listens for `pull_request: [closed]`, so a GITHUB_TOKEN
+      # merge would close the PR and then simply stop: published:false
+      # forever, blog-articles.json never regenerated, nothing deployed,
+      # and no "published" email -- a silent half-publish that looks green
+      # in the Actions list. The same reasoning already forced
+      # TVH_BOT_PR_PAT on both create-pull-request steps above (see the
+      # comment there about check runs with zero jobs); merging is the
+      # same class of problem with a worse failure mode, because a PR that
+      # fails to open is loud and a PR that merges into a dead end is not.
+      #
+      # --merge, not --squash: matches every human merge in this repo's
+      # history, so publish-on-merge sees the same commit shape it has
+      # always seen.
+      #
+      # continue-on-error: true -- a failed auto-merge must never turn an
+      # otherwise-good run red. If this step fails for any reason (branch
+      # protection, a required check still pending, a token problem), the
+      # PR is left exactly where it was: open, fully reported, waiting for
+      # a human. That is the pre-2026-10-06 behaviour, which is a perfectly
+      # good place to fall back to.
+      - name: Auto-merge — perfectly silent run only
+        id: auto_merge
+        if: success() && steps.check.outputs.has_new_article == 'true' && steps.silent.outputs.all_silent == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.TVH_BOT_PR_PAT }}
+        run: |
+          echo "[auto-merge] run was perfectly silent — merging PR #${{ steps.open_pr.outputs.pull-request-number }}."
+          echo "[auto-merge] publish-on-merge.yml takes it from here: published:true, blog-articles.json, deploy, and the confirmation email."
+          gh pr merge "${{ steps.open_pr.outputs.pull-request-number }}" \
+            --merge \
+            --delete-branch \
+            --repo "${{ github.repository }}"
 
       # Records a gate trip as ground truth instead of leaving no trace
       # anywhere — a discarded run used to just vanish, which meant a

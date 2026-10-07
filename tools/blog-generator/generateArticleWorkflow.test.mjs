@@ -176,3 +176,92 @@ describe('workflow YAML is parseable (regression guard, 2026-09-21 incident)', (
     assert.deepEqual(broken, [], `unparseable workflow file(s):\n${broken.join('\n')}`);
   });
 });
+
+// Auto-merge-on-silence (owner decision, 2026-10-06). STATIC guards, same
+// honesty caveat as the rest of this file: this asserts workflow TEXT, it
+// does not execute the workflow. It earns its place because the three
+// things it pins are each a real, already-made mistake or a real failure
+// mode that no unit test can reach:
+//
+//   1. THE TOKEN — the retired 2026-08-03 auto-merge path merged with the
+//      default GITHUB_TOKEN, which GitHub's loop-prevention stops from
+//      triggering publish-on-merge.yml. That combination produces a
+//      green run, a merged PR, and an article that never goes live, with
+//      no email. The PAT is the fix and it must not drift back.
+//   2. THE BAR — auto-merge must be gated on the all_silent decision step
+//      and on nothing else. A step that merges on has_new_article alone
+//      publishes every article unreviewed.
+//   3. NO DOUBLE EMAIL — a silent run must not get both "awaits your
+//      review" (which would be false) and "published". The held-for-review
+//      notification is therefore gated on NOT silent.
+describe('generate-article.yml — auto-merge on perfect silence (2026-10-06)', () => {
+  test('the auto-merge step merges with the PAT, never the default GITHUB_TOKEN', () => {
+    const yml = read(GENERATE_ARTICLE);
+    const doc = yaml.load(yml);
+    const steps = doc.jobs.generate.steps;
+    const merge = steps.find((s) => s.name && s.name.startsWith('Auto-merge'));
+    assert.ok(merge, 'expected an "Auto-merge" step in generate-article.yml');
+    assert.match(merge.env.GH_TOKEN, /TVH_BOT_PR_PAT/);
+    assert.doesNotMatch(
+      merge.env.GH_TOKEN,
+      /secrets\.GITHUB_TOKEN/,
+      'a GITHUB_TOKEN merge cannot trigger publish-on-merge.yml — the article would merge and never publish',
+    );
+    assert.match(merge.run, /gh pr merge/);
+  });
+
+  test('auto-merge is gated on the all_silent decision, not merely on an article existing', () => {
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const steps = doc.jobs.generate.steps;
+    const merge = steps.find((s) => s.name && s.name.startsWith('Auto-merge'));
+    assert.match(merge.if, /steps\.silent\.outputs\.all_silent == 'true'/);
+  });
+
+  test('the all_silent decision step exists, runs checkAllSilent.mjs, and carries the id the merge step reads', () => {
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const steps = doc.jobs.generate.steps;
+    const decide = steps.find((s) => s.id === 'silent');
+    assert.ok(decide, 'expected a step with id "silent"');
+    assert.match(decide.run, /checkAllSilent\.mjs/);
+  });
+
+  test('a failed auto-merge never reds the run — it falls back to the PR sitting for a human', () => {
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const steps = doc.jobs.generate.steps;
+    const merge = steps.find((s) => s.name && s.name.startsWith('Auto-merge'));
+    const decide = steps.find((s) => s.id === 'silent');
+    assert.equal(merge['continue-on-error'], true);
+    assert.equal(decide['continue-on-error'], true);
+  });
+
+  test('a silent run does not also get the "held for review" email', () => {
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const steps = doc.jobs.generate.steps;
+    const held = steps.filter((s) => s.name && /held for review/.test(s.name));
+    assert.equal(held.length, 2, 'expected both the build-content and notify steps for the held-for-review email');
+    for (const s of held) {
+      assert.match(s.if, /steps\.silent\.outputs\.all_silent != 'true'/);
+    }
+  });
+
+  test('the auto-merge step comes after the PR is opened, so it has a PR number to merge', () => {
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const names = doc.jobs.generate.steps.map((s) => s.name || s.id || '');
+    const openIdx = names.findIndex((n) => /Open PR with the generated article/.test(n));
+    const decideIdx = doc.jobs.generate.steps.findIndex((s) => s.id === 'silent');
+    const mergeIdx = names.findIndex((n) => /^Auto-merge/.test(n));
+    assert.ok(openIdx !== -1 && decideIdx !== -1 && mergeIdx !== -1);
+    assert.ok(openIdx < decideIdx, 'the silence decision must come after the PR is opened');
+    assert.ok(decideIdx < mergeIdx, 'the merge must come after the silence decision');
+  });
+
+  test('rejected-attempt PRs are never auto-merged — the merge is scoped to the article-PR path only', () => {
+    // A rejected PR merging itself would record a quarantine with no human
+    // ever seeing the gate's reasoning, removing the override that PR #63
+    // (a genuine gate misfire) turned out to need.
+    const doc = yaml.load(read(GENERATE_ARTICLE));
+    const merge = doc.jobs.generate.steps.find((s) => s.name && s.name.startsWith('Auto-merge'));
+    assert.match(merge.if, /steps\.check\.outputs\.has_new_article == 'true'/);
+    assert.doesNotMatch(merge.run, /rejected/i);
+  });
+});
