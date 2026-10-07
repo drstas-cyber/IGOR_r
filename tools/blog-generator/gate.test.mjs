@@ -195,6 +195,65 @@ describe('competitor_mention scope fix (2026-08-03, run #19 misfire)', () => {
   });
 });
 
+// Same shape as the competitor_mention block above: the description/prompt
+// text is what changes the live model's behavior, so these assert the
+// exemption is stated (and stated narrowly); the PLUMBING tests confirm
+// nothing downstream re-trips on a correct false, or swallows a correct true.
+describe('uncited_statistic statute-name exemption (2026-10-07, PR #63 misfire)', () => {
+  const REAL_MISFIRE_EVIDENCE_TEXT =
+    'Most buyers and sellers think of housing discrimination as a federal issue governed by the Fair Housing Act of 1968.';
+
+  test('description exempts a number inside a law\'s official name, with the real misfire as an example', () => {
+    const desc = CHECKLIST_TOOL.input_schema.properties.uncited_statistic.description;
+    assert.match(desc, /EXEMPT/);
+    assert.match(desc, /official name or identifier/i);
+    assert.match(desc, /Fair Housing Act of 1968/);
+    assert.match(desc, /Civil Code section 1102/);
+  });
+
+  test('exemption is narrow: a separate claim about the number still needs a citation', () => {
+    const desc = CHECKLIST_TOOL.input_schema.properties.uncited_statistic.description;
+    assert.match(desc, /covers only the name/i);
+    assert.match(desc, /took effect in 2021/);
+    assert.match(desc, /still needs a citation/i);
+    // The original cross-reference rule is still there, unweakened.
+    assert.match(desc, /regardless of whether the number happens to be accurate/);
+  });
+
+  test('system prompt carries the exemption and says "when unsure, flag true" does not override it', () => {
+    assert.match(REVIEWER_SYSTEM_PROMPT, /For uncited_statistic, a number inside a law's official name/);
+    assert.match(REVIEWER_SYSTEM_PROMPT, /does not override this exemption/i);
+    assert.match(REVIEWER_SYSTEM_PROMPT, /still needs a citation/i);
+  });
+
+  test('PLUMBING: a checklist correctly returning false for the real misfire text does not trip the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', CLEAN_CHECKLIST));
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 'Understanding California\'s Fair Employment and Housing Act for Buyers and Sellers',
+      contentHtml: `<p>${REAL_MISFIRE_EVIDENCE_TEXT}</p>`,
+      citations: [],
+    });
+    assert.equal(result.tripped, false);
+    assert.equal(result.checklist.uncited_statistic, false);
+  });
+
+  test('PLUMBING: a checklist returning true for a real uncited number still trips the gate', async () => {
+    mockFetchOnce(200, toolUseResponse('report_compliance_check', {
+      ...CLEAN_CHECKLIST,
+      uncited_statistic: true,
+      statistic_evidence: 'Riverside County, like the other 57 counties in California, collects this tax',
+    }));
+    const result = await runLlmClaimGate({
+      apiKey: 'test-key', model: 'claude-haiku-4-5-20251001',
+      title: 'Riverside County Documentary Transfer Tax',
+      contentHtml: '<p>Riverside County, like the other 57 counties in California, collects this tax.</p>',
+      citations: [],
+    });
+    assert.equal(result.tripped, true);
+  });
+});
+
 describe('verifyModel — fails loudly rather than guessing', () => {
   test('passes when the model ID is in the live list', async () => {
     mockFetchOnce(200, { data: [{ id: 'claude-sonnet-5' }, { id: 'claude-haiku-4-5-20251001' }] });

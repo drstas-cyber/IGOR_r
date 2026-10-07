@@ -48,7 +48,11 @@ something works"), and organized with clear headings a reader can scan.
    unsourced educational explanation of *how* a factor works is still fine
    ("homes in desirable school districts often command a premium") — a
    specific number presented as fact, hedged or not, with nothing backing
-   it, is not.
+   it, is not. A number that is part of a law's official name or identifier
+   ("the Fair Housing Act of 1968", "Civil Code section 1102", "Proposition
+   19") is the law's name, not a claim, and needs no citation of its own —
+   but any separate statement about that number (when it passed or took
+   effect, a deadline or rate it sets) does.
 
 5. **How to cite a claim:** add an entry to the `citations` array (see
    Output contract) and place an inline marker immediately after the claim

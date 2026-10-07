@@ -35,7 +35,16 @@ export const CHECKLIST_TOOL = {
       // array (prompt.md rules 4-8), so this is checkable against ground
       // truth instead -- cross-reference the array directly, don't guess
       // from general knowledge of whether a number sounds plausible.
-      uncited_statistic: { type: 'boolean', description: 'Does the article state a specific number, rate, percentage, dollar figure, date, or deadline that has NO corresponding entry in the citations array provided below (i.e., no inline data-cite marker + matching citations[] entry backs it up)? Cross-reference the citations array directly rather than judging from general knowledge of whether the number sounds right -- if a number is present with no matching citation, this is true regardless of whether the number happens to be accurate.' },
+      //
+      // Statute-name exemption 2026-10-07 after PR #63's real misfire:
+      // "the Fair Housing Act of 1968" was flagged true -- the model read the
+      // year inside the statute's official name as an uncited date claim. A
+      // number that is part of a law's proper name or identifier ("Fair
+      // Housing Act of 1968", "Civil Code section 1102", "Proposition 19",
+      // "AB 1482") names the law; it asserts nothing. Deliberately narrow:
+      // any separate claim ABOUT that number (when it passed, took effect,
+      // a deadline it sets) is still a statistic and still needs a citation.
+      uncited_statistic: { type: 'boolean', description: 'Does the article state a specific number, rate, percentage, dollar figure, date, or deadline that has NO corresponding entry in the citations array provided below (i.e., no inline data-cite marker + matching citations[] entry backs it up)? Cross-reference the citations array directly rather than judging from general knowledge of whether the number sounds right -- if a number is present with no matching citation, this is true regardless of whether the number happens to be accurate. EXEMPT, narrowly: a number that is part of a law\'s official name or identifier -- "the Fair Housing Act of 1968", "Civil Code section 1102", "Proposition 19", "AB 1482" -- is the name of the law, not a claim, and is never uncited_statistic by itself. The exemption covers only the name: a separate statement about that number ("passed in 1968", "Proposition 19 took effect in 2021", a deadline or rate the law sets) is still a claim and still needs a citation.' },
       statistic_evidence: { type: ['string', 'null'], description: 'Exact quoted sentence containing the uncited number, if uncited_statistic is true, else null.' },
       // Rescoped 2026-08-03 after run #19's real misfire (PR #23): "Buyers
       // in this market compare homes against new construction in growing
@@ -97,7 +106,13 @@ planned communities, housing developments, or builders' community names —
 site's own content already uses throughout, never a competitor mention by
 itself just because it's called a "community." The general "when unsure,
 flag true" instruction above does not override this scoping — a place name
-is never competitor_mention regardless of how the sentence around it reads.`;
+is never competitor_mention regardless of how the sentence around it reads.
+For uncited_statistic, a number inside a law's official name or identifier
+("the Fair Housing Act of 1968", "Civil Code section 1102", "Proposition
+19", "AB 1482") names the law and is not a statistic — the "when unsure,
+flag true" instruction does not override this exemption either. It covers
+the name only: any separate claim about that number (an enactment or
+effective date, a deadline, a rate) still needs a citation.`;
 
 // Returns { tripped: boolean, checklist: {...} }. tripped is computed here,
 // independently of anything the model claims about itself — never trust a
