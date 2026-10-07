@@ -122,15 +122,16 @@ not a content farm:
   Trivially extensible (just add another `{topic, target_keyword}`
   entry). It carries **no status field** — see "How topic availability is
   decided" below for why and how "already attempted" is derived instead.
-- Every PR this pipeline opens is a **review-and-EDIT step, not a rubber
-  stamp, always** — including a perfectly silent run. Generation is
-  automatic; **publication is manual, by design** (owner ruling,
-  2026-08-31, see "How this actually works today" below and "Automated
-  publishing," now superseded). A perfectly-silent run's PR still needs a
-  human to tap Merge before anything goes live; `allSilent` is a quality
-  signal in the PR body and email, telling the reviewer this one needs
-  less scrutiny than usual — it has never, in this project's history,
-  meant "published without a human looking at it."
+- Every PR this pipeline opens that is NOT perfectly silent is a
+  **review-and-EDIT step, not a rubber stamp**. Generation is automatic;
+  **publication is manual except on a perfectly-silent run** (owner
+  decision, 2026-10-06, reversing the 2026-08-31 manual-publish-only
+  ruling — see "How this actually works today" below and "Auto-merge on
+  perfect silence" for the data behind the reversal). `allSilent` is no
+  longer only a quality signal: it is the auto-merge trigger. Everything
+  short of it — including a run held by a single self-review correction
+  with all three compliance layers clean, which is the most common real
+  case — still waits for a human to tap Merge.
 - Cadence: every other day, as of 2026-08-03 (`workflow_dispatch` stays
   available alongside the cron; supersedes the 2026-08-01 weekly-cron
   decision), **13:23 UTC as of 2026-08-31** (moved off the exact hour
@@ -155,10 +156,13 @@ for their decision history, not because they describe current behavior.
    what each check actually does.
 2. **Three outcomes, each with exactly one path:**
    - **Clean or holds for review** — a `blog-generator/auto-*` PR opens
-     with the full gate report as its body, `allSilent` shown as an
-     informational line only. An email fires either way ("article PR
-     opened, held for review") — every real article gets exactly this one
-     notification, whether or not it was silent.
+     with the full gate report as its body. If the run was perfectly
+     silent, `checkAllSilent.mjs` reports `all_silent=true` and the
+     workflow merges the PR itself (owner decision, 2026-10-06); the
+     "held for review" email is suppressed in that case and
+     publish-on-merge's "published" email is the one notification. If it
+     was not silent, no merge happens and the "article PR opened, held
+     for review" email fires exactly as before.
    - **A gate/schema/link/identity trip discards the draft** — no article
      is written; a `blog-generator/rejected-*` PR opens instead, carrying
      the audit marker and the quarantine transition together. **Merging it
@@ -173,9 +177,12 @@ for their decision history, not because they describe current behavior.
      email fires instead, naming the real cause from a structured report
      when one exists, never a guess (see `checkGenerateFailureReason.mjs`
      and "First live firing" under "Publish-on-merge" below).
-3. **Publication is ALWAYS a human tap.** There is no code path in this
-   repo, as of 2026-08-31, that merges or publishes a generator PR without
-   a human doing it. The reviewer reads the email, opens the PR, checks
+3. **Publication is a human tap, EXCEPT on a perfectly-silent run**
+   (amended 2026-10-06; this point read "ALWAYS a human tap" from
+   2026-08-31 until then). A run meeting the full `computeAllSilent()`
+   bar merges itself and publishes; everything else, and every
+   rejected-attempt PR without exception, still waits for a human. The
+   reviewer reads the email, opens the PR, checks
    the Cloudflare Pages preview, and either taps **Merge** (today: from
    the GitHub mobile app) or **Close**s it unmerged (an article PR
    releases its topic on close; a rejected PR releases its topic on close
@@ -218,6 +225,68 @@ for their decision history, not because they describe current behavior.
    implements it yet as of 2026-08-31 — noted here so the manual-Merge
    step described above is read as "the current mechanism," not "the
    final design."
+
+## Auto-merge on perfect silence (owner decision, 2026-10-06)
+
+**Reverses the 2026-08-31 manual-publish-only ruling.** That ruling retired
+the 2026-08-03 auto-merge path, and its stated reason was empirical, not a
+matter of principle: a review found zero silent publishes in the project's
+entire history, and `allSilent` was judged "effectively unreachable in
+practice" because self-review's phantom internal-link-stripping corrections
+meant a genuinely clean draft almost always still carried at least one
+"correction."
+
+**That finding is stale, and the evidence now says the opposite.** The
+phantom-correction root cause was fixed the same day the ruling was made
+(see "Self-review no longer validates internal links"). Of the eight
+article PRs #52-#67: **#59 and #67 came back perfectly silent.** The bar is
+reachable. The other six (#65, #62, #61, #60, #53, #52) were held *solely*
+by self-review corrections, with Layers 1, 2 and 3 clean in every one.
+
+**The bar itself is unchanged — `computeAllSilent()` is not loosened by a
+single field.** This was a deliberate choice between two options; the
+looser one (auto-merge on the three compliance layers alone, treating
+self-review corrections as non-blocking) would have auto-published all
+eight of those PRs and was rejected. Self-review is what caught the
+fabricated "roof on the clubhouse needs replacing in three years" detail in
+PR #66's draft. Those six PRs would all still be held today.
+
+**Mechanism.** `checkAllSilent.mjs` (restored under its old name, new
+implementation) reads `.last-run-report.json` after the article PR opens
+and writes `all_silent` to `$GITHUB_OUTPUT`. Unlike the 2026-08-03 version,
+which trusted `report.allSilent` as written, it recomputes the value via
+`computeAllSilent()` and requires **both to agree** — a stored flag that
+disagrees with its own report's findings is treated as corruption and fails
+closed, loudly. Every failure path in the new steps resolves to "the PR
+sits for a human," which is simply the pre-2026-10-06 behaviour.
+
+**The PAT is load-bearing.** The auto-merge step authenticates `gh pr merge`
+with `TVH_BOT_PR_PAT`, never the default `GITHUB_TOKEN`. This is the exact
+mistake the retired 2026-08-03 path shipped with: GitHub's loop-prevention
+means a merge performed by `github-actions[bot]` does not trigger other
+workflows, and `publish-on-merge.yml` listens for `pull_request: [closed]`.
+A `GITHUB_TOKEN` merge would therefore close the PR and stop — `published`
+stays false forever, `blog-articles.json` is never regenerated, nothing
+deploys, and no email fires: a silent half-publish that looks green in the
+Actions list. The same reasoning already forced the PAT onto both
+create-pull-request steps. `generateArticleWorkflow.test.mjs` pins this as a
+static assertion so it cannot drift back.
+
+**Rejected-attempt PRs are explicitly out of scope** and still require a
+human on every one. PR #63 is why: it was a genuine gate misfire (see
+"uncited_statistic statute-name exemption"), and auto-recording its
+quarantine would have removed the override that case needed.
+
+**What is NOT proven yet, stated plainly:** no end-to-end exercise. The unit
+tests (12 in `checkAllSilent.test.mjs`) and static workflow guards (7 in
+`generateArticleWorkflow.test.mjs`) pass, but a silent run actually merging
+itself, and `publish-on-merge.yml` actually firing off that bot merge, are
+only ever proven by a real run. **Acceptance check: the first
+perfectly-silent run after this lands gets a full human read of the
+published article and a confirmation that `version.json` moved.** Branch
+protection on `main` blocking the bot actor from merging is the one
+foreseeable first-run failure, and it fails safe — the PR is left open for a
+human, exactly as before.
 
 ## How this fits with the existing pipeline
 
