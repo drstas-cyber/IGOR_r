@@ -27,8 +27,8 @@
     "topic": "Understanding Riverside County's Documentary Transfer Tax on Home Sales",
     "status": "quarantined",
     "rejection_reason": "gate_trip",
-    "rejection_count": 1,
-    "last_rejected_at": "2026-09-22T01:09:30.534Z",
-    "next_eligible_retry_at": "2026-09-29T01:09:30.534Z"
+    "rejection_count": 2,
+    "last_rejected_at": "2026-09-29T18:41:31.100Z",
+    "next_eligible_retry_at": "2026-10-13T18:41:31.100Z"
   }
 ]

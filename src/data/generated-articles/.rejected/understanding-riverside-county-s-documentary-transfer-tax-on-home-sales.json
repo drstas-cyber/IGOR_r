@@ -1,14 +1,33 @@
 {
   "sourceTopic": "Understanding Riverside County's Documentary Transfer Tax on Home Sales",
-  "rejectedAt": "2026-09-22T01:09:30.534Z",
+  "rejectedAt": "2026-09-29T18:41:31.100Z",
   "failureClass": "gate_trip",
   "layer1": {
     "tripped": false,
     "findings": [],
-    "uncitedClaimCandidates": []
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "dollar-amount",
+        "matchedText": "$0.55",
+        "sentence": "e statewide rate set by the Documentary Transfer Tax Act is $0.55 per $500 of consideration or value (or fraction thereof), o"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "dollar-amount",
+        "matchedText": "$500",
+        "sentence": "e rate set by the Documentary Transfer Tax Act is $0.55 per $500 of consideration or value (or fraction thereof), on the por"
+      },
+      {
+        "category": "uncited-claim",
+        "subcategory": "dollar-amount",
+        "matchedText": "$500",
+        "sentence": "ion is structured. Because the rate is expressed per $500 of value, the tax scales directly with the sale price of th"
+      }
+    ]
   },
   "layer2": {
-    "tripped": false,
+    "tripped": true,
     "checklist": {
       "tenure_claim": false,
       "tenure_evidence": null,
@@ -16,8 +35,8 @@
       "uniqueness_evidence": null,
       "review_rating_claim": false,
       "review_evidence": null,
-      "uncited_statistic": false,
-      "statistic_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "Riverside County, like the other 57 counties in California, collects this tax",
       "competitor_mention": false,
       "competitor_evidence": null,
       "contact_mismatch": false,
@@ -27,31 +46,29 @@
     }
   },
   "layer3": {
-    "tripped": true,
+    "tripped": false,
     "results": [
       {
         "id": "1",
-        "sourceName": "California Revenue and Taxation Code §§ 11901-11933 (Documentary Transfer Tax Act)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=RTC&division=2.&title=&part=6.7.&chapter=&article=",
+        "sourceName": "California Revenue and Taxation Code § 11901–11933 (Documentary Transfer Tax Act)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=11911.&lawCode=RTC",
         "host": "leginfo.legislature.ca.gov",
-        "outcome": "RESOLVED_UNSUPPORTED",
-        "status": 200,
-        "token": "11901"
+        "outcome": "RESOLVED",
+        "status": 200
       }
     ],
-    "resolved": [],
-    "failed": [],
-    "unsupported": [
+    "resolved": [
       {
         "id": "1",
-        "sourceName": "California Revenue and Taxation Code §§ 11901-11933 (Documentary Transfer Tax Act)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=RTC&division=2.&title=&part=6.7.&chapter=&article=",
+        "sourceName": "California Revenue and Taxation Code § 11901–11933 (Documentary Transfer Tax Act)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=11911.&lawCode=RTC",
         "host": "leginfo.legislature.ca.gov",
-        "outcome": "RESOLVED_UNSUPPORTED",
-        "status": 200,
-        "token": "11901"
+        "outcome": "RESOLVED",
+        "status": 200
       }
     ],
+    "failed": [],
+    "unsupported": [],
     "inconclusive": []
   },
   "schemaErrors": [],
