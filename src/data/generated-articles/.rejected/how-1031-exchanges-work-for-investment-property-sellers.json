@@ -1,0 +1,81 @@
+{
+  "sourceTopic": "How 1031 Exchanges Work for Investment Property Sellers",
+  "rejectedAt": "2026-10-09T18:52:04.077Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "year",
+        "matchedText": "2017",
+        "sentence": "What Qualifies as \"Like-Kind\" Property Since a 2017 change to federal tax law, Section 1031 exchange treatment"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "the seller has 45 calendar days to formally identify potential replacement properties in writing to a qualified intermediary, and a total of 180 calendar days from the closing date (or the tax return due date, whichever is earlier) to actually close on the replacement property",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "26 U.S. Code § 1031 — Exchange of real property held for productive use or investment",
+        "url": "https://law.cornell.edu/uscode/text/26/1031",
+        "host": "law.cornell.edu",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "26 U.S. Code § 1031(a)(1) — limitation to real property",
+        "url": "https://law.cornell.edu/uscode/text/26/1031",
+        "host": "law.cornell.edu",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "26 U.S. Code § 1031 — Exchange of real property held for productive use or investment",
+        "url": "https://law.cornell.edu/uscode/text/26/1031",
+        "host": "law.cornell.edu",
+        "outcome": "RESOLVED",
+        "status": 200
+      },
+      {
+        "id": "2",
+        "sourceName": "26 U.S. Code § 1031(a)(1) — limitation to real property",
+        "url": "https://law.cornell.edu/uscode/text/26/1031",
+        "host": "law.cornell.edu",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
