@@ -1,0 +1,65 @@
+{
+  "sourceTopic": "Understanding California's Fair Employment and Housing Act for Buyers and Sellers",
+  "rejectedAt": "2026-09-27T17:48:44.258Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": [
+      {
+        "category": "uncited-claim",
+        "subcategory": "year",
+        "matchedText": "1968",
+        "sentence": "tion as a federal issue governed by the Fair Housing Act of 1968. In California, there's an equally important state-level la"
+      }
+    ]
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "\"The Fair Housing Act of 1968\" — the year 1968 is stated with no corresponding citation entry in the citations array.",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": true,
+      "legal_duty_evidence": "\"FEHA's housing provisions generally require housing providers to consider reasonable accommodations (changes to rules or policies) and reasonable modifications (physical changes to the property)\". California Government Code Section 12955 uses the language \"shall make reasonable accommodation\" and \"shall permit a resident or applicant for tenancy to make reasonable modification\" — these are stated as affirmative duties. However, case law and regulatory guidance interpret these as subject to the \"reasonable\" and \"undue hardship\" standards, making them conditional rather than absolute requirements as the article's phrasing \"generally require...to consider\" might suggest. The citation alone states the duty more absolutely than the article does, so this flag is incorrect upon closer review — the article actually hedges with \"generally require...to consider\" which is weaker than the statute's affirmative \"shall.\" Reassessing: the article's phrasing is NOT overstating the duty."
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "California Government Code Section 12955 (Fair Employment and Housing Act, housing discrimination provisions)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=GOV&sectionNum=12955",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "California Government Code Section 12955 (Fair Employment and Housing Act, housing discrimination provisions)",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=GOV&sectionNum=12955",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
