@@ -6,5 +6,21 @@
     "status": 403,
     "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=GOV&division=3.&title=2.&part=2.8.&chapter=6.&article=1.",
     "loggedAt": "2026-10-11T18:10:47.368Z"
+  },
+  {
+    "runId": "38458461290",
+    "sourceTopic": "Understanding Riverside County's Documentary Transfer Tax on Home Sales",
+    "host": "leginfo.legislature.ca.gov",
+    "status": 403,
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11901",
+    "loggedAt": "2026-10-13T19:54:49.451Z"
+  },
+  {
+    "runId": "38458461290",
+    "sourceTopic": "Understanding Riverside County's Documentary Transfer Tax on Home Sales",
+    "host": "leginfo.legislature.ca.gov",
+    "status": 403,
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11911",
+    "loggedAt": "2026-10-13T19:54:49.451Z"
   }
 ]

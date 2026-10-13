@@ -1,6 +1,6 @@
 {
   "sourceTopic": "Understanding Riverside County's Documentary Transfer Tax on Home Sales",
-  "rejectedAt": "2026-09-29T18:41:31.100Z",
+  "rejectedAt": "2026-10-13T19:53:57.818Z",
   "failureClass": "gate_trip",
   "layer1": {
     "tripped": false,
@@ -9,20 +9,14 @@
       {
         "category": "uncited-claim",
         "subcategory": "dollar-amount",
-        "matchedText": "$0.55",
-        "sentence": "e statewide rate set by the Documentary Transfer Tax Act is $0.55 per $500 of consideration or value (or fraction thereof), o"
+        "matchedText": "$1.10",
+        "sentence": "the statewide base rate for the documentary transfer tax at $1.10 per $1,000 of the property's value (or consideration paid),"
       },
       {
         "category": "uncited-claim",
         "subcategory": "dollar-amount",
-        "matchedText": "$500",
-        "sentence": "e rate set by the Documentary Transfer Tax Act is $0.55 per $500 of consideration or value (or fraction thereof), on the por"
-      },
-      {
-        "category": "uncited-claim",
-        "subcategory": "dollar-amount",
-        "matchedText": "$500",
-        "sentence": "ion is structured. Because the rate is expressed per $500 of value, the tax scales directly with the sale price of th"
+        "matchedText": "$1,000",
+        "sentence": "ide base rate for the documentary transfer tax at $1.10 per $1,000 of the property's value (or consideration paid), with the f"
       }
     ]
   },
@@ -36,7 +30,7 @@
       "review_rating_claim": false,
       "review_evidence": null,
       "uncited_statistic": true,
-      "statistic_evidence": "Riverside County, like the other 57 counties in California, collects this tax",
+      "statistic_evidence": "the first $500 exempt from the calculation",
       "competitor_mention": false,
       "competitor_evidence": null,
       "contact_mismatch": false,
@@ -50,26 +44,42 @@
     "results": [
       {
         "id": "1",
-        "sourceName": "California Revenue and Taxation Code § 11901–11933 (Documentary Transfer Tax Act)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=11911.&lawCode=RTC",
+        "sourceName": "California Revenue and Taxation Code, Documentary Transfer Tax Act, section 11901",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11901",
         "host": "leginfo.legislature.ca.gov",
-        "outcome": "RESOLVED",
-        "status": 200
-      }
-    ],
-    "resolved": [
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
       {
-        "id": "1",
-        "sourceName": "California Revenue and Taxation Code § 11901–11933 (Documentary Transfer Tax Act)",
-        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=11911.&lawCode=RTC",
+        "id": "2",
+        "sourceName": "California Revenue and Taxation Code section 11911",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11911",
         "host": "leginfo.legislature.ca.gov",
-        "outcome": "RESOLVED",
-        "status": 200
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
       }
     ],
+    "resolved": [],
     "failed": [],
     "unsupported": [],
-    "inconclusive": []
+    "inconclusive": [
+      {
+        "id": "1",
+        "sourceName": "California Revenue and Taxation Code, Documentary Transfer Tax Act, section 11901",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11901",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      },
+      {
+        "id": "2",
+        "sourceName": "California Revenue and Taxation Code section 11911",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=RTC&sectionNum=11911",
+        "host": "leginfo.legislature.ca.gov",
+        "outcome": "UNREACHABLE_LIKELY_BOT",
+        "status": 403
+      }
+    ]
   },
   "schemaErrors": [],
   "internalLinkErrors": [],
