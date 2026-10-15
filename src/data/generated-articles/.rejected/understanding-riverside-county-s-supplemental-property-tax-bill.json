@@ -1,0 +1,58 @@
+{
+  "sourceTopic": "Understanding Riverside County's Supplemental Property Tax Bill",
+  "rejectedAt": "2026-10-15T17:48:26.991Z",
+  "failureClass": "gate_trip",
+  "layer1": {
+    "tripped": false,
+    "findings": [],
+    "uncitedClaimCandidates": []
+  },
+  "layer2": {
+    "tripped": true,
+    "checklist": {
+      "tenure_claim": false,
+      "tenure_evidence": null,
+      "uniqueness_claim": false,
+      "uniqueness_evidence": null,
+      "review_rating_claim": false,
+      "review_evidence": null,
+      "uncited_statistic": true,
+      "statistic_evidence": "the Riverside County Treasurer-Tax Collector's office separately handles the standard two-installment annual bill, with payments due December 10 and April 10",
+      "competitor_mention": false,
+      "competitor_evidence": null,
+      "contact_mismatch": false,
+      "contact_evidence": null,
+      "legal_duty_overstated": false,
+      "legal_duty_evidence": null
+    }
+  },
+  "layer3": {
+    "tripped": false,
+    "results": [
+      {
+        "id": "1",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "resolved": [
+      {
+        "id": "1",
+        "sourceName": "Riverside County Assessor-County Clerk-Recorder, Regular Property Tax Bills",
+        "url": "https://www.rivcoacr.org/RegularPropertyTaxBills",
+        "host": "www.rivcoacr.org",
+        "outcome": "RESOLVED",
+        "status": 200
+      }
+    ],
+    "failed": [],
+    "unsupported": [],
+    "inconclusive": []
+  },
+  "schemaErrors": [],
+  "internalLinkErrors": [],
+  "identityErrors": []
+}
