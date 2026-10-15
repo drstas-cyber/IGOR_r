@@ -30,5 +30,13 @@
     "rejection_count": 2,
     "last_rejected_at": "2026-09-29T18:41:31.100Z",
     "next_eligible_retry_at": "2026-10-13T18:41:31.100Z"
+  },
+  {
+    "topic": "Understanding Riverside County's Supplemental Property Tax Bill",
+    "status": "quarantined",
+    "rejection_reason": "gate_trip",
+    "rejection_count": 1,
+    "last_rejected_at": "2026-10-15T17:48:26.991Z",
+    "next_eligible_retry_at": "2026-10-22T17:48:26.991Z"
   }
 ]
