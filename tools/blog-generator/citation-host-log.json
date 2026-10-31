@@ -46,5 +46,13 @@
     "status": 403,
     "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=SEC.%202.&lawCode=CONS&article=XIII%20A",
     "loggedAt": "2026-10-21T18:09:10.476Z"
+  },
+  {
+    "runId": "41226331073",
+    "sourceTopic": "What It Costs to Live in Temecula: A Cost of Living Overview",
+    "host": "leginfo.legislature.ca.gov",
+    "status": 403,
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CONS&sectionNum=SEC.%201.&article=XIII%20A",
+    "loggedAt": "2026-10-31T17:50:05.146Z"
   }
 ]
